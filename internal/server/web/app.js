@@ -1194,12 +1194,13 @@ async function loadChannelTimeline(append = false) {
     // added height so the message the reader was looking at does not jump.
     list.scrollTop += list.scrollHeight - previousHeight;
   } else if (initialLoad) {
-    // Start at the first rendered entry. WebKit's scrollIntoView handling for
-    // descendants of swipe-card wrappers could land on the nearby authored
-    // message slice instead of the requested unread card. A second assignment
-    // after layout also defeats restoration of the previous inner scroll offset.
-    list.scrollTop = 0;
-    requestAnimationFrame(() => { list.scrollTop = 0; });
+    // The API page is newest-first but renderChannelTimeline reverses it into
+    // conversational order. Open at the newest cards by scrolling only the
+    // bounded list; scrolling a descendant into view can move the document and
+    // hide the channel sidebar. Repeat after layout to defeat WebKit restoring
+    // an older inner-scroll offset.
+    list.scrollTop = list.scrollHeight;
+    requestAnimationFrame(() => { list.scrollTop = list.scrollHeight; });
   } else if (wasNearBottom) {
     list.scrollTop = list.scrollHeight;
   }

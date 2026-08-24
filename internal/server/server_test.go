@@ -2203,7 +2203,7 @@ func TestEmbeddedWebAssets(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				for _, marker := range []string{`"Incident state"`, `"Archive"`, `"Notification archived"`, `"Allow overrides"`, `"Lock to channel"`, `"channel-timeline-view"`} {
+				for _, marker := range []string{`"Incident state"`, `"Archive"`, `"Notification archived"`, `"Allow overrides"`, `"Lock to channel"`, `"channel-timeline-view"`, `list.scrollTop = list.scrollHeight`} {
 					if !strings.Contains(string(body), marker) {
 						t.Fatalf("inbox JavaScript does not contain %s", marker)
 					}
