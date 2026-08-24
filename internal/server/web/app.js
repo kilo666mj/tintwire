@@ -1178,9 +1178,9 @@ async function loadChannelTimeline(append = false) {
   if (append && timelineNextCursor) parameters.set("before", timelineNextCursor);
   const suffix = parameters.size ? `?${parameters}` : "";
   const initialLoad = !append && loadedTimelineItems.length === 0;
-  const distanceFromBottom = list.scrollHeight - list.scrollTop - list.clientHeight;
+  const distanceFromBottom = document.documentElement.scrollHeight - window.scrollY - window.innerHeight;
   const wasNearBottom = distanceFromBottom < 180;
-  const previousHeight = list.scrollHeight;
+  const previousHeight = document.documentElement.scrollHeight;
   const response = await fetch(`/api/v1/channels/${encodeURIComponent(channel.id)}/timeline${suffix}`);
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   const data = await response.json();
@@ -1192,7 +1192,7 @@ async function loadChannelTimeline(append = false) {
   if (append) {
     // Older entries are inserted above the visible conversation. Offset their
     // added height so the message the reader was looking at does not jump.
-    list.scrollTop += list.scrollHeight - previousHeight;
+    window.scrollBy(0, document.documentElement.scrollHeight - previousHeight);
   } else if (initialLoad) {
     // Opening a channel with unread notifications should reveal the first
     // unread card. Previously we always jumped to the newest entry, which
@@ -1205,7 +1205,7 @@ async function loadChannelTimeline(append = false) {
     // the next frame instead of calculating a stale scrollTop offset.
     if (target) requestAnimationFrame(() => target.scrollIntoView({block: firstUnread ? "start" : "end"}));
   } else if (wasNearBottom) {
-    list.scrollTop = list.scrollHeight;
+    window.scrollTo(0, document.documentElement.scrollHeight);
   }
 }
 
