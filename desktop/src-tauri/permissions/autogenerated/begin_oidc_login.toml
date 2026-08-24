@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-begin-oidc-login"
+description = "Enables the begin_oidc_login command without any pre-configured scope."
+commands.allow = ["begin_oidc_login"]
+
+[[permission]]
+identifier = "deny-begin-oidc-login"
+description = "Denies the begin_oidc_login command without any pre-configured scope."
+commands.deny = ["begin_oidc_login"]

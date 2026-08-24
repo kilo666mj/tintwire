@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Connect Tintwire</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --ink: #dbe7f3;
+        --muted: #8ba3ba;
+        --line: rgba(103, 232, 249, 0.18);
+        --cyan: #60f2e2;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        background: radial-gradient(120% 100% at 50% 0%, #101b2b 0%, #0b0f14 60%);
+        color: var(--ink);
+        font: 14px/1.5 system-ui, -apple-system, sans-serif;
+      }
+      main {
+        width: min(420px, 100%);
+        padding: 28px;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: rgba(8, 15, 28, 0.72);
+        box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+      }
+      h1 {
+        margin: 0 0 6px;
+        font-size: 18px;
+        letter-spacing: 0.01em;
+      }
+      p {
+        margin: 0 0 20px;
+        color: var(--muted);
+      }
+      label {
+        display: block;
+        margin-bottom: 7px;
+        font: 700 10px ui-monospace, monospace;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      input {
+        width: 100%;
+        padding: 11px 13px;
+        border: 1px solid var(--line);
+        border-radius: 11px;
+        background: rgba(4, 9, 18, 0.8);
+        color: var(--ink);
+        font: inherit;
+      }
+      input:focus-visible {
+        outline: 2px solid var(--cyan);
+        outline-offset: 1px;
+      }
+      button {
+        width: 100%;
+        margin-top: 16px;
+        padding: 11px 13px;
+        border: 1px solid var(--line);
+        border-radius: 11px;
+        background: rgba(45, 212, 191, 0.12);
+        color: #dffffb;
+        font: 600 14px system-ui, sans-serif;
+        cursor: pointer;
+      }
+      button:hover {
+        border-color: rgba(96, 242, 226, 0.45);
+      }
+      .status {
+        margin: 14px 0 0;
+        min-height: 20px;
+        color: #ffb6c2;
+      }
+      .row {
+        display: flex;
+        gap: 9px;
+        align-items: center;
+        margin-top: 18px;
+        color: var(--muted);
+      }
+      .row input {
+        width: auto;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Connect to Tintwire</h1>
+      <p>Enter the address of your Tintwire server. You sign in in the next step.</p>
+      <form id="setup-form">
+        <label for="origin">Server address</label>
+        <input
+          id="origin"
+          name="origin"
+          type="url"
+          inputmode="url"
+          placeholder="https://tintwire.example.com"
+          autocomplete="off"
+          required
+        />
+        <div class="row">
+          <input id="autostart" type="checkbox" />
+          <label for="autostart" style="margin: 0; text-transform: none; font-weight: 500; font-size: 13px">
+            Start Tintwire when I log in
+          </label>
+        </div>
+        <button type="submit">Connect</button>
+        <p class="status" id="status" role="status" aria-live="polite"></p>
+      </form>
+    </main>
+    <script type="module" src="./setup.js"></script>
+  </body>
+</html>

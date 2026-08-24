@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  go:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-bookworm
+        env:
+          POSTGRES_PASSWORD: tintwire-ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Install test runtimes
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: Test
+        run: go test ./...
+      - name: Create PostgreSQL test databases
+        env:
+          PGPASSWORD: tintwire-ci
+        run: |
+          createdb -h 127.0.0.1 -U postgres tintwire_core
+          createdb -h 127.0.0.1 -U postgres tintwire_migrate
+      - name: Test PostgreSQL lifecycle
+        env:
+          TINTWIRE_TEST_POSTGRES_DSN: postgres://postgres:tintwire-ci@127.0.0.1:5432/tintwire_core?sslmode=disable
+        run: go test ./internal/store -run '^TestPostgresCoreLifecycle$' -count=1
+      - name: Test SQLite migration
+        env:
+          TINTWIRE_TEST_POSTGRES_DSN: postgres://postgres:tintwire-ci@127.0.0.1:5432/tintwire_migrate?sslmode=disable
+        run: go test ./internal/store -run '^TestMigrateSQLiteToPostgres$' -count=1
+      - name: Race test
+        run: go test -race ./...
+      - name: Vet
+        run: go vet ./...
+      - name: Check formatting
+        run: test -z "$(gofmt -l .)"
+      - name: Browser unit tests
+        run: node --test internal/server/webtest/*.js
+
+  desktop:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: Install Tauri build dependencies
+        run: >-
+          sudo apt-get update && sudo apt-get install -y
+          libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev
+          patchelf pkg-config
+      - name: Check desktop client
+        run: cargo check --manifest-path desktop/src-tauri/Cargo.toml --locked
+      - name: Check Rust formatting
+        run: cargo fmt --manifest-path desktop/src-tauri/Cargo.toml --all -- --check

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-configured-origin"
+description = "Enables the configured_origin command without any pre-configured scope."
+commands.allow = ["configured_origin"]
+
+[[permission]]
+identifier = "deny-configured-origin"
+description = "Denies the configured_origin command without any pre-configured scope."
+commands.deny = ["configured_origin"]

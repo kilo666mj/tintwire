@@ -1,0 +1,20 @@
+{
+  "channel_id": "channel-redacted",
+  "message": "Approval requested for remediation plan",
+  "props": {
+    "attachments": [{
+      "color": "warning",
+      "title": "Decision request",
+      "fields": [{"title": "Host", "value": "web-redacted", "short": true}],
+      "actions": [{
+        "id": "approve",
+        "name": "Approve",
+        "type": "button",
+        "integration": {
+          "url": "https://approval-service.example.invalid/v1/callback",
+          "context": {"decision_id": "decision-redacted", "callback_secret": "<redacted>"}
+        }
+      }]
+    }]
+  }
+}

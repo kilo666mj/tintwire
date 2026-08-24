@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Tintwire — release-summary notification concept</title>
+  <style>
+    :root { color-scheme: dark; --bg:#0b0f14; --panel:#111720; --line:#26303d; --muted:#8d99a8; --text:#e7edf5; --accent:#71a7ff; --movie:#b891ff; --beast:#ffad66; --source:#58d6b0; }
+    *{box-sizing:border-box} body{margin:0;background:radial-gradient(circle at 80% 0,#182338 0,transparent 35%),var(--bg);color:var(--text);font:14px/1.45 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+    button,input{font:inherit}.shell{max-width:1120px;margin:auto;padding:32px 20px 80px}.eyebrow{color:var(--accent);font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}.intro h1{font-size:clamp(24px,4vw,42px);letter-spacing:-.035em;margin:8px 0}.intro p{color:var(--muted);max-width:750px;font-size:15px;margin:0 0 24px}.window{background:rgba(17,23,32,.96);border:1px solid var(--line);border-radius:16px;box-shadow:0 24px 70px #0008;overflow:hidden}.titlebar{height:42px;border-bottom:1px solid var(--line);display:flex;align-items:center;padding:0 15px;gap:7px;color:var(--muted);font-size:12px}.dot{width:10px;height:10px;border-radius:99px;background:#ff675f}.dot:nth-child(2){background:#f4bd4f}.dot:nth-child(3){background:#58c965}.app{display:grid;grid-template-columns:210px minmax(0,1fr);min-height:680px}.sidebar{border-right:1px solid var(--line);padding:20px 14px;background:#0e141c}.brand{font-weight:850;font-size:16px;margin:0 8px 24px}.nav{padding:9px 10px;border-radius:8px;color:var(--muted);margin:3px 0}.nav.active{background:#1c2a40;color:#d9e8ff;font-weight:750}.count{float:right;background:#24354f;color:#aecdff;padding:0 7px;border-radius:20px;font-size:11px}.main{min-width:0}.head{padding:22px 24px 18px;border-bottom:1px solid var(--line)}.headrow{display:flex;gap:16px;justify-content:space-between;align-items:flex-start}.identity{display:flex;gap:12px}.bot{width:42px;height:42px;border-radius:11px;background:linear-gradient(145deg,#3279dc,#784ac7);display:grid;place-items:center;font-weight:900}.head h2{font-size:21px;margin:0;letter-spacing:-.02em}.meta{color:var(--muted);font-size:12px;margin-top:2px}.stats{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0 0}.stat{border:1px solid var(--line);border-radius:9px;padding:7px 10px;color:var(--muted)}.stat b{color:var(--text);font-size:16px;margin-right:4px}.tools{display:flex;gap:8px;padding:14px 24px;border-bottom:1px solid var(--line);flex-wrap:wrap}.search{background:#0c1118;border:1px solid var(--line);color:var(--text);border-radius:8px;padding:8px 10px;min-width:240px;flex:1}.filter{border:1px solid var(--line);color:var(--muted);background:transparent;border-radius:999px;padding:7px 10px;cursor:pointer}.filter.active{color:#fff;border-color:#5374a6;background:#1a2a42}.list{padding:6px 12px 18px}.row{display:grid;grid-template-columns:34px minmax(0,1fr) auto;align-items:center;gap:8px;padding:10px 11px;border-bottom:1px solid #1d2631}.row:hover{background:#151e2a;border-radius:8px}.rank{color:#647184;text-align:right;font-variant-numeric:tabular-nums}.name{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;overflow-wrap:anywhere;color:#bec9d8}.row.multi .name{font-weight:800;color:#fff}.badges{display:flex;justify-content:flex-end;gap:5px;flex-wrap:wrap}.badge{font-size:11px;font-weight:800;border-radius:999px;padding:3px 7px;white-space:nowrap}.movie{color:#d9c4ff;background:#2c2042}.beast{color:#ffd1a9;background:#40291e}.source{color:#a6f4dc;background:#163a32}.footer{padding:13px 24px;border-top:1px solid var(--line);color:var(--muted);font-size:12px}.note{margin-top:18px;border-left:3px solid var(--accent);padding:6px 0 6px 14px;color:var(--muted)}.note strong{color:var(--text)}
+    .compat{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 18px;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:#0d131b;color:var(--muted)}.compat strong{color:var(--text);margin-right:4px}.format{border:1px solid #344154;background:#151d28;color:#cbd6e5;border-radius:6px;padding:4px 8px;font-size:12px;font-weight:750}.native{border-color:#406eaa;color:#b9d7ff;background:#14243a}
+    @media(max-width:760px){.app{grid-template-columns:1fr}.sidebar{display:none}.row{grid-template-columns:26px minmax(0,1fr)}.badges{grid-column:2;justify-content:flex-start}.headrow{display:block}.tools{padding-inline:14px}.head{padding-inline:16px}}
+  </style>
+</head>
+<body>
+<main class="shell">
+  <section class="intro">
+    <div class="eyebrow">Notification client concept</div>
+    <h1>Dense data, made scannable.</h1>
+    <p>A rendering concept for a synthetic <code>release_watcher</code> digest. Multi-source matches carry more visual weight, while source colors and filters make a long notification manageable.</p>
+    <div class="compat"><strong>Drop-in webhook ingestion</strong><span class="format">Mattermost attachments</span><span class="format">Slack Block Kit</span><span class="format">Slack attachments</span><span class="format native">Tintwire native cards</span></div>
+  </section>
+  <section class="window">
+    <div class="titlebar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span style="margin-left:8px">Tintwire · Notifications</span></div>
+    <div class="app">
+      <aside class="sidebar"><div class="brand">◆ Tintwire</div><div class="nav active">Release summaries <span class="count">1</span></div><div class="nav">Downloads</div><div class="nav">Infrastructure</div><div class="nav">All notifications</div></aside>
+      <article class="main">
+        <header class="head">
+          <div class="headrow"><div class="identity"><div class="bot">BOT</div><div><h2>Daily release summary</h2><div class="meta">Release summaries · BOT &nbsp;•&nbsp; Today at 19:20</div></div></div></div>
+          <div class="stats"><span class="stat"><b>18</b> unique</span><span class="stat"><b>21</b> entries</span><span class="stat"><b>3</b> duplicates removed</span><span class="stat"><b>7</b> Source A</span><span class="stat"><b>8</b> Source B</span><span class="stat"><b>6</b> Source C</span></div>
+        </header>
+        <div class="tools">
+          <input id="search" class="search" placeholder="Filter releases…" aria-label="Filter releases">
+          <button class="filter active" data-source="all">All 18</button><button class="filter" data-source="movie">Source A</button><button class="filter" data-source="beast">Source B</button><button class="filter" data-source="source">Source C</button><button class="filter" data-source="multi">Cross-list matches</button>
+        </div>
+        <div class="list" id="list"></div>
+        <div class="footer" id="footer">Showing 18 synthetic releases</div>
+      </article>
+    </div>
+  </section>
+  <div class="note"><strong>Design decision:</strong> color belongs to semantic fields—not user-supplied formatting. That lets every producer send predictable JSON while the client consistently themes sources, severity, state, and emphasis.</div>
+</main>
+<script>
+const releases = [
+['Example.Show.S01E01',['movie','source']],['Example.Show.S01E02',['movie','source']],['Sample.Movie.2026',['movie','beast']],['Demo.Series.S02E03',['beast','source']],['Placeholder.Game.Update.1',['beast','source']],['Example.Documentary.Part1',['movie']],['Example.Documentary.Part2',['movie']],['Sample.Archive.001',['beast']],['Sample.Archive.002',['beast']],['Demo.Release.Alpha',['source']],['Demo.Release.Beta',['source']],['Example.Package.1.0',['movie']],['Example.Package.1.1',['movie']],['Sample.Collection.A',['beast']],['Sample.Collection.B',['beast']],['Demo.Series.S02E04',['source']],['Placeholder.Game.Update.2',['source']],['Example.Movie.2026',['movie']]
+];
+const labels={movie:'Source A',beast:'Source B',source:'Source C'}; let active='all';
+function paint(){const q=document.querySelector('#search').value.toLowerCase();const shown=releases.map((r,i)=>[...r,i]).filter(([n,s])=>n.toLowerCase().includes(q)&&(active==='all'||(active==='multi'?s.length>1:s.includes(active))));document.querySelector('#list').innerHTML=shown.map(([n,s,i])=>`<div class="row ${s.length>1?'multi':''}"><span class="rank">${i+1}</span><span class="name">${n}</span><span class="badges">${s.map(x=>`<span class="badge ${x}">${labels[x]}</span>`).join('')}</span></div>`).join('')||'<div style="padding:40px;text-align:center;color:var(--muted)">No matching releases</div>';document.querySelector('#footer').textContent=`Showing ${shown.length} of 18 synthetic releases`;}
+document.querySelector('#search').addEventListener('input',paint);document.querySelectorAll('.filter').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('.filter').forEach(x=>x.classList.remove('active'));b.classList.add('active');active=b.dataset.source;paint()}));paint();
+</script>
+</body></html>

@@ -1,0 +1,15 @@
+/tintwire
+*.db
+*.db-shm
+*.db-wal
+*.key
+*.pem
+*.p12
+*.pfx
+.env
+.env.*
+!.env.example
+.secrets/
+secrets/
+/.lavish/
+desktop/dist/

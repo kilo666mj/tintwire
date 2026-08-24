@@ -1,0 +1,15 @@
+{
+  "commands": [{
+    "team": "operations",
+    "trigger": "lookup",
+    "display_name": "Lookup",
+    "description": "Find a release",
+    "creator": "admin-redacted",
+    "method": "POST",
+    "url": "https://commands.example.invalid/lookup",
+    "token": "<redacted-command-token>",
+    "autocomplete": true,
+    "autocomplete_hint": "[query]",
+    "autocomplete_description": "Search release records"
+  }]
+}

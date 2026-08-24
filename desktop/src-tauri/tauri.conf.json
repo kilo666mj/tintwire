@@ -1,0 +1,42 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Tintwire",
+  "version": "0.1.0",
+  "identifier": "com.tintwire.desktop",
+  "build": {
+    "frontendDist": "../src"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "label": "main",
+        "title": "Tintwire",
+        "width": 1180,
+        "height": 840,
+        "minWidth": 560,
+        "minHeight": 480,
+        "backgroundColor": "#000000",
+        "visible": true
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["app", "dmg", "appimage"],
+    "icon": ["icons/icon-tray.png"],
+    "category": "Productivity",
+    "shortDescription": "Rich notification inbox",
+    "longDescription": "Tintwire desktop client: a tray-resident window onto a self-hosted Tintwire notification inbox."
+  },
+  "plugins": {
+    "deep-link": {
+      "desktop": {
+        "schemes": ["tintwire"]
+      }
+    }
+  }
+}

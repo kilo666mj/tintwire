@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "title": "Daily release summary",
+  "summary": "3 unique releases from 4 list entries",
+  "severity": "info",
+  "source": "release_watcher",
+  "metrics": [
+    {"label": "Unique", "value": 3},
+    {"label": "Duplicates removed", "value": 1}
+  ],
+  "fields": [{"label": "Window", "value": "Last 24 hours"}],
+  "badges": [{"label": "Automated", "tone": "info"}],
+  "rows": [
+    {"primary": "Example.Show.S01E01", "tags": ["Source A", "Source B"], "emphasis": "strong"},
+    {"primary": "Example.Release.2026", "tags": ["Source A"]}
+  ],
+  "links": [{"label": "Open report", "url": "https://example.invalid/reports/release-list"}],
+  "actions": [{"label": "Open discussion", "type": "link", "url": "https://example.invalid/discussion/42"}]
+}

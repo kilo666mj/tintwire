@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#0b0f14">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/assets/icon-192.png" type="image/png">
+  <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+  <title>Tintwire</title>
+  <style>
+    :root{color-scheme:dark;--bg:#0b0f14;--panel:#111720;--line:#26303d;--muted:#8d99a8;--text:#e7edf5;--accent:#71a7ff;--danger:#e5484d;--warning:#f5a524;--good:#30a46c}*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 80% 0,#182338 0,transparent 35%),var(--bg);color:var(--text);font:14px/1.5 Inter,system-ui,sans-serif}.shell{max-width:850px;margin:auto;padding:40px 20px}.topbar{align-items:end;display:flex;gap:18px;justify-content:space-between;margin-bottom:26px}.eyebrow{color:var(--accent);font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}h1{font-size:36px;letter-spacing:-.04em;margin:6px 0 0}.alert-control{align-items:flex-end;display:flex;flex-direction:column;gap:4px}.alert-button{background:#182438;border:1px solid #38537a;border-radius:8px;color:var(--text);cursor:pointer;font:inherit;font-weight:750;padding:8px 12px}.alert-button:hover{background:#20304a}.alert-button:disabled{cursor:default;opacity:.55}.alert-status{color:var(--muted);font-size:11px;max-width:260px;text-align:right}.list{display:grid;gap:12px}.card{background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:18px;transition:opacity .2s,box-shadow .2s}.card-target{box-shadow:0 0 0 2px var(--accent)}.card-resolved{opacity:.72}.meta{align-items:center;color:var(--muted);display:flex;flex-wrap:wrap;font-size:12px;gap:7px;margin-bottom:12px}.state-badge,.severity-badge{border-radius:999px;font-size:10px;font-weight:900;letter-spacing:.06em;padding:2px 7px;text-transform:uppercase}.state-firing{background:#431f24;color:#ffbec4}.state-resolved{background:#173b35;color:#9bedda}.text{overflow-wrap:anywhere;font-size:15px}.formatted-text{white-space:pre-wrap}.attachment{border-left:3px solid var(--accent);background:#0d131b;padding:10px 12px;margin-top:12px;border-radius:4px}.attachment-danger{border-left-color:var(--danger)}.attachment-warning{border-left-color:var(--warning)}.attachment-good{border-left-color:var(--good)}.attachment-title{font-weight:800}.attachment-text,.attachment-pretext{margin-top:5px}.field-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:8px}.field{color:var(--muted)}.field b{display:block;color:var(--text)}code{background:#1b2634;border:1px solid #2c3b4d;border-radius:4px;color:#d7e6f7;font:12px ui-monospace,SFMono-Regular,Menlo,monospace;padding:1px 4px}a{color:#8ab7ff;text-underline-offset:2px}.native-card{border-left:3px solid var(--accent);padding-left:14px}.severity-critical{border-left-color:var(--danger)}.severity-warning{border-left-color:var(--warning)}.severity-success{border-left-color:var(--good)}.native-heading{align-items:center;display:flex;gap:10px;justify-content:space-between}.native-title{font-size:20px;letter-spacing:-.02em;margin:0}.severity-badge{background:#1b2a40;color:#a9caff}.severity-critical .severity-badge{background:#431f24;color:#ffbec4}.severity-warning .severity-badge{background:#432d12;color:#ffd38a}.severity-success .severity-badge{background:#173b35;color:#9bedda}.native-summary{color:#c4ceda;margin-top:5px}.metric-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin-top:14px}.metric{background:#0d131b;border:1px solid var(--line);border-radius:8px;padding:9px 11px}.metric-value{font-size:20px;font-weight:850}.metric-label,.row-count{color:var(--muted);font-size:11px}.row-controls{align-items:center;display:flex;gap:10px;margin-top:14px}.row-controls input{background:#0b1017;border:1px solid #344256;border-radius:7px;color:var(--text);font:inherit;padding:7px 9px;width:min(280px,100%)}.native-rows{border:1px solid var(--line);border-radius:8px;margin-top:8px;max-height:420px;overflow:auto}.native-row{align-items:center;border-bottom:1px solid var(--line);display:flex;gap:8px;justify-content:space-between;padding:7px 9px}.native-row:last-child{border-bottom:0}.row-strong .row-primary{font-weight:900}.row-primary{background:transparent;border:0;padding:0}.row-tags{display:flex;flex-wrap:wrap;gap:4px;justify-content:flex-end}.row-tag{background:#1c293a;border-radius:999px;color:#bcd3f2;font-size:10px;padding:2px 6px}.native-actions{display:flex;gap:8px;margin-top:14px}.native-action{background:#182438;border:1px solid #38537a;border-radius:7px;font-weight:750;padding:7px 10px;text-decoration:none}.table-wrap{max-width:100%;overflow-x:auto;margin:10px 0}.mattermost-table{border-collapse:collapse;min-width:100%;white-space:normal}.mattermost-table th,.mattermost-table td{border:1px solid #334052;padding:7px 9px;vertical-align:top}.mattermost-table th{background:#182231;color:var(--text);font-weight:800}.mattermost-table tbody tr:nth-child(even){background:#121b26}.activity{border-top:1px solid var(--line);margin-top:14px;padding-top:10px}.activity summary{color:var(--muted);cursor:pointer;font-size:12px;font-weight:750;list-style-position:outside;margin-left:15px;user-select:none}.activity[open] summary{color:var(--text)}.activity-list{display:grid;gap:10px;margin-top:12px}.activity-item{border-left:2px solid var(--accent);padding:3px 0 3px 12px}.activity-item-firing{border-left-color:var(--danger)}.activity-item-resolved{border-left-color:var(--good)}.activity-head{align-items:center;color:var(--muted);display:flex;flex-wrap:wrap;font-size:11px;gap:7px;margin-bottom:4px}.activity-title{font-weight:800;margin-bottom:3px}.activity-loading,.activity-error{color:var(--muted);font-size:12px;padding:10px}.activity-error{color:#ff9aa3}.empty,.error{color:var(--muted);border:1px dashed var(--line);border-radius:12px;padding:34px;text-align:center}.error{color:#ff9aa3}@media(max-width:600px){.shell{padding:24px 14px}.topbar{align-items:start;flex-direction:column}.alert-control{align-items:flex-start}.alert-status{text-align:left}.field-grid{grid-template-columns:1fr}.native-row{align-items:flex-start;flex-direction:column}.row-tags{justify-content:flex-start}}
+  </style>
+  <style>
+    .inbox-filters{display:grid;grid-template-columns:minmax(180px,2fr) repeat(3,minmax(110px,1fr));gap:8px;margin-bottom:18px}
+    .inbox-filters input,.inbox-filters select{background:#0d131b;border:1px solid #344256;border-radius:8px;color:var(--text);font:inherit;min-width:0;padding:9px 10px}.inbox-filters.timeline-search{grid-template-columns:minmax(180px,2fr) minmax(130px,1fr)}.inbox-filters.timeline-search #channel-filter,.inbox-filters.timeline-search #severity-filter,.inbox-filters.timeline-search #read-filter{display:none}
+    .row-filter-buttons{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.row-filter{background:#141d29;border:1px solid #344256;border-radius:999px;color:var(--muted);cursor:pointer;font:inherit;font-size:11px;padding:4px 9px}.row-filter:hover,.row-filter.active{background:#263b59;border-color:#4e74a8;color:var(--text)}.row-show-more{display:block;margin:9px auto 0;padding:8px 13px;border:1px solid #344256;border-radius:8px;background:#141d29;color:var(--text);cursor:pointer;font:inherit;font-size:11px}.row-show-more[hidden]{display:none}
+    .load-more{background:#182438;border:1px solid #38537a;border-radius:8px;color:var(--text);cursor:pointer;font:inherit;font-weight:750;margin:14px auto 0;padding:9px 16px}.load-more[hidden]{display:none}.load-more:disabled{cursor:default;opacity:.55}
+    .session-button{background:transparent;border:0;color:var(--muted);cursor:pointer;font:inherit;font-size:11px;padding:0}.login-overlay{align-items:center;background:rgba(5,8,12,.88);display:flex;inset:0;justify-content:center;position:fixed;z-index:10}.login-overlay[hidden]{display:none}.login-card{background:var(--panel);border:1px solid var(--line);border-radius:13px;box-shadow:0 20px 70px #000;padding:24px;width:min(360px,calc(100% - 28px))}.login-card h2{margin:0 0 4px}.login-card p{color:var(--muted);margin:0 0 16px}.login-card label{display:block;font-size:12px;font-weight:750;margin-top:10px}.login-card input{background:#0d131b;border:1px solid #344256;border-radius:8px;color:var(--text);font:inherit;margin-top:4px;padding:9px 10px;width:100%}.login-card button{background:#263b59;border:1px solid #4e74a8;border-radius:8px;color:var(--text);cursor:pointer;font:inherit;font-weight:750;margin-top:16px;padding:9px;width:100%}.login-card .oidc-button{background:#4169e1;border-color:#7191f0}.login-divider{align-items:center;display:flex!important;gap:10px;margin:16px 0 0!important}.login-divider[hidden]{display:none!important}.login-divider:before,.login-divider:after{background:var(--line);content:"";height:1px;flex:1}.login-error{color:#ff9aa3!important;font-size:12px;margin-top:10px!important}
+    .card-unread{border-color:#547db5;box-shadow:inset 3px 0 var(--accent)}.unread-dot{background:var(--accent);border-radius:50%;height:7px;width:7px}.read-button{background:transparent;border:0;color:#8ab7ff;cursor:pointer;font:inherit;font-size:11px;padding:0}
+    .state-acknowledged{background:#263550;color:#b9d2ff}.incident-state-actions{margin-top:12px;color:var(--muted);font-size:11px}.incident-state-actions>summary{cursor:pointer;font-weight:750;list-style-position:inside}.incident-state-actions[open]>summary{color:var(--text)}.operation-buttons{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}.incident-state-actions .operation-buttons{margin-top:8px}.incident-state-copy{flex-basis:100%;color:var(--muted)}.operation-button{background:#182438;border:1px solid #38537a;border-radius:7px;color:var(--text);cursor:pointer;font:inherit;font-weight:750;padding:7px 10px}.operation-resolve{border-color:#28684e;color:#9bedda}.operation-button:disabled{cursor:default;opacity:.55}
+    .native-action:is(button){color:var(--text);cursor:pointer;font:inherit}.native-action:disabled{cursor:default;opacity:.55}.native-action.action-selected{background:#173b35;border-color:#2b765e;color:#9bedda;opacity:1}.action-feedback{color:var(--muted);font-size:12px;margin-top:8px}.action-feedback:empty{display:none}.action-feedback-success{color:#9bedda}.action-feedback-failed{color:#ff9aa3}
+    .operation-reject{border-color:#73343b;color:#ffbec4}
+	.card-badges,.card-links{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}.card-badge{background:#26303d;border-radius:999px;font-size:11px;font-weight:800;padding:3px 8px}.badge-info{background:#1b2a40;color:#a9caff}.badge-warning{background:#432d12;color:#ffd38a}.badge-critical{background:#431f24;color:#ffbec4}.badge-success{background:#173b35;color:#9bedda}.card-image{border:1px solid var(--line);border-radius:8px;display:block;height:auto;margin-top:12px;max-height:420px;max-width:100%;object-fit:contain}.card-link{background:#141d29;border:1px solid #344256;border-radius:7px;padding:5px 9px;text-decoration:none}
+    .timeline-message{background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:14px 16px;margin-bottom:12px}.timeline-message .formatted-text{margin:4px 0 0}.timeline-reply{border-left:3px solid var(--accent);border-radius:9px;padding:10px 14px}.timeline-command{border-left:3px solid var(--warning)}.thread{border-left:2px solid var(--line);margin:0 0 12px 16px;padding-left:12px}.reply-button,.message-link-button{background:transparent;border:0;color:#8ab7ff;cursor:pointer;font:inherit;font-size:11px;padding:0}.composer{background:var(--panel);border:1px solid var(--line);border-radius:13px;box-shadow:0 -12px 30px rgba(0,0,0,.35);margin:14px 0 0;padding:12px;position:sticky;bottom:12px;z-index:4}.composer[hidden]{display:none}.composer-row{display:flex;gap:8px}.composer-input{background:#0d131b;border:1px solid #344256;border-radius:8px;color:var(--text);flex:1;font:inherit;min-height:42px;padding:9px 11px;resize:vertical}.composer-submit{background:#263b59;border:1px solid #4e74a8;border-radius:8px;color:var(--text);cursor:pointer;font:inherit;font-weight:750;padding:9px 16px}.composer-submit:disabled{cursor:default;opacity:.55}.composer-reply{align-items:center;color:var(--muted);display:flex;font-size:12px;gap:8px;margin-bottom:8px}.composer-reply[hidden]{display:none}.composer-cancel-reply{background:transparent;border:0;color:#8ab7ff;cursor:pointer;font:inherit;font-size:11px;padding:0}.composer-status{color:var(--muted);display:block;font-size:12px;margin-top:6px;min-height:0}.composer-status:empty{display:none}.channel-timeline-view .list{height:clamp(260px,calc(100dvh - 300px),900px);overflow-y:auto;overscroll-behavior:contain;padding-right:4px;scrollbar-gutter:stable}.channel-timeline-view .composer{position:static}
+    @media(max-width:700px){.inbox-filters{grid-template-columns:1fr 1fr}.inbox-filters #inbox-search{grid-column:1/-1}}
+  </style>
+  <link rel="stylesheet" href="/assets/sentinel.css">
+</head>
+<body>
+<div class="app-shell">
+  <aside class="command-sidebar">
+    <a class="command-brand" href="/">
+      <span class="command-mark" aria-hidden="true"><span class="command-signalmark"></span></span>
+      <span class="command-brand-copy"><strong>Tint<span>wire</span></strong><small>Signal console</small></span>
+    </a>
+    <nav class="command-nav" aria-label="Primary navigation">
+      <div class="command-nav-label">Command</div>
+      <a id="inbox-nav" class="active" href="#inbox" aria-label="Inbox"><span class="command-nav-icon">◇</span><span>Inbox</span></a>
+      <div class="command-nav-label">Signals</div>
+      <a id="filters-nav" href="#filter-console"><span class="command-nav-icon">⌇</span><span>Filters</span></a>
+      <a id="activity-nav" href="#inbox"><span class="command-nav-icon">△</span><span>Activity</span></a>
+      <a id="automation-open" href="#automation-dialog" aria-label="Automation" aria-haspopup="dialog" hidden><span class="command-nav-icon">⚙</span><span>Automation</span></a>
+      <a id="users-open" href="#users-dialog" aria-label="Users" aria-haspopup="dialog" hidden><span class="command-nav-icon">♙</span><span>Users</span></a>
+    </nav>
+    <section class="channel-section" aria-labelledby="channel-list-label">
+      <div class="channel-section-header">
+        <div id="channel-list-label" class="command-nav-label">Channels</div>
+        <button id="channel-create-button" class="channel-create-button" type="button" hidden>Add channel</button>
+      </div>
+      <div id="channel-list" class="channel-list"><span class="channel-loading">Loading…</span></div>
+    </section>
+    <div class="sidebar-controls">
+      <div id="session-identity" class="session-identity" hidden></div>
+      <button id="alert-button" class="command-control" type="button" disabled>Enable alerts</button>
+      <span id="alert-status" class="alert-status">Checking notification support…</span>
+      <button id="density-button" class="command-control" type="button" aria-pressed="false">Compact view</button>
+      <button id="logout-button" class="command-control session-button" type="button" hidden>Sign out</button>
+    </div>
+  </aside>
+  <div class="command-workspace">
+    <header class="command-topbar">
+      <div><div class="command-eyebrow">Notification intelligence / live signals</div><h1 class="command-title">Signal <span>inbox</span></h1></div>
+      <div class="topbar-actions">
+        <button id="read-button" class="read-button-primary" type="button" hidden>Mark all read</button>
+        <div class="live-indicator"><span></span>Live feed</div>
+      </div>
+    </header>
+    <main id="inbox" class="shell">
+      <button id="mobile-channel-toggle" class="mobile-channel-toggle" type="button" aria-haspopup="dialog">Channels</button>
+      <details id="filter-console" class="console-panel filter-console" open>
+        <summary class="panel-heading"><div><div class="section-label">Signal matrix</div><h2 id="feed-title">All notifications</h2></div><span class="panel-code">FILTERS</span></summary>
+        <form id="inbox-filters" class="inbox-filters" role="search">
+          <input id="inbox-search" name="q" type="search" placeholder="Search notifications…" aria-label="Search notifications">
+          <select id="channel-filter" name="channel" aria-label="Filter by channel"><option value="">All channels</option></select>
+          <select id="state-filter" name="state" aria-label="Filter by lifecycle state"><option value="">Any state</option><option value="received">Received</option><option value="firing">Firing</option><option value="acknowledged">Acknowledged</option><option value="resolved">Resolved</option><option value="dismissed">Archived</option></select>
+          <select id="severity-filter" name="severity" aria-label="Filter by severity"><option value="">Any severity</option><option value="info">Info</option><option value="warning">Warning</option><option value="critical">Critical</option><option value="success">Success</option></select>
+          <select id="read-filter" name="unread" aria-label="Filter by read state"><option value="1">Unread only</option><option value="">Read &amp; unread</option></select>
+        </form>
+      </details>
+      <div id="list" class="list"><div class="empty">Loading notifications…</div></div>
+      <form id="composer" class="composer" hidden>
+        <div class="composer-reply" id="composer-reply" hidden>
+          <span id="composer-reply-label"></span>
+          <button type="button" class="composer-cancel-reply" id="composer-cancel-reply" aria-label="Cancel reply">Cancel</button>
+        </div>
+        <div class="composer-row">
+          <textarea id="composer-input" class="composer-input" rows="1" placeholder="Message the channel" aria-label="Message the channel"></textarea>
+          <button id="composer-submit" class="composer-submit" type="submit">Send</button>
+        </div>
+        <span id="composer-status" class="composer-status" role="status"></span>
+      </form>
+      <button id="load-more" class="load-more" type="button" hidden>Load more</button>
+    </main>
+  </div>
+</div>
+<dialog id="automation-dialog" class="automation-dialog" aria-labelledby="automation-dialog-title">
+  <div class="automation-card">
+    <div class="channel-dialog-heading">
+      <div><div class="section-label">Admin control plane</div><h2 id="automation-dialog-title">Bots &amp; webhooks</h2></div>
+      <button id="automation-close" class="alert-dialog-close" type="button" aria-label="Close automation management">×</button>
+    </div>
+    <p class="automation-copy">Credentials are shown once when created. Existing secrets cannot be recovered.</p>
+    <section class="automation-section" aria-labelledby="agent-management-title">
+      <div class="automation-section-heading"><h3 id="agent-management-title">Bots</h3><span>Agent identities</span></div>
+      <form id="agent-form" class="automation-form">
+        <input id="agent-name" maxlength="49" pattern="[a-z0-9][a-z0-9_-]{1,48}" placeholder="triage-bot" aria-label="Bot name" required>
+        <input id="agent-display-name" maxlength="100" placeholder="Triage Bot" aria-label="Bot display name">
+        <input id="agent-description" maxlength="500" placeholder="What this bot is allowed to do" aria-label="Bot description">
+        <input id="agent-oauth-subject" maxlength="255" placeholder="Optional OAuth subject" aria-label="Bot OAuth subject">
+        <label class="automation-check"><input id="agent-admin" type="checkbox"> Installation administrator</label>
+        <button type="submit">Create bot</button>
+      </form>
+      <p id="agent-status" class="automation-status" role="status"></p>
+      <div id="agent-list" class="automation-list"><span class="channel-loading">Loading bots…</span></div>
+    </section>
+    <section class="automation-section" aria-labelledby="webhook-management-title">
+      <div class="automation-section-heading"><h3 id="webhook-management-title">Webhooks</h3><span>Incoming compatibility URLs</span></div>
+      <form id="webhook-form" class="automation-form automation-form-short">
+        <select id="webhook-channel" aria-label="Webhook channel" required><option value="">Choose channel…</option></select>
+        <label class="automation-check"><input id="webhook-channel-locked" type="checkbox"> Lock payloads to this channel</label>
+        <button type="submit">Create webhook</button>
+      </form>
+      <p id="webhook-status" class="automation-status" role="status"></p>
+      <div id="webhook-list" class="automation-list"><span class="channel-loading">Loading webhooks…</span></div>
+    </section>
+    <section id="credential-panel" class="credential-panel" hidden aria-live="polite">
+      <strong id="credential-title">New credential</strong>
+      <code id="credential-value"></code>
+      <button id="credential-copy" type="button">Copy</button>
+      <span>Save it now. It will not be shown again.</span>
+    </section>
+  </div>
+</dialog>
+<dialog id="users-dialog" class="automation-dialog" aria-labelledby="users-dialog-title">
+  <div class="automation-card">
+    <div class="channel-dialog-heading">
+      <div><div class="section-label">Admin control plane</div><h2 id="users-dialog-title">Users &amp; access</h2></div>
+      <button id="users-close" class="alert-dialog-close" type="button" aria-label="Close user management">×</button>
+    </div>
+    <p class="automation-copy">Pocket ID owns authentication. Tintwire controls installation roles, access, sessions, and private-channel membership.</p>
+    <p id="users-status" class="automation-status" role="status"></p>
+    <div id="users-list" class="user-management-list"><span class="channel-loading">Loading users…</span></div>
+  </div>
+</dialog>
+
+<dialog id="channel-dialog" class="channel-dialog" aria-labelledby="channel-dialog-title">
+  <div class="channel-dialog-card">
+    <div class="channel-dialog-heading">
+      <div><div class="section-label">Signal routing</div><h2 id="channel-dialog-title">Channels</h2></div>
+      <button id="channel-dialog-close" class="alert-dialog-close" type="button" aria-label="Close channels">×</button>
+    </div>
+    <nav id="mobile-channel-list" class="mobile-channel-list" aria-label="Channels"></nav>
+  </div>
+</dialog>
+<dialog id="create-channel-dialog" class="channel-dialog" aria-labelledby="create-channel-dialog-title">
+  <div class="channel-dialog-card">
+    <div class="channel-dialog-heading">
+      <div><div class="section-label">Channel setup</div><h2 id="create-channel-dialog-title">Create channel</h2></div>
+      <button id="create-channel-dialog-close" class="alert-dialog-close" type="button" aria-label="Close channel setup">×</button>
+    </div>
+    <form id="create-channel-form" class="channel-form">
+      <input id="create-channel-name" aria-label="Channel name" maxlength="63" placeholder="prometheus" required>
+      <input id="create-channel-display" aria-label="Display name" maxlength="100" placeholder="Prometheus feed">
+      <input id="create-channel-description" aria-label="Description" maxlength="500" placeholder="Optional description">
+      <input id="create-channel-accent" aria-label="Accent color" type="color" value="#2f80ff">
+      <label class="channel-visibility">
+        <span>Visibility</span>
+        <select id="create-channel-visibility" aria-label="Channel visibility">
+          <option value="public">Public</option>
+          <option value="private">Private</option>
+        </select>
+      </label>
+      <div class="channel-form-actions">
+        <button type="submit">Create</button>
+      </div>
+    </form>
+    <p id="create-channel-status" class="alert-setup-status" role="status"></p>
+  </div>
+</dialog>
+<div id="inbox-toast" class="inbox-toast" role="status" aria-live="polite" hidden></div>
+<dialog id="alert-dialog" class="alert-dialog" aria-labelledby="alert-dialog-title">
+  <div class="alert-dialog-card">
+    <div class="alert-dialog-heading">
+      <div><div class="section-label">Device delivery</div><h2 id="alert-dialog-title">Mobile alerts</h2></div>
+      <button id="alert-dialog-close" class="alert-dialog-close" type="button" aria-label="Close mobile alert setup">×</button>
+    </div>
+    <p id="alert-setup-copy" class="alert-setup-copy">Checking this device…</p>
+    <ol id="alert-ios-guide" class="alert-install-guide" hidden>
+      <li>Open Tintwire in Safari.</li>
+      <li>Tap <strong>Share</strong>, then <strong>Add to Home Screen</strong>.</li>
+      <li>Open Tintwire from its new Home Screen icon and enable alerts.</li>
+    </ol>
+    <div class="alert-dialog-actions">
+      <button id="alert-install-button" class="alert-install-button" type="button" hidden>Install Tintwire</button>
+      <button id="alert-setup-button" class="alert-setup-button" type="button" disabled>Enable alerts</button>
+    </div>
+    <p id="alert-setup-status" class="alert-setup-status" role="status">Checking notification support…</p>
+    <div class="channel-form">
+      <label class="channel-visibility"><span>Channel delivery</span><select id="alert-channel" aria-label="Notification preference channel"></select></label>
+      <label class="channel-visibility"><span>Send alerts</span><select id="alert-level" aria-label="Channel notification level"><option value="all">All alerts</option><option value="critical">Critical only</option><option value="muted">Muted</option></select></label>
+      <button id="alert-preference-save" type="button">Save channel preference</button>
+      <p id="alert-preference-status" class="alert-setup-status" role="status"></p>
+    </div>
+  </div>
+</dialog>
+<div id="login-overlay" class="login-overlay" hidden>
+  <form id="login-form" class="login-card">
+    <h2>Sign in to Tintwire</h2><p>Your session stays on this device for 30 days.</p>
+    <button id="oidc-login-button" class="oidc-button" type="button" hidden>Continue with Pocket ID</button>
+    <p id="login-divider" class="login-divider" hidden>or use a local account</p>
+    <label>Username<input id="login-username" name="username" autocomplete="username" required></label>
+    <label>Password<input id="login-password" name="password" type="password" autocomplete="current-password" required></label>
+    <button type="submit">Sign in</button><p id="login-error" class="login-error" role="alert"></p>
+  </form>
+</div>
+<script src="/assets/markdown.js"></script>
+<script src="/assets/app.js"></script>
+</body>
+</html>
