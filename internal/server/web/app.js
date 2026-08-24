@@ -680,9 +680,16 @@ async function updateInboxState(notification, action) {
   });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   if (action === "dismiss") {
-    loadedNotifications = loadedNotifications.filter(value => value.id !== notification.id);
+    if (selectedChannel) {
+      loadedTimelineItems = loadedTimelineItems.filter(item =>
+        item.kind !== "notification" || item.notification?.id !== notification.id
+      );
+      renderChannelTimeline(loadedTimelineItems);
+    } else {
+      loadedNotifications = loadedNotifications.filter(value => value.id !== notification.id);
+      render(loadedNotifications);
+    }
     collapsedNotificationIDs.delete(notification.id);
-    render(loadedNotifications);
     showInboxToast("Notification archived", "Undo", async () => {
       try {
         await updateInboxState(notification, "restore");
