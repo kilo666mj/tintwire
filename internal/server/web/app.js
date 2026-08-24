@@ -1055,6 +1055,9 @@ function renderChannelTimeline(items) {
   }
   const topLevel = [];
   const repliesByRoot = new Map();
+  const loadedRoots = new Set(items
+    .filter(item => item.kind === "message" && item.message && !item.message.parent_id)
+    .map(item => item.message.root_id || item.message.id));
   // The API is newest-first for stable cursor pagination. Conversations read
   // oldest-to-newest, with the latest entry adjacent to the composer.
   for (const item of [...items].reverse()) {
@@ -1065,15 +1068,21 @@ function renderChannelTimeline(items) {
     } else if (item.kind === "message" && item.message) {
       const message = item.message;
       if (message.parent_id) {
-        const list = repliesByRoot.get(message.root_id) || [];
-        list.push(message);
-        repliesByRoot.set(message.root_id, list);
+        if (loadedRoots.has(message.root_id)) {
+          const list = repliesByRoot.get(message.root_id) || [];
+          list.push(message);
+          repliesByRoot.set(message.root_id, list);
+        } else {
+          // Keep a reply in chronological position when its root is outside
+          // this page. Appending all such replies after the loop made old
+          // messages appear newer than every notification in the channel.
+          topLevel.push({type: "reply", value: message});
+        }
       } else {
         topLevel.push({type: "message", value: message, root: message.root_id || message.id});
       }
     }
   }
-  const renderedRoots = new Set();
   for (const entry of topLevel) {
     if (entry.type === "notification") {
       list.append(notificationCardNode(entry.value));
@@ -1083,7 +1092,10 @@ function renderChannelTimeline(items) {
       list.append(commandNode(entry.value));
       continue;
     }
-    renderedRoots.add(entry.root);
+    if (entry.type === "reply") {
+      list.append(messageNode(entry.value, true));
+      continue;
+    }
     list.append(messageNode(entry.value));
     const replies = repliesByRoot.get(entry.root) || [];
     if (replies.length) {
@@ -1091,12 +1103,6 @@ function renderChannelTimeline(items) {
       for (const reply of replies) thread.append(messageNode(reply, true));
       list.append(thread);
     }
-  }
-  // Replies whose root message is older than the loaded page are shown on their
-  // own rather than dropped, so no message is ever lost from the surface.
-  for (const [root, replies] of repliesByRoot) {
-    if (renderedRoots.has(root)) continue;
-    for (const reply of replies) list.append(messageNode(reply, true));
   }
 }
 
