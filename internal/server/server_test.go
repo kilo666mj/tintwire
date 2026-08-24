@@ -2222,6 +2222,9 @@ func TestEmbeddedWebAssets(t *testing.T) {
 				if !strings.Contains(string(body), `.channel-timeline-view .list{align-content:start;grid-auto-rows:max-content;`) {
 					t.Fatal("channel timeline must preserve intrinsic card row heights")
 				}
+				if !strings.Contains(string(body), `height:calc(100dvh - 300px);min-height:320px;`) {
+					t.Fatal("desktop channel timeline must track the viewport height")
+				}
 				for _, asset := range []string{"/manifest.webmanifest", "/assets/sentinel.css", "/assets/markdown.js", "/assets/app.js"} {
 					if !strings.Contains(string(body), asset+"?v=") {
 						t.Fatalf("inbox HTML does not fingerprint %s", asset)
