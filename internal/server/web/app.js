@@ -1058,10 +1058,9 @@ function renderChannelTimeline(items) {
   const loadedRoots = new Set(items
     .filter(item => item.kind === "message" && item.message && !item.message.parent_id)
     .map(item => item.message.root_id || item.message.id));
-  // Preserve the API's newest-first order. Besides matching the notification
-  // inbox, this keeps newer cards ahead of older authored messages and lets
-  // cursor pagination append older entries without reshuffling the viewport.
-  for (const item of items) {
+  // The API is newest-first for stable cursor pagination. Reverse the loaded
+  // page so channels read like Mattermost, with the newest entry at the bottom.
+  for (const item of [...items].reverse()) {
     if (item.kind === "notification" && item.notification) {
       topLevel.push({type: "notification", value: item.notification});
     } else if (item.kind === "command" && item.command) {
@@ -1181,6 +1180,7 @@ async function loadChannelTimeline(append = false) {
   const initialLoad = !append && loadedTimelineItems.length === 0;
   const distanceFromBottom = list.scrollHeight - list.scrollTop - list.clientHeight;
   const wasNearBottom = distanceFromBottom < 180;
+  const previousHeight = list.scrollHeight;
   const response = await fetch(`/api/v1/channels/${encodeURIComponent(channel.id)}/timeline${suffix}`);
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   const data = await response.json();
@@ -1190,14 +1190,15 @@ async function loadChannelTimeline(append = false) {
   loadMoreButton.disabled = false;
   renderChannelTimeline(loadedTimelineItems);
   if (append) {
-    // Older entries append below the current page, so the reader's position is
-    // already stable.
+    // Reversing the expanded API page inserts older entries above the current
+    // conversation. Preserve the reader's position after that prepend.
+    list.scrollTop += list.scrollHeight - previousHeight;
   } else if (initialLoad) {
-    // Open at the newest card without scrolling the document or hiding the
-    // channel sidebar. Repeat after layout to defeat WebKit restoring an older
-    // inner-scroll offset.
-    list.scrollTop = 0;
-    requestAnimationFrame(() => { list.scrollTop = 0; });
+    // Open the bounded list at the newest entry. This moves only the timeline,
+    // so the channel sidebar remains visible. Repeat after layout to defeat
+    // WebKit restoring an older inner-scroll offset.
+    list.scrollTop = list.scrollHeight;
+    requestAnimationFrame(() => { list.scrollTop = list.scrollHeight; });
   } else if (wasNearBottom) {
     list.scrollTop = list.scrollHeight;
   }
