@@ -2219,6 +2219,9 @@ func TestEmbeddedWebAssets(t *testing.T) {
 						t.Fatalf("inbox HTML does not contain %s", marker)
 					}
 				}
+				if !strings.Contains(string(body), `.channel-timeline-view .list{align-content:start;grid-auto-rows:max-content;`) {
+					t.Fatal("channel timeline must preserve intrinsic card row heights")
+				}
 				for _, asset := range []string{"/manifest.webmanifest", "/assets/sentinel.css", "/assets/markdown.js", "/assets/app.js"} {
 					if !strings.Contains(string(body), asset+"?v=") {
 						t.Fatalf("inbox HTML does not fingerprint %s", asset)
