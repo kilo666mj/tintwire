@@ -371,13 +371,14 @@ func (s *Store) ListChannelTimelineFiltered(ctx context.Context, actor User, cha
 	}
 	pageSize := limit + 1
 	query := NotificationQuery{
-		Channel:   channelName,
-		Search:    search,
-		Limit:     pageSize,
-		BeforeAt:  beforeAt,
-		BeforeID:  beforeID,
-		UserID:    actor.ID,
-		UserAdmin: actor.IsAdmin,
+		Channel:        channelName,
+		Search:         search,
+		Limit:          pageSize,
+		BeforeAt:       beforeAt,
+		BeforeID:       beforeID,
+		UserID:         actor.ID,
+		UserAdmin:      actor.IsAdmin,
+		OrderByUpdated: true,
 	}
 	if state == "dismissed" {
 		query.DismissedOnly = true
@@ -421,7 +422,7 @@ func mergeTimeline(notifications []Notification, messages []ChannelMessage, comm
 	items := make([]TimelineItem, 0, len(notifications)+len(messages)+len(commands))
 	for i := range notifications {
 		notification := notifications[i]
-		items = append(items, TimelineItem{Kind: "notification", Notification: &notification, CreatedAtMilli: notification.CreatedAt.UnixMilli(), ID: notification.ID})
+		items = append(items, TimelineItem{Kind: "notification", Notification: &notification, CreatedAtMilli: notification.UpdatedAt.UnixMilli(), ID: notification.ID})
 	}
 	for i := range messages {
 		message := messages[i]

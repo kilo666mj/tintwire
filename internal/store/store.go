@@ -235,19 +235,20 @@ type SlashCommandResponse struct {
 }
 
 type NotificationQuery struct {
-	ID            string
-	Limit         int
-	Search        string
-	Channel       string
-	State         string
-	ShowDismissed bool
-	DismissedOnly bool
-	Severity      string
-	UnreadOnly    bool
-	BeforeAt      int64
-	BeforeID      string
-	UserID        string
-	UserAdmin     bool
+	ID             string
+	Limit          int
+	Search         string
+	Channel        string
+	State          string
+	ShowDismissed  bool
+	DismissedOnly  bool
+	Severity       string
+	UnreadOnly     bool
+	OrderByUpdated bool
+	BeforeAt       int64
+	BeforeID       string
+	UserID         string
+	UserAdmin      bool
 }
 
 type NotificationInboxAction string
@@ -2200,11 +2201,15 @@ WHERE 1 = 1`
 	if query.UnreadOnly && query.UserID != "" {
 		statement += ` AND (` + readExpression + `) = 1`
 	}
+	orderColumn := "n.created_at"
+	if query.OrderByUpdated {
+		orderColumn = "n.updated_at"
+	}
 	if query.BeforeAt > 0 && query.BeforeID != "" {
-		statement += ` AND (n.created_at < ? OR (n.created_at = ? AND n.id < ?))`
+		statement += ` AND (` + orderColumn + ` < ? OR (` + orderColumn + ` = ? AND n.id < ?))`
 		args = append(args, query.BeforeAt, query.BeforeAt, query.BeforeID)
 	}
-	statement += ` ORDER BY n.created_at DESC, n.id DESC LIMIT ?`
+	statement += ` ORDER BY ` + orderColumn + ` DESC, n.id DESC LIMIT ?`
 	args = append(args, query.Limit)
 	rows, err := s.db.QueryContext(ctx, statement, args...)
 	if err != nil {

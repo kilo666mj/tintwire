@@ -1187,7 +1187,18 @@ async function loadChannelTimeline(append = false) {
     // Older entries are inserted above the visible conversation. Offset their
     // added height so the message the reader was looking at does not jump.
     list.scrollTop += list.scrollHeight - previousHeight;
-  } else if (initialLoad || wasNearBottom) {
+  } else if (initialLoad) {
+    // Opening a channel with unread notifications should reveal the first
+    // unread card. Previously we always jumped to the newest entry, which
+    // made older unread IRC/webhook notifications appear to be missing when
+    // newer human-authored messages followed them.
+    const firstUnread = list.querySelector(".card-unread");
+    if (firstUnread) {
+      list.scrollTop += firstUnread.getBoundingClientRect().top - list.getBoundingClientRect().top - 8;
+    } else {
+      list.scrollTop = list.scrollHeight;
+    }
+  } else if (wasNearBottom) {
     list.scrollTop = list.scrollHeight;
   }
 }

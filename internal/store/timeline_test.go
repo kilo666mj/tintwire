@@ -209,6 +209,39 @@ func TestChannelTimelinePagination(t *testing.T) {
 	}
 }
 
+func TestChannelTimelineOrdersUpdatedNotificationByVisibleTimestamp(t *testing.T) {
+	data, ctx, user := timelineTestStore(t)
+	defer data.Close()
+
+	if err := data.BootstrapWebhook(ctx, "hook", "general"); err != nil {
+		t.Fatal(err)
+	}
+	channel, err := data.ChannelIDByName(ctx, "general")
+	if err != nil {
+		t.Fatal(err)
+	}
+	notification, err := data.CreateFromWebhook(ctx, "hook", IncomingNotification{Text: "IRC update", State: "firing", RawPayload: json.RawMessage(`{}`)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(2 * time.Millisecond)
+	if _, err := data.CreateChannelMessage(ctx, user, CreateMessageInput{ChannelID: channel, Text: "outgoing message"}); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(2 * time.Millisecond)
+	if err := data.SetNotificationState(ctx, notification.ID, user, "resolved"); err != nil {
+		t.Fatal(err)
+	}
+
+	items, _, err := data.ListChannelTimeline(ctx, user, channel, "", 100, 0, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(items) != 2 || items[0].Kind != "notification" || items[0].ID != notification.ID {
+		t.Fatalf("updated notification should be newest timeline item: %#v", items)
+	}
+}
+
 func TestChannelTimelineSearchesMessagesAndNotifications(t *testing.T) {
 	data, ctx, user := timelineTestStore(t)
 	defer data.Close()
