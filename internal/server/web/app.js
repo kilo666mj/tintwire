@@ -1058,9 +1058,10 @@ function renderChannelTimeline(items) {
   const loadedRoots = new Set(items
     .filter(item => item.kind === "message" && item.message && !item.message.parent_id)
     .map(item => item.message.root_id || item.message.id));
-  // The API is newest-first for stable cursor pagination. Conversations read
-  // oldest-to-newest, with the latest entry adjacent to the composer.
-  for (const item of [...items].reverse()) {
+  // Preserve the API's newest-first order. Besides matching the notification
+  // inbox, this keeps newer cards ahead of older authored messages and lets
+  // cursor pagination append older entries without reshuffling the viewport.
+  for (const item of items) {
     if (item.kind === "notification" && item.notification) {
       topLevel.push({type: "notification", value: item.notification});
     } else if (item.kind === "command" && item.command) {
@@ -1180,7 +1181,6 @@ async function loadChannelTimeline(append = false) {
   const initialLoad = !append && loadedTimelineItems.length === 0;
   const distanceFromBottom = list.scrollHeight - list.scrollTop - list.clientHeight;
   const wasNearBottom = distanceFromBottom < 180;
-  const previousHeight = list.scrollHeight;
   const response = await fetch(`/api/v1/channels/${encodeURIComponent(channel.id)}/timeline${suffix}`);
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   const data = await response.json();
@@ -1190,17 +1190,14 @@ async function loadChannelTimeline(append = false) {
   loadMoreButton.disabled = false;
   renderChannelTimeline(loadedTimelineItems);
   if (append) {
-    // Older entries are inserted above the visible conversation. Offset their
-    // added height so the message the reader was looking at does not jump.
-    list.scrollTop += list.scrollHeight - previousHeight;
+    // Older entries append below the current page, so the reader's position is
+    // already stable.
   } else if (initialLoad) {
-    // The API page is newest-first but renderChannelTimeline reverses it into
-    // conversational order. Open at the newest cards by scrolling only the
-    // bounded list; scrolling a descendant into view can move the document and
-    // hide the channel sidebar. Repeat after layout to defeat WebKit restoring
-    // an older inner-scroll offset.
-    list.scrollTop = list.scrollHeight;
-    requestAnimationFrame(() => { list.scrollTop = list.scrollHeight; });
+    // Open at the newest card without scrolling the document or hiding the
+    // channel sidebar. Repeat after layout to defeat WebKit restoring an older
+    // inner-scroll offset.
+    list.scrollTop = 0;
+    requestAnimationFrame(() => { list.scrollTop = 0; });
   } else if (wasNearBottom) {
     list.scrollTop = list.scrollHeight;
   }
