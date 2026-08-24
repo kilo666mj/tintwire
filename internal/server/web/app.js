@@ -48,6 +48,7 @@ const loginDivider = document.querySelector("#login-divider");
 const logoutButton = document.querySelector("#logout-button");
 const sessionIdentity = document.querySelector("#session-identity");
 const readButton = document.querySelector("#read-button");
+const topbarActions = document.querySelector(".topbar-actions");
 const channelCreateButton = document.querySelector("#channel-create-button");
 const createChannelDialog = document.querySelector("#create-channel-dialog");
 const createChannelDialogClose = document.querySelector("#create-channel-dialog-close");
@@ -1233,6 +1234,7 @@ function setViewForChannel(name) {
     inboxSearch.placeholder = `Search ${name} timeline…`;
     composer.hidden = false;
     composerInput.placeholder = `Message ${name}`;
+    composerSubmit.before(readButton);
     list.before(loadMoreButton);
     loadMoreButton.hidden = !timelineNextCursor;
   } else {
@@ -1241,6 +1243,7 @@ function setViewForChannel(name) {
     inboxSearch.placeholder = "Search notifications…";
     filterConsole.hidden = false;
     composer.hidden = true;
+    topbarActions.prepend(readButton);
     list.after(loadMoreButton);
     loadMoreButton.hidden = !nextCursor;
   }
