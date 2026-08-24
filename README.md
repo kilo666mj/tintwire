@@ -4,6 +4,11 @@ Tintwire is a self-hosted rich-notification inbox for structured, interactive
 cards. It is intended to provide a focused alternative to routing operational
 notifications through a general-purpose chat system.
 
+> **Work in progress:** Tintwire is under active development. Interfaces,
+> configuration, deployment procedures, and database schemas may change without
+> notice. It is not yet recommended for production use without careful review
+> and backups.
+
 Tintwire combines:
 
 - Rich cards with semantic color, typography, fields, tables, images, and
