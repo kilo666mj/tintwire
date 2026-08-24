@@ -1194,16 +1194,12 @@ async function loadChannelTimeline(append = false) {
     // added height so the message the reader was looking at does not jump.
     list.scrollTop += list.scrollHeight - previousHeight;
   } else if (initialLoad) {
-    // Opening a channel with unread notifications should reveal the first
-    // unread card. Previously we always jumped to the newest entry, which
-    // made older unread IRC/webhook notifications appear to be missing when
-    // newer human-authored messages followed them.
-    const firstUnread = list.querySelector(".card-unread");
-    const target = firstUnread || list.lastElementChild;
-    // WebKit may not have finalized the nested timeline's grid geometry in the
-    // same frame as replaceChildren(). Position from the rendered element on
-    // the next frame instead of calculating a stale scrollTop offset.
-    if (target) requestAnimationFrame(() => target.scrollIntoView({block: firstUnread ? "start" : "end"}));
+    // Start at the first rendered entry. WebKit's scrollIntoView handling for
+    // descendants of swipe-card wrappers could land on the nearby authored
+    // message slice instead of the requested unread card. A second assignment
+    // after layout also defeats restoration of the previous inner scroll offset.
+    list.scrollTop = 0;
+    requestAnimationFrame(() => { list.scrollTop = 0; });
   } else if (wasNearBottom) {
     list.scrollTop = list.scrollHeight;
   }
