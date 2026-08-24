@@ -10,6 +10,27 @@ import (
 	"time"
 )
 
+func TestMattermostApprovalRequested(t *testing.T) {
+	tests := []struct {
+		name string
+		raw  string
+		want bool
+	}{
+		{name: "approve action", raw: `[{"actions":[{"id":"approve","name":"Approve"}]}]`, want: true},
+		{name: "reject action", raw: `[{"actions":[{"id":"deny","name":"Reject request"}]}]`, want: true},
+		{name: "informational card", raw: `[{"title":"Decision recorded","text":"No action required"}]`},
+		{name: "unrelated action", raw: `[{"actions":[{"id":"details","name":"View details"}]}]`},
+		{name: "invalid payload", raw: `{}`},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := mattermostApprovalRequested(json.RawMessage(test.raw)); got != test.want {
+				t.Fatalf("mattermostApprovalRequested() = %v, want %v", got, test.want)
+			}
+		})
+	}
+}
+
 func TestOpenMigratesLegacyNotification(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "legacy.db")
 	db, err := sql.Open("sqlite", path)

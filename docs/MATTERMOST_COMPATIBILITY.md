@@ -20,9 +20,10 @@ GET  /api/v4/posts/{post_id}/reactions
 
 Top-level bot posts become inbox notifications; `root_id` replies become
 immutable activity entries. Post timestamps are monotonic within a channel so
-polling cannot miss same-millisecond writes. Operators see explicit Approve and
-Reject controls for compatibility posts, exposed to legacy bots as the
-authenticated user's `white_check_mark` or `x` reaction.
+polling cannot miss same-millisecond writes. When a compatibility post contains
+an Approve or Reject attachment action, operators see explicit approval controls
+that are exposed to legacy bots as the authenticated user's `white_check_mark`
+or `x` reaction. Informational posts do not show approval controls.
 
 Mattermost attachment actions are also supported for bounded integrations such
 as `approval-service`. An administrator must first register the action's exact
@@ -93,4 +94,3 @@ Slack Block Kit `header`, `section`, `fields`, `context`, `divider`, `image`,
 and link-button `actions` are normalized into the restricted safe renderer.
 Unknown block types become visible inert fallback text, and non-HTTP(S) links
 are never made clickable.
-

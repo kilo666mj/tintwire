@@ -2235,10 +2235,31 @@ WHERE 1 = 1`
 		}
 		notification.CreatedAt = time.UnixMilli(createdAt).UTC()
 		notification.UpdatedAt = time.UnixMilli(updatedAt).UTC()
-		notification.CanApprove = notification.CanOperate && notification.CompatRoot
+		notification.CanApprove = notification.CanOperate && notification.CompatRoot && mattermostApprovalRequested(notification.Attachments)
 		notifications = append(notifications, notification)
 	}
 	return notifications, rows.Err()
+}
+
+func mattermostApprovalRequested(raw json.RawMessage) bool {
+	var attachments []struct {
+		Actions []struct {
+			ID   string `json:"id"`
+			Name string `json:"name"`
+		} `json:"actions"`
+	}
+	if json.Unmarshal(raw, &attachments) != nil {
+		return false
+	}
+	for _, attachment := range attachments {
+		for _, action := range attachment.Actions {
+			label := strings.ToLower(strings.TrimSpace(action.ID + " " + action.Name))
+			if strings.Contains(label, "approv") || strings.Contains(label, "reject") {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func (s *Store) MarkAllRead(ctx context.Context, userID string, readAt time.Time) error {

@@ -973,7 +973,15 @@ function announceDesktopAlerts(next) {
   }
 }
 
-async function loadNotifications(append = false) {
+function syncDesktopAlertVersions(next) {
+  if (!desktopAlertsPrimed) {
+    desktopAlertsPrimed = true;
+    desktopAlertsPrimedAt = Date.now();
+  }
+  for (const value of next) desktopAlertVersions.set(value.id, value.updated_at);
+}
+
+async function loadNotifications(append = false, announce = false) {
   if (selectedChannel) {
     try {
       await loadChannelTimeline(append);
@@ -995,7 +1003,10 @@ async function loadNotifications(append = false) {
     const response = await fetch(`/api/v1/notifications?${parameters}`);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
-    if (desktopShell && !append) announceDesktopAlerts(data.notifications || []);
+    if (desktopShell && !append) {
+      if (announce) announceDesktopAlerts(data.notifications || []);
+      else syncDesktopAlertVersions(data.notifications || []);
+    }
     loadedNotifications = append ? loadedNotifications.concat(data.notifications || []) : (data.notifications || []);
     nextCursor = data.next_cursor || "";
     latestUnreadCount = Number(data.unread_count || 0);
@@ -1236,10 +1247,10 @@ function setViewForChannel(name) {
 }
 
 // Refreshes the correct view for the current selection and channel counts.
-async function refreshInboxView() {
+async function refreshInboxView(announce = false) {
   try {
     if (selectedChannel) await loadChannelTimeline(false);
-    else await loadNotifications(false);
+    else await loadNotifications(false, announce);
   } catch (error) {
     list.replaceChildren(element("div", "error", `Unable to load view: ${error.message}`));
   }
@@ -1698,7 +1709,7 @@ async function handleChannelMessageEvent(event) {
 function connectEvents() {
   if (events) events.close();
   events = new EventSource("/api/v1/events");
-  events.addEventListener("notification", refreshInboxState);
+  events.addEventListener("notification", () => refreshInboxState(true));
   events.addEventListener("channel-message", event => {
     handleChannelMessageEvent(event).catch(() => {});
   });
@@ -1710,11 +1721,11 @@ function connectEvents() {
 // The event stream still provides the immediate path when both requests share
 // an origin.
 let inboxRefreshPending = false;
-async function refreshInboxState() {
+async function refreshInboxState(announce = false) {
   if (!inboxStateEnabled || inboxRefreshPending) return;
   inboxRefreshPending = true;
   try {
-    await refreshInboxView();
+    await refreshInboxView(announce === true);
   } finally {
     inboxRefreshPending = false;
   }
