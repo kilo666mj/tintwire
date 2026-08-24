@@ -1193,11 +1193,11 @@ async function loadChannelTimeline(append = false) {
     // made older unread IRC/webhook notifications appear to be missing when
     // newer human-authored messages followed them.
     const firstUnread = list.querySelector(".card-unread");
-    if (firstUnread) {
-      list.scrollTop += firstUnread.getBoundingClientRect().top - list.getBoundingClientRect().top - 8;
-    } else {
-      list.scrollTop = list.scrollHeight;
-    }
+    const target = firstUnread || list.lastElementChild;
+    // WebKit may not have finalized the nested timeline's grid geometry in the
+    // same frame as replaceChildren(). Position from the rendered element on
+    // the next frame instead of calculating a stale scrollTop offset.
+    if (target) requestAnimationFrame(() => target.scrollIntoView({block: firstUnread ? "start" : "end"}));
   } else if (wasNearBottom) {
     list.scrollTop = list.scrollHeight;
   }
