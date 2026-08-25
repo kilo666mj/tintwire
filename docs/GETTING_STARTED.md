@@ -129,7 +129,9 @@ membership with `PUT /api/v1/channels/{id}/members/{username}`. Channel creation
 returns a random channel-scoped publishing token exactly once; only its SHA-256
 hash is retained. Private channels are excluded from notification queries and
 channel navigation unless the reader is an installation administrator or an
-explicit member.
+explicit member. The selected-channel **Edit** action manages the display name,
+description, accent color, and visibility; the URL-safe channel name remains
+immutable.
 
 The admin-only **Users** panel lists human and system identities and their
 authentication type. It can promote or demote administrators, enable or disable

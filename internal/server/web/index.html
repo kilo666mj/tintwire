@@ -46,6 +46,7 @@
     <section class="channel-section" aria-labelledby="channel-list-label">
       <div class="channel-section-header">
         <div id="channel-list-label" class="command-nav-label">Channels</div>
+        <button id="channel-edit-button" class="channel-create-button" type="button" hidden>Edit</button>
         <button id="channel-create-button" class="channel-create-button" type="button" hidden>Add channel</button>
       </div>
       <div id="channel-list" class="channel-list"><span class="channel-loading">Loading…</span></div>
@@ -148,6 +149,7 @@
   <div class="channel-dialog-card">
     <div class="channel-dialog-heading">
       <div><div class="section-label">Signal routing</div><h2 id="channel-dialog-title">Channels</h2></div>
+      <button id="mobile-channel-edit-button" class="channel-create-button" type="button" hidden>Edit selected</button>
       <button id="channel-dialog-close" class="alert-dialog-close" type="button" aria-label="Close channels">×</button>
     </div>
     <nav id="mobile-channel-list" class="mobile-channel-list" aria-label="Channels"></nav>
@@ -172,7 +174,7 @@
         </select>
       </label>
       <div class="channel-form-actions">
-        <button type="submit">Create</button>
+        <button id="create-channel-submit" type="submit">Create</button>
       </div>
     </form>
     <p id="create-channel-status" class="alert-setup-status" role="status"></p>

@@ -67,6 +67,8 @@ const sessionIdentity = document.querySelector("#session-identity");
 const readButton = document.querySelector("#read-button");
 const topbarActions = document.querySelector(".topbar-actions");
 const channelCreateButton = document.querySelector("#channel-create-button");
+const channelEditButton = document.querySelector("#channel-edit-button");
+const mobileChannelEditButton = document.querySelector("#mobile-channel-edit-button");
 const createChannelDialog = document.querySelector("#create-channel-dialog");
 const createChannelDialogClose = document.querySelector("#create-channel-dialog-close");
 const createChannelForm = document.querySelector("#create-channel-form");
@@ -76,6 +78,7 @@ const createChannelDescription = document.querySelector("#create-channel-descrip
 const createChannelAccent = document.querySelector("#create-channel-accent");
 const createChannelVisibility = document.querySelector("#create-channel-visibility");
 const createChannelStatus = document.querySelector("#create-channel-status");
+const createChannelSubmit = document.querySelector("#create-channel-submit");
 const automationOpen = document.querySelector("#automation-open");
 const automationDialog = document.querySelector("#automation-dialog");
 const automationClose = document.querySelector("#automation-close");
@@ -1435,6 +1438,7 @@ composer.addEventListener("submit", async event => {
 
 let channelCache = [];
 let selectedChannel = new URLSearchParams(location.search).get("channel") || "";
+let editingChannelID = "";
 
 function channelButton(channel) {
   const row = element("div", "channel-row");
@@ -1495,6 +1499,8 @@ function renderChannelNavigation(channels) {
   channelList.replaceChildren(...entries.map(channelButton));
   mobileChannelList.replaceChildren(...entries.map(channelButton));
   const selected = entries.find(channel => channel.name === selectedChannel) || all;
+  channelEditButton.hidden = !isAdmin || !selected.name;
+  mobileChannelEditButton.hidden = !isAdmin || !selected.name;
   feedTitle.textContent = selected.display_name;
   const unread = all.unread_count ? ` · ${all.unread_count} unread` : "";
   mobileChannelToggle.textContent = `${selected.name ? selected.display_name : "Channels"}${unread}`;
@@ -1594,9 +1600,36 @@ channelDialog.addEventListener("click", event => {
   if (event.target === channelDialog) channelDialog.close();
 });
 channelCreateButton.addEventListener("click", () => {
+  editingChannelID = "";
+  createChannelForm.reset();
+  createChannelName.disabled = false;
+  createChannelAccent.value = "#2f80ff";
+  createChannelSubmit.textContent = "Create";
+  document.querySelector("#create-channel-dialog-title").textContent = "Create channel";
   createChannelStatus.textContent = "";
   createChannelDialog.showModal();
   createChannelName.focus();
+});
+function openChannelEditor() {
+  const channel = channelCache.find(candidate => candidate.name === selectedChannel);
+  if (!channel) return;
+  editingChannelID = channel.id;
+  createChannelName.value = channel.name;
+  createChannelName.disabled = true;
+  createChannelDisplay.value = channel.display_name || channel.name;
+  createChannelDescription.value = channel.description || "";
+  createChannelAccent.value = channel.accent_color || "#2f80ff";
+  createChannelVisibility.value = channel.visibility || "public";
+  createChannelSubmit.textContent = "Save";
+  document.querySelector("#create-channel-dialog-title").textContent = "Edit channel";
+  createChannelStatus.textContent = "";
+  createChannelDialog.showModal();
+  createChannelDescription.focus();
+}
+channelEditButton.addEventListener("click", openChannelEditor);
+mobileChannelEditButton.addEventListener("click", () => {
+  channelDialog.close();
+  openChannelEditor();
 });
 createChannelDialogClose.addEventListener("click", () => createChannelDialog.close());
 createChannelDialog.addEventListener("click", event => {
@@ -1606,13 +1639,14 @@ createChannelForm.addEventListener("submit", async event => {
   event.preventDefault();
   const submit = createChannelForm.querySelector("button[type=submit]");
   submit.disabled = true;
-  createChannelStatus.textContent = "Creating channel…";
+  createChannelStatus.textContent = editingChannelID ? "Saving channel…" : "Creating channel…";
   try {
-    const response = await fetch("/api/v1/channels", {
-      method: "POST",
+    const endpoint = editingChannelID ? `/api/v1/channels/${encodeURIComponent(editingChannelID)}` : "/api/v1/channels";
+    const response = await fetch(endpoint, {
+      method: editingChannelID ? "PUT" : "POST",
       headers: {"Content-Type":"application/json"},
       body: JSON.stringify({
-        name: createChannelName.value.trim(),
+        ...(editingChannelID ? {} : {name: createChannelName.value.trim()}),
         display_name: createChannelDisplay.value.trim() || "",
         description: createChannelDescription.value.trim() || "",
         accent_color: createChannelAccent.value,
@@ -1622,12 +1656,14 @@ createChannelForm.addEventListener("submit", async event => {
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
     await loadChannels();
-    if (data?.channel?.name) selectChannel(data.channel.name);
+    if (!editingChannelID && data?.channel?.name) selectChannel(data.channel.name);
+    editingChannelID = "";
     createChannelForm.reset();
+    createChannelName.disabled = false;
     createChannelDialog.close();
     createChannelStatus.textContent = "";
   } catch (error) {
-    createChannelStatus.textContent = `Unable to create channel: ${error.message}`;
+    createChannelStatus.textContent = `Unable to ${editingChannelID ? "save" : "create"} channel: ${error.message}`;
     submit.disabled = false;
     return;
   }

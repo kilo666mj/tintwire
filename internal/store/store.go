@@ -22,6 +22,7 @@ import (
 var (
 	ErrWebhookNotFound      = errors.New("webhook not found")
 	ErrWebhookChannelDenied = errors.New("webhook channel override not allowed")
+	ErrChannelNotFound      = errors.New("channel not found")
 	ErrNotificationNotFound = errors.New("notification not found")
 	ErrInvalidCredentials   = errors.New("invalid credentials")
 	ErrImportConflict       = errors.New("import conflict")
@@ -1424,6 +1425,25 @@ func (s *Store) CreateChannel(ctx context.Context, input CreateChannelInput) (Ch
 		return ChannelSummary{}, "", err
 	}
 	return ChannelSummary{ID: channelID, Name: input.Name, DisplayName: input.DisplayName, Description: input.Description, AccentColor: input.AccentColor, Visibility: input.Visibility}, token, nil
+}
+
+func (s *Store) UpdateChannel(ctx context.Context, channelID string, input CreateChannelInput) (ChannelSummary, error) {
+	result, err := s.db.ExecContext(ctx, `UPDATE channels SET display_name=?,description=?,accent_color=?,visibility=? WHERE id=?`, input.DisplayName, input.Description, input.AccentColor, input.Visibility, channelID)
+	if err != nil {
+		return ChannelSummary{}, err
+	}
+	changed, err := result.RowsAffected()
+	if err != nil {
+		return ChannelSummary{}, err
+	}
+	if changed == 0 {
+		return ChannelSummary{}, ErrChannelNotFound
+	}
+	var channel ChannelSummary
+	err = s.db.QueryRowContext(ctx, `SELECT id,name,display_name,description,accent_color,visibility FROM channels WHERE id=?`, channelID).Scan(
+		&channel.ID, &channel.Name, &channel.DisplayName, &channel.Description, &channel.AccentColor, &channel.Visibility,
+	)
+	return channel, err
 }
 
 func (s *Store) CreateWebhook(ctx context.Context, channelID string, channelLocked bool) (Webhook, string, error) {

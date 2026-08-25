@@ -1074,6 +1074,24 @@ func TestChannelAdministration(t *testing.T) {
 	if created.Channel.Name != "security" || created.Channel.Visibility != "private" || len(created.PublishingToken) != 64 {
 		t.Fatalf("created = %#v", created)
 	}
+	update := httptest.NewRequest(http.MethodPut, "/api/v1/channels/"+created.Channel.ID, bytes.NewBufferString(`{"display_name":"Security operations","description":"Updated private security feed","accent_color":"#336699","visibility":"private"}`))
+	update.Header.Set("Origin", "http://example.com")
+	update.Host = "example.com"
+	update.AddCookie(cookie)
+	updateRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(updateRecorder, update)
+	if updateRecorder.Code != http.StatusOK {
+		t.Fatalf("update status = %d, body = %q", updateRecorder.Code, updateRecorder.Body.String())
+	}
+	var updated struct {
+		Channel store.ChannelSummary `json:"channel"`
+	}
+	if err := json.NewDecoder(updateRecorder.Body).Decode(&updated); err != nil {
+		t.Fatal(err)
+	}
+	if updated.Channel.Name != "security" || updated.Channel.DisplayName != "Security operations" || updated.Channel.Description != "Updated private security feed" || updated.Channel.AccentColor != "#336699" {
+		t.Fatalf("updated channel = %#v", updated.Channel)
+	}
 
 	message := httptest.NewRequest(http.MethodPost, "/api/v1/messages", bytes.NewBufferString("credential rotated"))
 	message.Header.Set("Content-Type", "text/plain")
@@ -1108,7 +1126,7 @@ func TestChannelAdministration(t *testing.T) {
 	if err := json.NewDecoder(listRecorder.Body).Decode(&channels); err != nil {
 		t.Fatal(err)
 	}
-	if len(channels.Channels) != 1 || channels.Channels[0].TotalCount != 1 {
+	if len(channels.Channels) != 1 || channels.Channels[0].TotalCount != 1 || channels.Channels[0].Description != "Updated private security feed" {
 		t.Fatalf("channels = %#v", channels.Channels)
 	}
 
@@ -1127,6 +1145,15 @@ func TestChannelAdministration(t *testing.T) {
 	viewerLoginRecorder := httptest.NewRecorder()
 	handler.ServeHTTP(viewerLoginRecorder, viewerLogin)
 	viewerCookie := viewerLoginRecorder.Result().Cookies()[0]
+	viewerUpdate := httptest.NewRequest(http.MethodPut, "/api/v1/channels/"+created.Channel.ID, bytes.NewBufferString(`{"display_name":"Unauthorized","description":"","accent_color":"#336699","visibility":"private"}`))
+	viewerUpdate.Header.Set("Origin", "http://example.com")
+	viewerUpdate.Host = "example.com"
+	viewerUpdate.AddCookie(viewerCookie)
+	viewerUpdateRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(viewerUpdateRecorder, viewerUpdate)
+	if viewerUpdateRecorder.Code != http.StatusForbidden {
+		t.Fatalf("viewer update status = %d, body = %q", viewerUpdateRecorder.Code, viewerUpdateRecorder.Body.String())
+	}
 	viewerList := httptest.NewRequest(http.MethodGet, "/api/v1/channels", nil)
 	viewerList.AddCookie(viewerCookie)
 	viewerListRecorder := httptest.NewRecorder()
@@ -2203,7 +2230,7 @@ func TestEmbeddedWebAssets(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				for _, marker := range []string{`"Incident state"`, `["firing", "acknowledged"].includes(value.state)`, `"Archive"`, `"Notification archived"`, `"Allow overrides"`, `"Lock to channel"`, `"channel-timeline-view"`, `for (const item of [...items].reverse())`, `list.scrollTop = list.scrollHeight`, `loadedTimelineItems = loadedTimelineItems.filter(item =>`, `syncDesktopAlertVersions(data.notifications || [])`, `composerSubmit.before(readButton)`, `topbarActions.prepend(readButton)`, `notificationAlertPresentation`} {
+				for _, marker := range []string{`"Incident state"`, `["firing", "acknowledged"].includes(value.state)`, `"Archive"`, `"Notification archived"`, `"Allow overrides"`, `"Lock to channel"`, `channelEditButton.addEventListener`, `method: editingChannelID ? "PUT" : "POST"`, `"channel-timeline-view"`, `for (const item of [...items].reverse())`, `list.scrollTop = list.scrollHeight`, `loadedTimelineItems = loadedTimelineItems.filter(item =>`, `syncDesktopAlertVersions(data.notifications || [])`, `composerSubmit.before(readButton)`, `topbarActions.prepend(readButton)`, `notificationAlertPresentation`} {
 					if !strings.Contains(string(body), marker) {
 						t.Fatalf("inbox JavaScript does not contain %s", marker)
 					}
@@ -2214,7 +2241,7 @@ func TestEmbeddedWebAssets(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				for _, marker := range []string{`id="channel-list"`, `id="mobile-channel-list"`, `id="feed-title"`, `id="alert-dialog"`, `id="alert-setup-button"`, `<option value="dismissed">Archived</option>`} {
+				for _, marker := range []string{`id="channel-list"`, `id="channel-edit-button"`, `id="mobile-channel-edit-button"`, `id="mobile-channel-list"`, `id="feed-title"`, `id="alert-dialog"`, `id="alert-setup-button"`, `<option value="dismissed">Archived</option>`} {
 					if !strings.Contains(string(body), marker) {
 						t.Fatalf("inbox HTML does not contain %s", marker)
 					}

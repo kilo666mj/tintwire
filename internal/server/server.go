@@ -263,6 +263,7 @@ func NewWithOptions(data *store.Store, options Options) (http.Handler, error) {
 	mux.HandleFunc("GET /api/v1/notifications", s.requireReader(s.listNotifications))
 	mux.HandleFunc("GET /api/v1/channels", s.requireReader(s.listChannels))
 	mux.HandleFunc("POST /api/v1/channels", s.requireReader(s.requireControlAuthority(s.createChannel)))
+	mux.HandleFunc("PUT /api/v1/channels/{id}", s.requireReader(s.requireControlAuthority(s.updateChannel)))
 	mux.HandleFunc("PUT /api/v1/channels/{id}/members/{username}", s.requireReader(s.requireControlAuthority(s.setChannelMember)))
 	mux.HandleFunc("GET /api/v1/channels/{id}/notification-preference", s.requireReader(s.channelNotificationPreference))
 	mux.HandleFunc("PUT /api/v1/channels/{id}/notification-preference", s.requireReader(s.requireControlAuthority(s.setChannelNotificationPreference)))
@@ -1070,6 +1071,57 @@ func (s *Server) createChannel(w http.ResponseWriter, r *http.Request) {
 	})
 	channel, token := created.channel, created.token
 	writeJSON(w, http.StatusCreated, map[string]any{"channel": channel, "publishing_token": token})
+}
+
+func (s *Server) updateChannel(w http.ResponseWriter, r *http.Request) {
+	if !s.sameOrigin(r) {
+		http.Error(w, "cross-origin request rejected", http.StatusForbidden)
+		return
+	}
+	user, ok := r.Context().Value(userContextKey{}).(store.User)
+	if !ok || !user.IsAdmin {
+		http.Error(w, "installation administrator access is required", http.StatusForbidden)
+		return
+	}
+	var request createChannelRequest
+	r.Body = http.MaxBytesReader(w, r.Body, 32<<10)
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&request); err != nil || decoder.Decode(&struct{}{}) != io.EOF {
+		http.Error(w, "invalid channel", http.StatusBadRequest)
+		return
+	}
+	request.DisplayName = strings.TrimSpace(request.DisplayName)
+	request.Description = strings.TrimSpace(request.Description)
+	request.AccentColor = strings.TrimSpace(request.AccentColor)
+	if request.DisplayName == "" || len(request.DisplayName) > 100 || len(request.Description) > 500 {
+		http.Error(w, "channel metadata is invalid or too long", http.StatusBadRequest)
+		return
+	}
+	if request.Visibility != "public" && request.Visibility != "private" {
+		http.Error(w, "visibility must be public or private", http.StatusBadRequest)
+		return
+	}
+	if request.AccentColor != "" && !regexp.MustCompile(`^#[0-9a-fA-F]{6}$`).MatchString(request.AccentColor) {
+		http.Error(w, "accent color must be a six-digit hex color", http.StatusBadRequest)
+		return
+	}
+	result, err := s.mutateControl(r.Context(), func(data *store.Store) (any, error) {
+		return data.UpdateChannel(r.Context(), r.PathValue("id"), store.CreateChannelInput{
+			DisplayName: request.DisplayName, Description: request.Description,
+			AccentColor: request.AccentColor, Visibility: request.Visibility,
+		})
+	})
+	if errors.Is(err, store.ErrChannelNotFound) {
+		http.Error(w, "channel not found", http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		slog.Error("update channel", "error", err)
+		http.Error(w, "unable to update channel", http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"channel": result.(store.ChannelSummary)})
 }
 
 func (s *Server) createUser(w http.ResponseWriter, r *http.Request) {
