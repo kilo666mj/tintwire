@@ -193,8 +193,28 @@ async function loadWebhooks() {
     const card = element("section", "automation-item automation-webhook-group");
     const activeCount = group.filter(webhook => !webhook.revoked_at).length;
     const heading = element("div", "automation-webhook-heading");
-    heading.append(element("strong", "automation-item-title", group[0].channel));
-    heading.append(element("span", "automation-item-meta", `${activeCount} active · ${group.length} total URL${group.length === 1 ? "" : "s"}`));
+    const headingCopy = element("div", "automation-item-main");
+    headingCopy.append(element("strong", "automation-item-title", group[0].channel));
+    headingCopy.append(element("span", "automation-item-meta", `${activeCount} active · ${group.length} total URL${group.length === 1 ? "" : "s"}`));
+    const sourceWebhook = group.find(webhook => !webhook.revoked_at);
+    const newURLButton = element("button", "automation-new-url-button", "New URL");
+    newURLButton.type = "button";
+    newURLButton.disabled = !sourceWebhook;
+    newURLButton.addEventListener("click", async () => {
+      newURLButton.disabled = true;
+      try {
+        const response = await fetch(`/api/v1/webhooks/${encodeURIComponent(sourceWebhook.id)}/new-url`, {method:"POST"});
+        if (!response.ok) throw new Error((await response.text()).trim() || `HTTP ${response.status}`);
+        const data = await response.json();
+        showCredential(`${data.webhook.channel} additional webhook URL`, `${location.origin}${data.path}`);
+        webhookStatus.textContent = "Additional webhook URL created. Existing URLs remain active.";
+        await loadWebhooks();
+      } catch (error) {
+        newURLButton.disabled = false;
+        alert(`Unable to create webhook URL: ${error.message}`);
+      }
+    });
+    heading.append(headingCopy, newURLButton);
     const urls = element("div", "automation-webhook-urls");
     for (const webhook of group) {
       const routing = webhook.channel_locked ? "channel locked" : "public override allowed";
@@ -204,23 +224,6 @@ async function loadWebhooks() {
       identity.append(element("code", "automation-webhook-id", webhook.id));
       identity.append(element("div", "automation-item-meta", `${routing} · ${revoked ? "revoked" : `created ${new Date(webhook.created_at).toLocaleString()}`}`));
       const actions = element("div", "automation-item-actions");
-      const newURLButton = element("button", "automation-new-url-button", "New URL");
-      newURLButton.type = "button";
-      newURLButton.disabled = revoked;
-      newURLButton.addEventListener("click", async () => {
-        newURLButton.disabled = true;
-        try {
-          const response = await fetch(`/api/v1/webhooks/${encodeURIComponent(webhook.id)}/new-url`, {method:"POST"});
-          if (!response.ok) throw new Error((await response.text()).trim() || `HTTP ${response.status}`);
-          const data = await response.json();
-          showCredential(`${data.webhook.channel} additional webhook URL`, `${location.origin}${data.path}`);
-          webhookStatus.textContent = "Additional webhook URL created. Existing URLs remain active.";
-          await loadWebhooks();
-        } catch (error) {
-          newURLButton.disabled = false;
-          alert(`Unable to create webhook URL: ${error.message}`);
-        }
-      });
       const lockButton = element("button", "automation-lock-button", webhook.channel_locked ? "Allow overrides" : "Lock to channel");
       lockButton.type = "button";
       lockButton.disabled = revoked;
@@ -251,7 +254,7 @@ async function loadWebhooks() {
           alert(`Unable to revoke webhook: ${error.message}`);
         }
       });
-      actions.append(newURLButton, lockButton, revokeButton);
+      actions.append(lockButton, revokeButton);
       row.append(identity, actions);
       urls.append(row);
     }
