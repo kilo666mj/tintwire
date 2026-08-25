@@ -6,6 +6,7 @@ import (
 	"errors"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestManagedWebhookLifecycle(t *testing.T) {
@@ -112,5 +113,56 @@ func TestManagedWebhookLifecycle(t *testing.T) {
 	}
 	if err := db.SetWebhookChannelLocked(ctx, webhook.ID, true); !errors.Is(err, ErrWebhookNotFound) {
 		t.Fatalf("lock revoked webhook error = %v", err)
+	}
+}
+
+func TestRecurringResolvedNotificationBecomesVisibleAndUnreadAgain(t *testing.T) {
+	ctx := context.Background()
+	db, err := Open(filepath.Join(t.TempDir(), "recurring.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if err := db.BootstrapWebhook(ctx, "hook", "alerts"); err != nil {
+		t.Fatal(err)
+	}
+	reader, err := db.CreateUser(ctx, "reader", "a sufficiently long password", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	first, err := db.CreateFromWebhook(ctx, "hook", IncomingNotification{Text: "firing", State: "firing", ExternalKey: "alert-1", RawPayload: json.RawMessage(`{}`)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(2 * time.Millisecond)
+	if _, err := db.CreateFromWebhook(ctx, "hook", IncomingNotification{Text: "resolved", State: "resolved", ExternalKey: "alert-1", RawPayload: json.RawMessage(`{}`)}); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.SetNotificationInboxState(ctx, reader.ID, first.ID, InboxDismiss, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.MarkAllRead(ctx, reader.ID, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+
+	time.Sleep(2 * time.Millisecond)
+	reopened, err := db.CreateFromWebhook(ctx, "hook", IncomingNotification{Text: "firing again", State: "firing", ExternalKey: "alert-1", RawPayload: json.RawMessage(`{}`)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reopened.ID != first.ID || reopened.State != "firing" {
+		t.Fatalf("reopened notification = %#v, first = %#v", reopened, first)
+	}
+	visible, err := db.QueryNotifications(ctx, NotificationQuery{UserID: reader.ID, UnreadOnly: true, Limit: 10})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(visible) != 1 || visible[0].ID != first.ID || !visible[0].Unread {
+		t.Fatalf("visible recurring notification = %#v", visible)
+	}
+	dismissed, err := db.QueryNotifications(ctx, NotificationQuery{UserID: reader.ID, DismissedOnly: true, Limit: 10})
+	if err != nil || len(dismissed) != 0 {
+		t.Fatalf("dismissed recurring notification = %#v, err = %v", dismissed, err)
 	}
 }

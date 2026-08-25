@@ -1977,7 +1977,8 @@ SELECT id, created_at, state
 FROM notifications
 WHERE webhook_id = ? AND external_key = ?`, webhookID, input.ExternalKey).Scan(&existingID, &createdAt, &existingState)
 		if err == nil {
-			if stateRank(existingState) > stateRank(input.State) {
+			reopened := existingState == "resolved" && input.State == "firing"
+			if !reopened && stateRank(existingState) > stateRank(input.State) {
 				input.State = existingState
 			}
 			if now.UnixMilli() <= createdAt {
@@ -1993,6 +1994,13 @@ WHERE id = ?`, channelID, input.Text, username, input.IconURL, []byte(input.Atta
 			}
 			if err := insertNotificationEvent(ctx, tx, existingID, input.State, input.RawPayload, now); err != nil {
 				return Notification{}, err
+			}
+			if reopened {
+				// A recurring incident is new work for every reader. Do not let the
+				// previous occurrence's read or archive decisions hide it.
+				if _, err := tx.ExecContext(ctx, `DELETE FROM notification_user_state WHERE notification_id = ?`, existingID); err != nil {
+					return Notification{}, err
+				}
 			}
 			if err := s.appendReplicationOperation(ctx, tx, "notification.updated", channelID, "webhook", webhookID, map[string]any{
 				"notification_id": existingID, "state": input.State, "text": input.Text,

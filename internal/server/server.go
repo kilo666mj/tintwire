@@ -595,7 +595,7 @@ func (s *Server) receiveWebhook(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "attachments must be a JSON array", http.StatusBadRequest)
 		return
 	}
-	state, externalKey := alertmanagerLifecycle(payload.Attachments)
+	state, externalKey := alertmanagerLifecycle(payload.Channel, payload.Attachments)
 	text := payload.Text
 	if blockText != "" {
 		if strings.TrimSpace(text) != "" {
@@ -775,14 +775,19 @@ func readWebhookPayload(w http.ResponseWriter, r *http.Request, mediaType string
 	return []byte(payload), nil
 }
 
-func alertmanagerLifecycle(raw json.RawMessage) (string, string) {
+func alertmanagerLifecycle(channel string, raw json.RawMessage) (string, string) {
 	var attachments []struct {
-		Title string `json:"title"`
+		Title    string `json:"title"`
+		Fallback string `json:"fallback"`
 	}
 	if json.Unmarshal(raw, &attachments) != nil || len(attachments) == 0 {
 		return "received", ""
 	}
-	match := alertmanagerTitlePattern.FindStringSubmatch(attachments[0].Title)
+	identitySource := attachments[0].Fallback
+	if strings.TrimSpace(identitySource) == "" {
+		identitySource = attachments[0].Title
+	}
+	match := alertmanagerTitlePattern.FindStringSubmatch(identitySource)
 	if len(match) != 3 {
 		return "received", ""
 	}
@@ -790,7 +795,11 @@ func alertmanagerLifecycle(raw json.RawMessage) (string, string) {
 	if identity == "" {
 		return "received", ""
 	}
-	digest := sha256.Sum256([]byte(identity))
+	// A shared unlocked hook may receive alerts from several Alertmanagers and
+	// channels. Scope the stable identity so one source cannot move or overwrite
+	// another source's alert card.
+	channel = strings.ToLower(strings.TrimPrefix(strings.TrimSpace(channel), "#"))
+	digest := sha256.Sum256([]byte(channel + "\x00" + identity))
 	return strings.ToLower(match[1]), "alertmanager-slack:" + hex.EncodeToString(digest[:])
 }
 
