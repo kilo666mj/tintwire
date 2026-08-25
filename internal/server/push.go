@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -380,15 +381,18 @@ func notificationPushPayload(notification store.Notification) pushPayload {
 }
 
 func pushPresentation(notification store.Notification) (string, string) {
-	var card struct {
-		Title   string `json:"title"`
-		Summary string `json:"summary"`
-	}
+	var card nativeCard
 	if json.Unmarshal(notification.Card, &card) == nil {
 		if subject := strings.TrimSpace(card.Title); subject != "" {
-			body := card.Summary
-			if strings.TrimSpace(body) == "" {
-				body = notification.Text
+			body := firstDistinctPushBody(subject, card.Summary, notification.Text)
+			for _, field := range card.Fields {
+				body = firstDistinctPushBody(subject, body, field.Label+": "+field.Value)
+			}
+			for _, metric := range card.Metrics {
+				body = firstDistinctPushBody(subject, body, fmt.Sprintf("%s: %v", metric.Label, metric.Value))
+			}
+			if len(card.Rows) > 0 {
+				body = firstDistinctPushBody(subject, body, fmt.Sprintf("%d items · %s", len(card.Rows), card.Rows[0].Primary))
 			}
 			return normalizePushSubjectAndBody(subject, body)
 		}
@@ -398,15 +402,16 @@ func pushPresentation(notification store.Notification) (string, string) {
 		Title    string `json:"title"`
 		Text     string `json:"text"`
 		Fallback string `json:"fallback"`
+		Fields   []struct {
+			Title string `json:"title"`
+			Value string `json:"value"`
+		} `json:"fields"`
 	}
 	if json.Unmarshal(notification.Attachments, &attachments) == nil && len(attachments) > 0 {
 		if subject := strings.TrimSpace(attachments[0].Title); subject != "" {
-			body := attachments[0].Text
-			if strings.TrimSpace(body) == "" {
-				body = notification.Text
-			}
-			if strings.TrimSpace(body) == "" {
-				body = attachments[0].Fallback
+			body := firstDistinctPushBody(subject, attachments[0].Text, notification.Text, attachments[0].Fallback)
+			for _, field := range attachments[0].Fields {
+				body = firstDistinctPushBody(subject, body, field.Title+": "+field.Value)
 			}
 			return normalizePushSubjectAndBody(subject, body)
 		}
@@ -415,6 +420,16 @@ func pushPresentation(notification store.Notification) (string, string) {
 		}
 	}
 	return "", truncatePushText(strings.TrimSpace(notification.Text), 180)
+}
+
+func firstDistinctPushBody(subject string, candidates ...string) string {
+	for _, candidate := range candidates {
+		candidate = strings.Join(strings.Fields(candidate), " ")
+		if candidate != "" && !strings.EqualFold(strings.Join(strings.Fields(subject), " "), candidate) {
+			return candidate
+		}
+	}
+	return ""
 }
 
 func normalizePushSubjectAndBody(subject, body string) (string, string) {

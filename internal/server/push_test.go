@@ -56,6 +56,21 @@ func TestPushPresentationUsesNativeCardTitleAndSummary(t *testing.T) {
 	}
 }
 
+func TestPushPresentationFallsBackToNativeCardContent(t *testing.T) {
+	notification := store.Notification{
+		ID: "ntf_native_fields", ChannelName: "logw",
+		Card: json.RawMessage(`{
+			"version": 1,
+			"title": "Disk almost full",
+			"fields": [{"label": "Host", "value": "web01"}]
+		}`),
+	}
+	payload := notificationPushPayload(notification)
+	if payload.Title != "Disk almost full · logw" || payload.Body != "Host: web01" {
+		t.Fatalf("payload = %#v, want native card field as body fallback", payload)
+	}
+}
+
 func TestPushPresentationUsesAttachmentTitleAndText(t *testing.T) {
 	notification := store.Notification{
 		ID: "ntf_attachment", ChannelName: "logs", Text: "top-level fallback",

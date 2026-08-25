@@ -655,6 +655,27 @@ function notificationLabel(value) {
   return label.length > 120 ? `${label.slice(0, 119).trim()}…` : label;
 }
 
+function compactAlertText(value, limit = 180) {
+  const normalized = String(value ?? "").replace(/\s+/g, " ").trim();
+  const characters = Array.from(normalized);
+  return characters.length > limit ? `${characters.slice(0, limit - 1).join("").trim()}…` : normalized;
+}
+
+// Desktop alerts keep the structured subject in the native notification title
+// and choose the first useful piece of card content for its body. Some producers
+// intentionally omit summary and put all detail in fields, metrics, or rows.
+function notificationAlertPresentation(value) {
+  const card = value.card || null;
+  const attachment = value.attachments?.[0] || null;
+  const subject = compactAlertText(card?.title || attachment?.title || "", 100);
+  const candidates = [card?.summary, value.text, attachment?.text, attachment?.fallback];
+  for (const field of card?.fields || attachment?.fields || []) candidates.push(`${field.label || field.title}: ${field.value}`);
+  for (const metric of card?.metrics || []) candidates.push(`${metric.label}: ${metric.value}`);
+  if (card?.rows?.length) candidates.push(`${card.rows.length} items · ${card.rows[0].primary}`);
+  const body = candidates.map(candidate => compactAlertText(candidate)).find(candidate => candidate && candidate.toLocaleLowerCase() !== subject.toLocaleLowerCase()) || "";
+  return {subject, body};
+}
+
 function showInboxToast(message, actionLabel, action) {
   clearTimeout(inboxToastTimer);
   const copy = element("span", "", message);
@@ -965,10 +986,11 @@ function announceDesktopAlerts(next) {
     const preference = channelCache.find(channel => channel.id === value.channel_id)?.notification_level || "all";
     if (preference === "muted") continue;
     if (preference === "critical" && value.card?.severity !== "critical") continue;
+    const presentation = notificationAlertPresentation(value);
     desktopShell.alert({
       id: value.id,
-      title: value.channel_name || "Tintwire",
-      body: notificationLabel(value),
+      title: presentation.subject ? compactAlertText(`${presentation.subject} · ${value.channel_name || "Tintwire"}`, 100) : (value.channel_name || "Tintwire"),
+      body: presentation.body || notificationLabel(value),
       urgent: value.state === "firing",
     });
   }
