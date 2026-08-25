@@ -1,7 +1,7 @@
 (function (root) {
   "use strict";
 
-  const tokenPattern = /(`[^`\n]+`|\*\*[^*\n]+\*\*|\*[^*\n]+\*|<https?:\/\/[^<>\s|]+(?:\|[^<>\n]+)?>|https?:\/\/[^<>\s]+)/gi;
+  const tokenPattern = /(`[^`\n]+`|\*\*[^*\n]+\*\*|\*[^*\n]+\*|<https?:\/\/[^<>\s|]+(?:\|[^<>\n]+)?>|https?:\/\/[^<>\s]+|:[a-z0-9_+\-]+:)/gi;
 
   function bareLink(token) {
     let href = token;
@@ -40,6 +40,10 @@
         const href = separator === -1 ? link : link.slice(0, separator);
         const label = separator === -1 ? link : link.slice(separator + 1);
         tokens.push({type: "link", value: label, href});
+      } else if (token.startsWith(":")) {
+        const name = token.slice(1, -1).toLowerCase();
+        const emoji = root.TintwireEmoji?.[name];
+        tokens.push(emoji ? {type: "emoji", value: emoji, name} : {type: "text", value: token});
       } else {
         const link = bareLink(token);
         tokens.push({type: "link", value: link.href, href: link.href});

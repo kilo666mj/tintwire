@@ -3,6 +3,30 @@
 const assert = require("node:assert/strict");
 const markdown = require("../web/markdown.js");
 
+globalThis.TintwireEmoji = {tada: "🎉", white_check_mark: "✅", wave: "👋", "skin-tone-3": "🏼"};
+
+assert.deepEqual(
+  markdown.parse("Done :white_check_mark: :unknown_custom: https://example.com/:tada:"),
+  [
+    {type: "text", value: "Done "},
+    {type: "emoji", value: "✅", name: "white_check_mark"},
+    {type: "text", value: " :unknown_custom: "},
+    {type: "link", value: "https://example.com/:tada", href: "https://example.com/:tada"},
+    {type: "text", value: ":"},
+  ],
+);
+
+assert.deepEqual(
+  markdown.parse("Hi :wave::skin-tone-3: at 12:30 in `:tada:`"),
+  [
+    {type: "text", value: "Hi "},
+    {type: "emoji", value: "👋", name: "wave"},
+    {type: "emoji", value: "🏼", name: "skin-tone-3"},
+    {type: "text", value: " at 12:30 in "},
+    {type: "code", value: ":tada:"},
+  ],
+);
+
 assert.deepEqual(
   markdown.parse("*Alert:* Disk nearly full - `critical`"),
   [

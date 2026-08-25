@@ -80,8 +80,9 @@ override is honored for unlocked hooks, but only when it names an existing publi
 channel. New and bootstrapped hooks allow overrides by default; administrators can
 lock individual hooks to their configured channel. Attachment colors support Slack/Mattermost `danger`,
 `warning`, and `good` values plus validated hex colors. Text renders a restricted,
-safe subset of Slack/Mattermost markup: bold text, inline code, line breaks, and
-HTTP(S) links. Mattermost pipe tables, including column alignment, render as
+safe subset of Slack/Mattermost markup: bold text, inline code, line breaks,
+HTTP(S) links, and built-in `:emoji_shortcodes:`. Unknown names are preserved as
+text so custom emoji remain legible. Mattermost pipe tables, including column alignment, render as
 responsive HTML tables. The inbox uses a server-sent event stream to refresh
 when new notifications arrive. Alertmanager Slack notifications whose titles
 begin with `[FIRING:n]` and `[RESOLVED]` are correlated by their normalized title:

@@ -34,7 +34,7 @@ var webFiles embed.FS
 
 var webAssetVersion = func() string {
 	digest := sha256.New()
-	for _, name := range []string{"web/markdown.js", "web/app.js", "web/sentinel.css", "web/sw.js"} {
+	for _, name := range []string{"web/emoji.js", "web/markdown.js", "web/app.js", "web/sentinel.css", "web/sw.js"} {
 		data, err := webFiles.ReadFile(name)
 		if err == nil {
 			_, _ = digest.Write(data)
@@ -1679,7 +1679,7 @@ func serveWeb(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	document := string(data)
-	for _, asset := range []string{"/manifest.webmanifest", "/assets/sentinel.css", "/assets/markdown.js", "/assets/app.js"} {
+	for _, asset := range []string{"/manifest.webmanifest", "/assets/sentinel.css", "/assets/emoji.js", "/assets/markdown.js", "/assets/app.js"} {
 		document = strings.ReplaceAll(document, `"`+asset+`"`, `"`+asset+`?v=`+webAssetVersion+`"`)
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -1690,7 +1690,7 @@ func serveWeb(w http.ResponseWriter, r *http.Request) {
 func serveAsset(w http.ResponseWriter, r *http.Request) {
 	name := r.PathValue("name")
 	contentTypes := map[string]string{
-		"app.js": "text/javascript; charset=utf-8", "markdown.js": "text/javascript; charset=utf-8",
+		"app.js": "text/javascript; charset=utf-8", "emoji.js": "text/javascript; charset=utf-8", "markdown.js": "text/javascript; charset=utf-8",
 		"sentinel.css": "text/css; charset=utf-8",
 		"icon.svg":     "image/svg+xml", "icon-192.png": "image/png", "icon-512.png": "image/png",
 		"apple-touch-icon.png": "image/png",

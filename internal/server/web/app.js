@@ -287,6 +287,11 @@ function appendInlineMarkup(node, text) {
       } else {
         node.append(document.createTextNode(token.value));
       }
+    } else if (token.type === "emoji") {
+      const emoji = element("span", "emoji", token.value);
+      emoji.setAttribute("role", "img");
+      emoji.setAttribute("aria-label", `:${token.name}:`);
+      node.append(emoji);
     } else {
       node.append(document.createTextNode(token.value));
     }

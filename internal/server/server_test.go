@@ -2168,7 +2168,7 @@ func TestEmbeddedWebAssets(t *testing.T) {
 	defer db.Close()
 	handler := server.New(db)
 
-	for _, path := range []string{"/", "/assets/markdown.js", "/assets/app.js", "/assets/icon.svg", "/assets/icon-192.png", "/assets/icon-512.png", "/assets/apple-touch-icon.png", "/manifest.webmanifest", "/sw.js"} {
+	for _, path := range []string{"/", "/assets/emoji.js", "/assets/markdown.js", "/assets/app.js", "/assets/icon.svg", "/assets/icon-192.png", "/assets/icon-512.png", "/assets/apple-touch-icon.png", "/manifest.webmanifest", "/sw.js"} {
 		t.Run(path, func(t *testing.T) {
 			request := httptest.NewRequest(http.MethodGet, path, nil)
 			recorder := httptest.NewRecorder()
@@ -2225,7 +2225,7 @@ func TestEmbeddedWebAssets(t *testing.T) {
 				if !strings.Contains(string(body), `height:calc(100dvh - 300px);min-height:320px;`) {
 					t.Fatal("desktop channel timeline must track the viewport height")
 				}
-				for _, asset := range []string{"/manifest.webmanifest", "/assets/sentinel.css", "/assets/markdown.js", "/assets/app.js"} {
+				for _, asset := range []string{"/manifest.webmanifest", "/assets/sentinel.css", "/assets/emoji.js", "/assets/markdown.js", "/assets/app.js"} {
 					if !strings.Contains(string(body), asset+"?v=") {
 						t.Fatalf("inbox HTML does not fingerprint %s", asset)
 					}
