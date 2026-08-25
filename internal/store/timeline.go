@@ -258,7 +258,7 @@ func scanChannelMessage(row *sql.Row) (ChannelMessage, error) {
 	return message, nil
 }
 
-func (s *Store) listChannelMessages(ctx context.Context, channelID, search string, limit int, beforeAt int64, beforeID string) ([]ChannelMessage, error) {
+func (s *Store) listChannelMessages(ctx context.Context, actor User, channelID, search string, unreadOnly bool, limit int, beforeAt int64, beforeID string) ([]ChannelMessage, error) {
 	statement := `
 SELECT m.id, m.channel_id, c.name, m.author_user_id, u.username, COALESCE(m.parent_id, ''), m.root_id, m.text, m.created_at,
        (SELECT COUNT(*) FROM channel_messages r WHERE r.root_id = m.id AND r.id <> m.id AND r.deleted_at IS NULL)
@@ -267,6 +267,10 @@ JOIN channels c ON c.id = m.channel_id
 JOIN users u ON u.id = m.author_user_id
 WHERE m.channel_id = ? AND m.deleted_at IS NULL`
 	args := []any{channelID}
+	if unreadOnly && actor.ID != "" {
+		statement += ` AND m.author_user_id <> ? AND m.created_at > COALESCE((SELECT read_at FROM channel_read_state WHERE channel_id=m.channel_id AND user_id=?), 0)`
+		args = append(args, actor.ID, actor.ID)
+	}
 	if search = strings.TrimSpace(search); search != "" {
 		statement += ` AND (LOWER(m.text) LIKE LOWER(?) ESCAPE '\' OR LOWER(u.username) LIKE LOWER(?) ESCAPE '\')`
 		pattern := "%" + escapeLike(search) + "%"
@@ -348,13 +352,13 @@ ORDER BY m.created_at ASC, m.id ASC`, channelID, rootID, rootID)
 // caller builds the opaque cursor from the last returned item when hasMore is
 // true.
 func (s *Store) ListChannelTimeline(ctx context.Context, actor User, channelID, search string, limit int, beforeAt int64, beforeID string) ([]TimelineItem, bool, error) {
-	return s.ListChannelTimelineFiltered(ctx, actor, channelID, search, "", limit, beforeAt, beforeID)
+	return s.ListChannelTimelineFiltered(ctx, actor, channelID, search, "", false, limit, beforeAt, beforeID)
 }
 
 // ListChannelTimelineFiltered applies an optional notification lifecycle filter
 // to a channel timeline. When a lifecycle is selected, messages and command
 // output are omitted because those entries do not have notification state.
-func (s *Store) ListChannelTimelineFiltered(ctx context.Context, actor User, channelID, search, state string, limit int, beforeAt int64, beforeID string) ([]TimelineItem, bool, error) {
+func (s *Store) ListChannelTimelineFiltered(ctx context.Context, actor User, channelID, search, state string, unreadOnly bool, limit int, beforeAt int64, beforeID string) ([]TimelineItem, bool, error) {
 	readable, err := s.channelReadable(ctx, actor, channelID)
 	if err != nil {
 		return nil, false, err
@@ -379,6 +383,7 @@ func (s *Store) ListChannelTimelineFiltered(ctx context.Context, actor User, cha
 		UserID:         actor.ID,
 		UserAdmin:      actor.IsAdmin,
 		OrderByUpdated: true,
+		UnreadOnly:     unreadOnly,
 	}
 	if state == "dismissed" {
 		query.DismissedOnly = true
@@ -394,11 +399,11 @@ func (s *Store) ListChannelTimelineFiltered(ctx context.Context, actor User, cha
 	if state != "" {
 		return mergeTimelinePage(notifications, messages, commands, limit), len(notifications) > limit, nil
 	}
-	messages, err = s.listChannelMessages(ctx, channelID, search, pageSize, beforeAt, beforeID)
+	messages, err = s.listChannelMessages(ctx, actor, channelID, search, unreadOnly, pageSize, beforeAt, beforeID)
 	if err != nil {
 		return nil, false, err
 	}
-	commands, err = s.listChannelCommandResponses(ctx, channelID, actor, search, pageSize, beforeAt, beforeID)
+	commands, err = s.listChannelCommandResponses(ctx, channelID, actor, search, unreadOnly, pageSize, beforeAt, beforeID)
 	if err != nil {
 		return nil, false, err
 	}
@@ -444,7 +449,7 @@ func mergeTimeline(notifications []Notification, messages []ChannelMessage, comm
 // listChannelCommandResponses returns the slash-command responses visible to the
 // actor in a channel. In-channel responses are shared; ephemeral responses are
 // limited to the user who invoked the command.
-func (s *Store) listChannelCommandResponses(ctx context.Context, channelID string, actor User, search string, limit int, beforeAt int64, beforeID string) ([]CommandTimelineItem, error) {
+func (s *Store) listChannelCommandResponses(ctx context.Context, channelID string, actor User, search string, unreadOnly bool, limit int, beforeAt int64, beforeID string) ([]CommandTimelineItem, error) {
 	statement := `
 SELECT r.id, e.id, e.channel_id, c.name, r.response_type, r.text, r.payload_json,
        COALESCE(NULLIF(sc.username, ''), sc.display_name), e.user_id, inv.username, r.created_at
@@ -455,6 +460,10 @@ JOIN channels c ON c.id = e.channel_id
 JOIN users inv ON inv.id = e.user_id
 WHERE e.channel_id = ? AND (r.response_type = 'in_channel' OR e.user_id = ?)`
 	args := []any{channelID, actor.ID}
+	if unreadOnly && actor.ID != "" {
+		statement += ` AND r.response_type='in_channel' AND r.created_at > COALESCE((SELECT read_at FROM channel_read_state WHERE channel_id=e.channel_id AND user_id=?), 0)`
+		args = append(args, actor.ID)
+	}
 	if search = strings.TrimSpace(search); search != "" {
 		statement += ` AND (LOWER(r.text) LIKE LOWER(?) ESCAPE '\' OR LOWER(COALESCE(NULLIF(sc.username, ''), sc.display_name)) LIKE LOWER(?) ESCAPE '\' OR LOWER(inv.username) LIKE LOWER(?) ESCAPE '\')`
 		pattern := "%" + escapeLike(search) + "%"

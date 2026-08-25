@@ -70,6 +70,7 @@ fn allow_origin(app: &AppHandle, origin: &str) -> Result<(), String> {
             "allow-set-unread",
             "allow-alert",
             "allow-begin-oidc-login",
+            "allow-open-external",
             "core:event:default",
             "core:window:allow-set-focus"
         ]
@@ -163,6 +164,19 @@ fn begin_oidc_login(app: AppHandle, handoff: String) -> Result<(), String> {
     let origin =
         stored_origin(&app).ok_or_else(|| "server origin is not configured".to_string())?;
     let target = format!("{origin}/api/v1/auth/oidc/start?desktop={handoff}");
+    open_in_system_browser(&target)
+}
+
+fn external_url(target: &str) -> Result<url::Url, String> {
+    let parsed = url::Url::parse(target.trim()).map_err(|_| "not a valid URL".to_string())?;
+    if (parsed.scheme() != "http" && parsed.scheme() != "https") || parsed.host_str().is_none() {
+        return Err("external links must use HTTP or HTTPS".into());
+    }
+    Ok(parsed)
+}
+
+fn open_in_system_browser(target: &str) -> Result<(), String> {
+    let target = external_url(target)?.to_string();
     #[cfg(target_os = "macos")]
     let mut command = Command::new("open");
     #[cfg(target_os = "linux")]
@@ -178,6 +192,30 @@ fn begin_oidc_login(app: AppHandle, handoff: String) -> Result<(), String> {
         .spawn()
         .map_err(|error| error.to_string())?;
     Ok(())
+}
+
+#[tauri::command]
+fn open_external(url: String) -> Result<(), String> {
+    open_in_system_browser(&url)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::external_url;
+
+    #[test]
+    fn external_links_are_limited_to_http() {
+        assert_eq!(
+            external_url("https://example.com/report?id=42")
+                .unwrap()
+                .as_str(),
+            "https://example.com/report?id=42"
+        );
+        assert!(external_url("http://example.com").is_ok());
+        assert!(external_url("javascript:alert(1)").is_err());
+        assert!(external_url("file:///etc/passwd").is_err());
+        assert!(external_url("tintwire://message/msg_1").is_err());
+    }
 }
 
 /// Stores the server origin on first run and points the window at it.
@@ -321,7 +359,8 @@ fn main() {
             configure,
             set_unread,
             alert,
-            begin_oidc_login
+            begin_oidc_login,
+            open_external
         ])
         .setup(|app| {
             let handle = app.handle().clone();

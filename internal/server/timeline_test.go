@@ -144,6 +144,23 @@ func TestChannelTimelineRoundTrip(t *testing.T) {
 	if messageCount != 3 || notificationCount != 1 {
 		t.Fatalf("timeline composition: %d messages, %d notifications in %#v", messageCount, notificationCount, timelineBody.Items)
 	}
+
+	// Unread-only excludes the signed-in user's own messages while retaining
+	// unread notifications from the channel.
+	unread := httptest.NewRequest(http.MethodGet, "/api/v1/channels/"+channel.ID+"/timeline?unread=1", nil)
+	unread.AddCookie(cookie)
+	unreadRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(unreadRecorder, unread)
+	var unreadBody struct {
+		Items []store.TimelineItem `json:"items"`
+	}
+	if err := json.NewDecoder(unreadRecorder.Body).Decode(&unreadBody); err != nil {
+		t.Fatal(err)
+	}
+	if unreadRecorder.Code != http.StatusOK || len(unreadBody.Items) != 1 || unreadBody.Items[0].Kind != "notification" {
+		t.Fatalf("unread timeline status=%d items=%#v", unreadRecorder.Code, unreadBody.Items)
+	}
+
 	// Newest messages appear before the card: both keyed + keyed(dup) collapse to
 	// one, leaving replies/messages above the notification.
 	foundReplyBacklink := false

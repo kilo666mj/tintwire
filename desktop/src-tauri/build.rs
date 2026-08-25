@@ -8,6 +8,8 @@ fn main() {
             "configure",
             "set_unread",
             "alert",
+            "begin_oidc_login",
+            "open_external",
         ]),
     ))
     .expect("failed to run tauri-build");

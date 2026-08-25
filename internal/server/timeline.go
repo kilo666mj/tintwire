@@ -129,7 +129,8 @@ func (s *Server) listChannelTimeline(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "unsupported state filter", http.StatusBadRequest)
 		return
 	}
-	items, hasMore, err := s.store.ListChannelTimelineFiltered(r.Context(), user, channelID, search, state, limit, beforeAt, beforeID)
+	unreadOnly := truthy(r.URL.Query().Get("unread"))
+	items, hasMore, err := s.store.ListChannelTimelineFiltered(r.Context(), user, channelID, search, state, unreadOnly, limit, beforeAt, beforeID)
 	if errors.Is(err, store.ErrForbidden) {
 		http.Error(w, "channel access is required", http.StatusForbidden)
 		return

@@ -21,6 +21,8 @@ server.
   web client hides its Web Push enrollment when running inside the shell.
 - **Deep links**: `tintwire://notification/{id}` and `tintwire://message/{id}` open the running instance and
   scrolls to that card instead of launching a browser tab.
+- **External links** from messages, cards, and actions open in the system browser
+  instead of attempting to create an unsupported secondary webview window.
 - **Launch at login**, single-instance enforcement, and persisted window
   geometry.
 
@@ -86,9 +88,10 @@ delete that file to reconnect to a different server.
 ## How the shell and web client talk
 
 The configured origin — and only that origin — is granted a runtime capability
-allowing exactly three commands: `set_unread`, which drives the tray count and
+allowing four commands: `set_unread`, which drives the tray count and
 window badge; `alert`, which raises a native notification; and
-`begin_oidc_login`, which opens Pocket ID login in the system browser. The
+`begin_oidc_login`, which opens Pocket ID login in the system browser; and
+`open_external`, which validates and opens HTTP(S) links in that browser. The
 setup-only `configure` and `configured_origin` commands are registered by the
 shell but are not granted to remote content. The remote page cannot change the
 configured server or reach any plugin directly. The capability is added at

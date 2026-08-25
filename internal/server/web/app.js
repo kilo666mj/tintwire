@@ -18,7 +18,24 @@ const desktopShell = window.__TAURI__?.core ? {
   beginOIDCLogin(handoff) {
     return this.invoke("begin_oidc_login", {handoff});
   },
+  openExternal(url) {
+    return this.invoke("open_external", {url});
+  },
 } : null;
+
+// Webviews do not consistently create a new native window for target=_blank.
+// Hand those explicit external-link clicks to the desktop shell instead; the
+// browser/PWA path and ordinary in-app navigation remain unchanged.
+document.addEventListener("click", event => {
+  if (!desktopShell || !(event.target instanceof Element)) return;
+  const link = event.target.closest("a[target='_blank'][href]");
+  if (!link || link.hasAttribute("download")) return;
+  let target;
+  try { target = new URL(link.href, location.href); } catch (_) { return; }
+  if (target.protocol !== "http:" && target.protocol !== "https:") return;
+  event.preventDefault();
+  desktopShell.openExternal(target.href).catch(error => console.error("Unable to open external link", error));
+});
 const alertButton = document.querySelector("#alert-button");
 const alertStatus = document.querySelector("#alert-status");
 const alertDialog = document.querySelector("#alert-dialog");
@@ -805,6 +822,8 @@ function inboxButtons(notification) {
   }
   const read = element("button", "card-inbox-button", notification.unread ? "Mark read" : "Mark unread");
   const archive = element("button", "card-inbox-button card-dismiss-button", "Archive");
+  read.title = notification.unread ? "Remove from the unread view; keep in history" : "Return to the unread view";
+  archive.title = "Hide from normal history; restore from the Archived filter";
   read.type = archive.type = "button";
   read.addEventListener("click", async () => {
     read.disabled = true;
@@ -824,7 +843,8 @@ function inboxButtons(notification) {
       showInboxToast(`Unable to archive notification: ${error.message}`);
     }
   });
-  actions.append(read, archive);
+  actions.append(read);
+  if (readFilter.value !== "1") actions.append(archive);
   return actions;
 }
 
@@ -833,6 +853,8 @@ function swipeCard(card, notification) {
   const shell = element("div", "swipe-shell");
   const readAction = element("button", "swipe-action swipe-action-read", notification.unread ? "Mark read" : "Mark unread");
   const dismissAction = element("button", "swipe-action swipe-action-dismiss", "Archive");
+  const canArchive = readFilter.value !== "1";
+  dismissAction.hidden = !canArchive;
   const setSwipeState = async (action, button) => {
     button.disabled = true;
     dismissAction.disabled = true;
@@ -887,7 +909,7 @@ function swipeCard(card, notification) {
       return;
     }
     horizontal = true;
-    offset = Math.max(-96, Math.min(110, dx));
+    offset = Math.max(canArchive ? -96 : 0, Math.min(110, dx));
     card.style.transform = `translateX(${offset}px)`;
     if (event.cancelable) event.preventDefault();
   });
@@ -899,7 +921,7 @@ function swipeCard(card, notification) {
     if (horizontal && offset > 72) {
       card.style.transform = "";
       await setSwipeState(notification.unread ? "read" : "unread", readAction);
-    } else if (horizontal && offset < -72) {
+    } else if (canArchive && horizontal && offset < -72) {
       await setSwipeState("dismiss", dismissAction);
     } else {
       card.style.transform = "";
@@ -1148,7 +1170,10 @@ function messageNode(message, isReply = false) {
 function renderChannelTimeline(items) {
   list.replaceChildren();
   if (!items.length) {
-    list.append(element("div", "empty", "No messages or notifications in this channel yet. Send the first message below."));
+    const copy = readFilter.value === "1"
+      ? "No unread messages or notifications in this channel."
+      : "No messages or notifications in this channel yet. Send the first message below.";
+    list.append(element("div", "empty", copy));
     return;
   }
   const topLevel = [];
@@ -1273,6 +1298,7 @@ async function loadChannelTimeline(append = false) {
   const search = inboxSearch.value.trim();
   if (search) parameters.set("q", search);
   if (stateFilter.value) parameters.set("state", stateFilter.value);
+  if (readFilter.value === "1") parameters.set("unread", "1");
   if (append && timelineNextCursor) parameters.set("before", timelineNextCursor);
   const suffix = parameters.size ? `?${parameters}` : "";
   const initialLoad = !append && loadedTimelineItems.length === 0;
@@ -1504,6 +1530,7 @@ function showPrimaryFeed(unreadOnly) {
 function selectChannel(name) {
   if (name === selectedChannel) return;
   selectedChannel = name;
+  if (name) readFilter.value = "1";
   timelineNextCursor = "";
   loadedTimelineItems = [];
   channelFilter.value = name;
@@ -1692,6 +1719,7 @@ let filterTimer;
 function filtersChanged() {
   clearTimeout(filterTimer);
   filterTimer = setTimeout(() => {
+    if (stateFilter.value === "dismissed") readFilter.value = "";
     selectedChannel = channelFilter.value;
     renderChannelNavigation(channelCache);
     updatePrimaryNavigation();

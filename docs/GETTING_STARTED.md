@@ -114,7 +114,11 @@ and the clickable channel navigation shows total, unread, and actively firing
 counts. Channel selection is retained in the URL and rendered as a desktop
 sidebar or a compact mobile channel picker. **Mark channel read** advances the
 selected channel cursor; **Mark all read** advances all channel cursors
-atomically. Web Push
+atomically. Channel timelines open in **Unread only** mode; the read-state
+selector switches to **Read & unread** for complete history. **Mark read**
+removes an item from the unread view but keeps it in history. From complete
+history, **Archive** hides a notification from normal history; the **Archived**
+lifecycle filter finds and restores it. Web Push
 subscriptions are attached to the authenticated reader and can only be revoked
 by their owner.
 

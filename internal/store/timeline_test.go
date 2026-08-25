@@ -328,6 +328,20 @@ func TestChannelMessageUnreadCounts(t *testing.T) {
 	if len(channels) != 1 || channels[0].UnreadCount != 1 {
 		t.Fatalf("channel unread counts = %#v", channels)
 	}
+	items, _, err := data.ListChannelTimelineFiltered(ctx, user, channel, "", "", true, 100, 0, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(items) != 1 || items[0].Kind != "message" || items[0].Message.Text != "message from bob" {
+		t.Fatalf("user unread timeline = %#v", items)
+	}
+	otherItems, _, err := data.ListChannelTimelineFiltered(ctx, other, channel, "", "", true, 100, 0, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(otherItems) != 2 {
+		t.Fatalf("other user's unread timeline = %#v", otherItems)
+	}
 	if err := data.MarkChannelRead(ctx, user, channel, time.Now()); err != nil {
 		t.Fatal(err)
 	}
@@ -337,6 +351,10 @@ func TestChannelMessageUnreadCounts(t *testing.T) {
 	}
 	if count != 0 {
 		t.Fatalf("unread count after mark read = %d, want 0", count)
+	}
+	items, _, err = data.ListChannelTimelineFiltered(ctx, user, channel, "", "", true, 100, 0, "")
+	if err != nil || len(items) != 0 {
+		t.Fatalf("timeline after mark read = %#v, err = %v", items, err)
 	}
 }
 
