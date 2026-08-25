@@ -1005,7 +1005,10 @@ function notificationCardNode(value) {
   if (!value.card && Array.isArray(value.attachments)) {
     value.attachments.forEach((attachment,index)=>body.append(attachmentCard(attachment,value,index)));
   }
-  if (value.can_operate && value.state !== "resolved") body.append(operationButtons(value));
+  // Plain webhook posts default to "received" for storage and filtering, but
+  // that does not make them incidents. Only notifications that entered an
+  // actionable lifecycle expose shared Acknowledge/Resolve controls.
+  if (value.can_operate && ["firing", "acknowledged"].includes(value.state)) body.append(operationButtons(value));
   if (value.can_approve) body.append(approvalButtons(value));
   if (value.event_count > 1) body.append(activityHistory(value));
   if (inboxStateEnabled) body.append(inboxButtons(value));
