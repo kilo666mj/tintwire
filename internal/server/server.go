@@ -279,6 +279,7 @@ func NewWithOptions(data *store.Store, options Options) (http.Handler, error) {
 	mux.HandleFunc("GET /api/v1/webhooks", s.requireReader(s.listWebhooks))
 	mux.HandleFunc("POST /api/v1/webhooks", s.requireReader(s.requireControlAuthority(s.createWebhook)))
 	mux.HandleFunc("PUT /api/v1/webhooks/{id}", s.requireReader(s.requireControlAuthority(s.updateWebhook)))
+	mux.HandleFunc("POST /api/v1/webhooks/{id}/new-url", s.requireReader(s.requireControlAuthority(s.duplicateWebhook)))
 	mux.HandleFunc("POST /api/v1/webhooks/{id}/revoke", s.requireReader(s.requireControlAuthority(s.revokeWebhook)))
 	mux.HandleFunc("POST /mcp", s.requireAgent(s.mcpEndpoint))
 	mux.HandleFunc("GET /.well-known/oauth-protected-resource", s.oauthProtectedResourceMetadata)

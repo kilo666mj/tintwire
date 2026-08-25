@@ -120,3 +120,34 @@ func (s *Server) revokeWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
+
+func (s *Server) duplicateWebhook(w http.ResponseWriter, r *http.Request) {
+	if _, ok := s.requireAdmin(w, r); !ok {
+		return
+	}
+	value, err := s.mutateControl(r.Context(), func(data *store.Store) (any, error) {
+		webhook, token, err := data.DuplicateWebhook(r.Context(), r.PathValue("id"))
+		return struct {
+			webhook store.Webhook
+			token   string
+		}{webhook, token}, err
+	})
+	if errors.Is(err, store.ErrWebhookNotFound) {
+		http.Error(w, "webhook not found", http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		slog.Error("create additional webhook URL", "error", err)
+		http.Error(w, "unable to create webhook URL", http.StatusInternalServerError)
+		return
+	}
+	created := value.(struct {
+		webhook store.Webhook
+		token   string
+	})
+	writeJSON(w, http.StatusCreated, map[string]any{
+		"webhook": created.webhook,
+		"token":   created.token,
+		"path":    "/hooks/" + created.token,
+	})
+}

@@ -202,4 +202,8 @@ channel-scoped hook and returns its `/hooks/{token}` path exactly once;
 without deleting notifications previously received through that hook. Payload
 channel overrides are enabled by default and remain limited to existing public
 channels; administrators can lock or unlock each hook in the **Automation** panel.
-
+Because stored secrets are hashed and cannot be copied later, each active row
+also offers **New URL**. It creates another active URL with the same channel and
+override policy, then shows it once with a copy control. Existing URLs remain
+active until explicitly revoked. The Automation panel groups all URLs for a
+channel into one card while retaining per-URL policy and revocation controls.

@@ -61,6 +61,17 @@ func TestManagedWebhookLifecycle(t *testing.T) {
 	if err := db.SetWebhookChannelLocked(ctx, webhook.ID, false); err != nil {
 		t.Fatal(err)
 	}
+	additional, additionalToken, err := db.DuplicateWebhook(ctx, webhook.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if additional.ID == webhook.ID || additionalToken == "" || additional.ChannelID != channel.ID || additional.ChannelLocked {
+		t.Fatalf("additional webhook = %#v, token present = %t", additional, additionalToken != "")
+	}
+	if _, err := db.CreateFromWebhook(ctx, token, IncomingNotification{Text: "existing URL", RawPayload: json.RawMessage(`{}`)}); err != nil {
+		t.Fatalf("publish through existing URL: %v", err)
+	}
+	webhook, token = additional, additionalToken
 	other, _, err := db.CreateChannel(ctx, CreateChannelInput{Name: "other", Visibility: "public"})
 	if err != nil {
 		t.Fatal(err)

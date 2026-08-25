@@ -183,33 +183,80 @@ async function loadWebhooks() {
     webhookList.replaceChildren(element("div", "channel-loading", "No incoming webhooks."));
     return;
   }
-  webhookList.replaceChildren(...webhooks.map(webhook => {
-    const routing = webhook.channel_locked ? "channel locked" : "public override allowed";
-    const revoked = Boolean(webhook.revoked_at);
-    const lockButton = element("button", "automation-lock-button", webhook.channel_locked ? "Allow overrides" : "Lock to channel");
-    lockButton.type = "button";
-    lockButton.disabled = revoked;
-    lockButton.setAttribute("aria-pressed", String(webhook.channel_locked));
-    lockButton.addEventListener("click", async () => {
-      lockButton.disabled = true;
-      try {
-        const response = await fetch(`/api/v1/webhooks/${encodeURIComponent(webhook.id)}`, {
-          method: "PUT",
-          headers: {"Content-Type":"application/json"},
-          body: JSON.stringify({channel_locked: !webhook.channel_locked})
-        });
-        if (!response.ok) throw new Error((await response.text()).trim() || `HTTP ${response.status}`);
-        await loadWebhooks();
-      } catch (error) {
-        lockButton.disabled = false;
-        alert(`Unable to update webhook routing: ${error.message}`);
-      }
-    });
-    return automationItem(webhook.channel, `${webhook.id} · ${routing} · created ${new Date(webhook.created_at).toLocaleString()}`, revoked, async () => {
-      const response = await fetch(`/api/v1/webhooks/${encodeURIComponent(webhook.id)}/revoke`, {method:"POST"});
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      await loadWebhooks();
-    }, [lockButton]);
+  const groups = new Map();
+  for (const webhook of webhooks) {
+    const key = webhook.channel_id || webhook.channel;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(webhook);
+  }
+  webhookList.replaceChildren(...[...groups.values()].map(group => {
+    const card = element("section", "automation-item automation-webhook-group");
+    const activeCount = group.filter(webhook => !webhook.revoked_at).length;
+    const heading = element("div", "automation-webhook-heading");
+    heading.append(element("strong", "automation-item-title", group[0].channel));
+    heading.append(element("span", "automation-item-meta", `${activeCount} active · ${group.length} total URL${group.length === 1 ? "" : "s"}`));
+    const urls = element("div", "automation-webhook-urls");
+    for (const webhook of group) {
+      const routing = webhook.channel_locked ? "channel locked" : "public override allowed";
+      const revoked = Boolean(webhook.revoked_at);
+      const row = element("div", `automation-webhook-url${revoked ? " automation-webhook-url-revoked" : ""}`);
+      const identity = element("div", "automation-item-main");
+      identity.append(element("code", "automation-webhook-id", webhook.id));
+      identity.append(element("div", "automation-item-meta", `${routing} · ${revoked ? "revoked" : `created ${new Date(webhook.created_at).toLocaleString()}`}`));
+      const actions = element("div", "automation-item-actions");
+      const newURLButton = element("button", "automation-new-url-button", "New URL");
+      newURLButton.type = "button";
+      newURLButton.disabled = revoked;
+      newURLButton.addEventListener("click", async () => {
+        newURLButton.disabled = true;
+        try {
+          const response = await fetch(`/api/v1/webhooks/${encodeURIComponent(webhook.id)}/new-url`, {method:"POST"});
+          if (!response.ok) throw new Error((await response.text()).trim() || `HTTP ${response.status}`);
+          const data = await response.json();
+          showCredential(`${data.webhook.channel} additional webhook URL`, `${location.origin}${data.path}`);
+          webhookStatus.textContent = "Additional webhook URL created. Existing URLs remain active.";
+          await loadWebhooks();
+        } catch (error) {
+          newURLButton.disabled = false;
+          alert(`Unable to create webhook URL: ${error.message}`);
+        }
+      });
+      const lockButton = element("button", "automation-lock-button", webhook.channel_locked ? "Allow overrides" : "Lock to channel");
+      lockButton.type = "button";
+      lockButton.disabled = revoked;
+      lockButton.setAttribute("aria-pressed", String(webhook.channel_locked));
+      lockButton.addEventListener("click", async () => {
+        lockButton.disabled = true;
+        try {
+          const response = await fetch(`/api/v1/webhooks/${encodeURIComponent(webhook.id)}`, {method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({channel_locked:!webhook.channel_locked})});
+          if (!response.ok) throw new Error((await response.text()).trim() || `HTTP ${response.status}`);
+          await loadWebhooks();
+        } catch (error) {
+          lockButton.disabled = false;
+          alert(`Unable to update webhook routing: ${error.message}`);
+        }
+      });
+      const revokeButton = element("button", "automation-revoke-button", revoked ? "Revoked" : "Revoke");
+      revokeButton.type = "button";
+      revokeButton.disabled = revoked;
+      revokeButton.addEventListener("click", async () => {
+        if (!confirm(`Revoke ${webhook.id}? This URL will stop working.`)) return;
+        revokeButton.disabled = true;
+        try {
+          const response = await fetch(`/api/v1/webhooks/${encodeURIComponent(webhook.id)}/revoke`, {method:"POST"});
+          if (!response.ok) throw new Error((await response.text()).trim() || `HTTP ${response.status}`);
+          await loadWebhooks();
+        } catch (error) {
+          revokeButton.disabled = false;
+          alert(`Unable to revoke webhook: ${error.message}`);
+        }
+      });
+      actions.append(newURLButton, lockButton, revokeButton);
+      row.append(identity, actions);
+      urls.append(row);
+    }
+    card.append(heading, urls);
+    return card;
   }));
 }
 
@@ -371,10 +418,12 @@ function applyAttachmentColor(card, value) {
   if (typeof value.color !== "string") return;
   const color = value.color.trim().toLowerCase();
   if (["danger", "warning", "good"].includes(color)) {
+    card.classList.add("attachment-colored");
     card.classList.add(`attachment-${color}`);
     return;
   }
   if (/^#[0-9a-f]{6}$/i.test(color) || /^#[0-9a-f]{3}$/i.test(color)) {
+    card.classList.add("attachment-colored");
     card.style.borderLeftColor = color;
   }
 }

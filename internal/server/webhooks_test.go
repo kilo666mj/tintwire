@@ -88,6 +88,36 @@ func TestAdminManagesWebhooks(t *testing.T) {
 		t.Fatalf("updated lock missing from list: %s", listRecorder.Body.String())
 	}
 
+	newURL := httptest.NewRequest(http.MethodPost, "/api/v1/webhooks/"+created.Webhook.ID+"/new-url", nil)
+	newURL.SetPathValue("id", created.Webhook.ID)
+	newURL.Header.Set("Origin", "http://example.com")
+	newURL.Host = "example.com"
+	newURL.AddCookie(cookie)
+	newURLRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(newURLRecorder, newURL)
+	if newURLRecorder.Code != http.StatusCreated {
+		t.Fatalf("new URL status = %d, body = %q", newURLRecorder.Code, newURLRecorder.Body.String())
+	}
+	var additional struct {
+		Webhook store.Webhook `json:"webhook"`
+		Token   string        `json:"token"`
+		Path    string        `json:"path"`
+	}
+	if err := json.NewDecoder(newURLRecorder.Body).Decode(&additional); err != nil {
+		t.Fatal(err)
+	}
+	if additional.Webhook.ID == created.Webhook.ID || additional.Token == "" || additional.Path != "/hooks/"+additional.Token || !additional.Webhook.ChannelLocked {
+		t.Fatalf("additional URL response = %#v", additional)
+	}
+	oldPublish := httptest.NewRequest(http.MethodPost, "/hooks/"+created.Token, bytes.NewBufferString(`{"text":"old URL"}`))
+	oldPublish.Header.Set("Content-Type", "application/json")
+	oldPublishRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(oldPublishRecorder, oldPublish)
+	if oldPublishRecorder.Code != http.StatusOK {
+		t.Fatalf("existing URL publish status = %d", oldPublishRecorder.Code)
+	}
+	created.Webhook = additional.Webhook
+
 	revoke := httptest.NewRequest(http.MethodPost, "/api/v1/webhooks/"+created.Webhook.ID+"/revoke", nil)
 	revoke.SetPathValue("id", created.Webhook.ID)
 	revoke.Header.Set("Origin", "http://example.com")

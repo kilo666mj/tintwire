@@ -1465,6 +1465,53 @@ func (s *Store) CreateWebhook(ctx context.Context, channelID string, channelLock
 	return Webhook{ID: id, ChannelID: channelID, Channel: channelName, Kind: "incoming", CreatedAt: now, ChannelLocked: channelLocked}, token, nil
 }
 
+// DuplicateWebhook creates an additional incoming webhook with the same channel
+// and channel-override policy. The new secret is returned once and is never
+// persisted in plaintext; the existing webhook remains active.
+func (s *Store) DuplicateWebhook(ctx context.Context, id string) (Webhook, string, error) {
+	now := time.Now().UTC()
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return Webhook{}, "", err
+	}
+	defer tx.Rollback()
+
+	var channelID, channelName string
+	var oldHash []byte
+	err = tx.QueryRowContext(ctx, `SELECT w.channel_id,c.name,w.token_hash FROM webhooks w JOIN channels c ON c.id=w.channel_id WHERE w.id=? AND w.kind='incoming' AND w.revoked_at IS NULL`, id).Scan(&channelID, &channelName, &oldHash)
+	if errors.Is(err, sql.ErrNoRows) {
+		return Webhook{}, "", ErrWebhookNotFound
+	}
+	if err != nil {
+		return Webhook{}, "", err
+	}
+	policy := "locked"
+	if err := tx.QueryRowContext(ctx, `SELECT value FROM app_settings WHERE key=?`, webhookChannelPolicyPrefix+hex.EncodeToString(oldHash)).Scan(&policy); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return Webhook{}, "", err
+	}
+
+	var secret [32]byte
+	if _, err := rand.Read(secret[:]); err != nil {
+		return Webhook{}, "", err
+	}
+	token := "twh_" + hex.EncodeToString(secret[:])
+	tokenHash := sha256.Sum256([]byte(token))
+	newID, err := newID("whk_", now)
+	if err != nil {
+		return Webhook{}, "", err
+	}
+	if _, err := tx.ExecContext(ctx, `INSERT INTO webhooks(id,token_hash,channel_id,created_at,kind) VALUES(?,?,?,?,'incoming')`, newID, tokenHash[:], channelID, now.UnixMilli()); err != nil {
+		return Webhook{}, "", err
+	}
+	if _, err := tx.ExecContext(ctx, `INSERT INTO app_settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value`, webhookChannelPolicyPrefix+hex.EncodeToString(tokenHash[:]), policy); err != nil {
+		return Webhook{}, "", err
+	}
+	if err := tx.Commit(); err != nil {
+		return Webhook{}, "", err
+	}
+	return Webhook{ID: newID, ChannelID: channelID, Channel: channelName, Kind: "incoming", CreatedAt: now, ChannelLocked: policy != "public"}, token, nil
+}
+
 func (s *Store) ListWebhooks(ctx context.Context) ([]Webhook, error) {
 	rows, err := s.db.QueryContext(ctx, `
 SELECT w.id,w.channel_id,c.name,w.kind,w.created_at,w.revoked_at,COALESCE(p.value,'locked')
