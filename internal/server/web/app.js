@@ -131,6 +131,8 @@ let inboxToastTimer;
 let isAdmin = false;
 let currentUserID = "";
 let latestUnreadCount = 0;
+const sentMessageHoldMilliseconds = 10000;
+const heldSentMessages = new Map();
 
 function updateReadControl() {
   const selected = channelCache.find(channel => channel.name === selectedChannel);
@@ -1141,7 +1143,7 @@ async function loadNotifications(append = false, announce = false) {
 // Renders a single channel message or reply as a timeline entry. Replies are
 // visually indented and carry a reply affordance so the composer can be primed
 // to attach to the threaded parent.
-function messageNode(message, isReply = false) {
+function messageNode(message, isReply = false, heldUntil = 0) {
   const node = element("article", isReply ? "timeline-message timeline-reply" : "timeline-message");
   node.id = `message-${message.id}`;
   const meta = element("div", "meta");
@@ -1170,8 +1172,43 @@ function messageNode(message, isReply = false) {
   });
   meta.append(replyButton, linkButton);
   node.append(meta, richContent("text", message.text));
+  if (heldUntil) {
+    const notice = element("div", "sent-message-hold");
+    const history = element("button", "sent-message-history", "View history");
+    history.type = "button";
+    history.addEventListener("click", async () => {
+      readFilter.value = "";
+      await loadChannelTimeline(false);
+    });
+    notice.append(element("span", "sent-message-hold-copy"), history);
+    notice.dataset.heldUntil = String(heldUntil);
+    node.classList.add("timeline-message-held");
+    node.append(notice);
+  }
   return node;
 }
+
+function updateHeldMessageNotices() {
+  const now = Date.now();
+  let expired = false;
+  for (const [id, held] of heldSentMessages) {
+    if (held.expiresAt <= now) {
+      heldSentMessages.delete(id);
+      expired = true;
+    }
+  }
+  if (expired) {
+    loadedTimelineItems = loadedTimelineItems.filter(item => !item.held_until || item.held_until > now);
+    if (selectedChannel) renderChannelTimeline(loadedTimelineItems);
+  }
+  for (const notice of document.querySelectorAll(".sent-message-hold[data-held-until]")) {
+    const seconds = Math.max(0, Math.ceil((Number(notice.dataset.heldUntil) - now) / 1000));
+    const copy = notice.querySelector(".sent-message-hold-copy");
+    if (copy) copy.textContent = `Sent · Leaving Unread only in ${seconds}s · `;
+  }
+}
+
+setInterval(updateHeldMessageNotices, 250);
 
 function renderChannelTimeline(items) {
   list.replaceChildren();
@@ -1199,16 +1236,16 @@ function renderChannelTimeline(items) {
       if (message.parent_id) {
         if (loadedRoots.has(message.root_id)) {
           const list = repliesByRoot.get(message.root_id) || [];
-          list.push(message);
+          list.push({message, heldUntil: item.held_until || 0});
           repliesByRoot.set(message.root_id, list);
         } else {
           // Keep a reply in chronological position when its root is outside
           // this page. Appending all such replies after the loop made old
           // messages appear newer than every notification in the channel.
-          topLevel.push({type: "reply", value: message});
+          topLevel.push({type: "reply", value: message, heldUntil: item.held_until || 0});
         }
       } else {
-        topLevel.push({type: "message", value: message, root: message.root_id || message.id});
+        topLevel.push({type: "message", value: message, root: message.root_id || message.id, heldUntil: item.held_until || 0});
       }
     }
   }
@@ -1222,14 +1259,14 @@ function renderChannelTimeline(items) {
       continue;
     }
     if (entry.type === "reply") {
-      list.append(messageNode(entry.value, true));
+      list.append(messageNode(entry.value, true, entry.heldUntil));
       continue;
     }
-    list.append(messageNode(entry.value));
+    list.append(messageNode(entry.value, false, entry.heldUntil));
     const replies = repliesByRoot.get(entry.root) || [];
     if (replies.length) {
       const thread = element("div", "thread");
-      for (const reply of replies) thread.append(messageNode(reply, true));
+      for (const reply of replies) thread.append(messageNode(reply.message, true, reply.heldUntil));
       list.append(thread);
     }
   }
@@ -1315,7 +1352,16 @@ async function loadChannelTimeline(append = false) {
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   const data = await response.json();
   timelineNextCursor = data.next_cursor || "";
-  loadedTimelineItems = append ? loadedTimelineItems.concat(data.items || []) : (data.items || []);
+  const responseItems = data.items || [];
+  if (!append && readFilter.value === "1") {
+    const now = Date.now();
+    const responseIDs = new Set(responseItems.map(item => item.id));
+    for (const [id, held] of heldSentMessages) {
+      if (held.channelID !== channel.id || held.expiresAt <= now || responseIDs.has(id)) continue;
+      responseItems.unshift(held.item);
+    }
+  }
+  loadedTimelineItems = append ? loadedTimelineItems.concat(responseItems) : responseItems;
   loadMoreButton.hidden = !timelineNextCursor;
   loadMoreButton.disabled = false;
   renderChannelTimeline(loadedTimelineItems);
@@ -1419,11 +1465,18 @@ composer.addEventListener("submit", async event => {
     composerInput.value = "";
     clearReply();
     if (!isCommand) {
+      const heldUntil = readFilter.value === "1" ? Date.now() + sentMessageHoldMilliseconds : 0;
+      const item = {kind: "message", message: created, id: created.id, created_at: new Date(created.created_at).getTime()};
+      if (heldUntil) {
+        item.held_until = heldUntil;
+        heldSentMessages.set(created.id, {item, channelID: currentChannelID, expiresAt: heldUntil});
+      }
       loadedTimelineItems = [
-        {kind: "message", message: created, id: created.id, created_at: new Date(created.created_at).getTime()},
+        item,
         ...loadedTimelineItems.filter(item => item.id !== created.id),
       ];
       renderChannelTimeline(loadedTimelineItems);
+      updateHeldMessageNotices();
       list.scrollTo({top: list.scrollHeight, behavior: "smooth"});
       await loadChannels();
     } else {
