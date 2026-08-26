@@ -1330,6 +1330,41 @@ function commandAttachment(attachment) {
 
 let loadedTimelineItems = [];
 
+// Rich previews can change the timeline height after the first render as
+// remote images load. Keep a newly opened channel pinned to its newest entry
+// until that initial media settles, but stop immediately if the reader starts
+// navigating the list themselves.
+function anchorInitialTimelineToBottom() {
+  let active = true;
+  let timeout = 0;
+  const stop = () => {
+    if (!active) return;
+    active = false;
+    clearTimeout(timeout);
+    observer?.disconnect();
+    for (const event of ["wheel", "touchstart", "pointerdown", "keydown"]) {
+      list.removeEventListener(event, stop);
+    }
+  };
+  const scroll = () => {
+    if (active) list.scrollTop = list.scrollHeight;
+  };
+  const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(scroll);
+  observer?.observe(list);
+  for (const event of ["wheel", "touchstart", "pointerdown", "keydown"]) {
+    list.addEventListener(event, stop, {once: true});
+  }
+  for (const image of list.querySelectorAll("img")) {
+    if (!image.complete) {
+      image.addEventListener("load", scroll, {once: true});
+      image.addEventListener("error", scroll, {once: true});
+    }
+  }
+  scroll();
+  requestAnimationFrame(scroll);
+  timeout = setTimeout(stop, 10000);
+}
+
 async function loadChannelTimeline(append = false) {
   const channel = channelCache.find(candidate => candidate.name === selectedChannel);
   if (!channel) {
@@ -1371,10 +1406,9 @@ async function loadChannelTimeline(append = false) {
     list.scrollTop += list.scrollHeight - previousHeight;
   } else if (initialLoad) {
     // Open the bounded list at the newest entry. This moves only the timeline,
-    // so the channel sidebar remains visible. Repeat after layout to defeat
-    // WebKit restoring an older inner-scroll offset.
-    list.scrollTop = list.scrollHeight;
-    requestAnimationFrame(() => { list.scrollTop = list.scrollHeight; });
+    // so the channel sidebar remains visible. Keep anchoring briefly while
+    // lazy-loaded rich-preview images establish their final dimensions.
+    anchorInitialTimelineToBottom();
   } else if (wasNearBottom) {
     list.scrollTop = list.scrollHeight;
   }

@@ -2230,7 +2230,7 @@ func TestEmbeddedWebAssets(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				for _, marker := range []string{`"Incident state"`, `["firing", "acknowledged"].includes(value.state)`, `"Archive"`, `"Notification archived"`, `"Allow overrides"`, `"Lock to channel"`, `channelEditButton.addEventListener`, `method: editingChannelID ? "PUT" : "POST"`, `"channel-timeline-view"`, `for (const item of [...items].reverse())`, `list.scrollTop = list.scrollHeight`, `loadedTimelineItems = loadedTimelineItems.filter(item =>`, `syncDesktopAlertVersions(data.notifications || [])`, `composerSubmit.before(readButton)`, `topbarActions.prepend(readButton)`, `notificationAlertPresentation`, `sentMessageHoldMilliseconds = 10000`, `Leaving Unread only in ${seconds}s`, `heldSentMessages.set(created.id`} {
+				for _, marker := range []string{`"Incident state"`, `["firing", "acknowledged"].includes(value.state)`, `"Archive"`, `"Notification archived"`, `"Allow overrides"`, `"Lock to channel"`, `channelEditButton.addEventListener`, `method: editingChannelID ? "PUT" : "POST"`, `"channel-timeline-view"`, `for (const item of [...items].reverse())`, `anchorInitialTimelineToBottom()`, `new ResizeObserver(scroll)`, `image.addEventListener("load", scroll`, `loadedTimelineItems = loadedTimelineItems.filter(item =>`, `syncDesktopAlertVersions(data.notifications || [])`, `composerSubmit.before(readButton)`, `topbarActions.prepend(readButton)`, `notificationAlertPresentation`, `sentMessageHoldMilliseconds = 10000`, `Leaving Unread only in ${seconds}s`, `heldSentMessages.set(created.id`} {
 					if !strings.Contains(string(body), marker) {
 						t.Fatalf("inbox JavaScript does not contain %s", marker)
 					}
