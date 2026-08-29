@@ -774,6 +774,9 @@ function showInboxToast(message, actionLabel, action) {
 }
 
 async function updateInboxState(notification, action) {
+  // Capture this before the request: removing the focused bottom card can
+  // change WebKit's scroll position before the refreshed timeline is rendered.
+  const keepTimelineAtBottom = Boolean(selectedChannel) && isTimelineNearBottom();
   const response = await fetch(`/api/v1/notifications/${encodeURIComponent(notification.id)}/inbox`, {
     method: "POST",
     headers: {"Content-Type":"application/json"},
@@ -786,6 +789,7 @@ async function updateInboxState(notification, action) {
         item.kind !== "notification" || item.notification?.id !== notification.id
       );
       renderChannelTimeline(loadedTimelineItems);
+      if (keepTimelineAtBottom) anchorTimelineToBottom();
     } else {
       loadedNotifications = loadedNotifications.filter(value => value.id !== notification.id);
       render(loadedNotifications);
@@ -800,11 +804,13 @@ async function updateInboxState(notification, action) {
     });
   } else if (action === "read" || action === "unread") {
     notification.unread = action === "unread";
-    await loadNotifications(false);
+    await loadNotifications(false, false, keepTimelineAtBottom);
     showInboxToast(action === "read" ? "Marked as read" : "Marked as unread");
   }
   await loadChannels();
-  if (action === "dismiss" || action === "restore") await loadNotifications(false);
+  if (action === "dismiss" || action === "restore") {
+    await loadNotifications(false, false, keepTimelineAtBottom);
+  }
 }
 
 function inboxButtons(notification) {
@@ -1091,10 +1097,10 @@ function syncDesktopAlertVersions(next) {
   for (const value of next) desktopAlertVersions.set(value.id, value.updated_at);
 }
 
-async function loadNotifications(append = false, announce = false) {
+async function loadNotifications(append = false, announce = false, pinTimelineToBottom = false) {
   if (selectedChannel) {
     try {
-      await loadChannelTimeline(append);
+      await loadChannelTimeline(append, pinTimelineToBottom);
     } catch (error) {
       list.replaceChildren(element("div", "error", `Unable to load timeline: ${error.message}`));
     }
@@ -1331,6 +1337,10 @@ function commandAttachment(attachment) {
 let loadedTimelineItems = [];
 let stopTimelineBottomAnchor = () => {};
 
+function isTimelineNearBottom() {
+  return list.scrollHeight - list.scrollTop - list.clientHeight < 180;
+}
+
 // Rich previews can change the timeline height after the first render as
 // remote images load. Keep a newly opened channel, or one that was already at
 // the bottom when it refreshed, pinned to its newest entry until that media
@@ -1368,7 +1378,7 @@ function anchorTimelineToBottom() {
   timeout = setTimeout(stop, 10000);
 }
 
-async function loadChannelTimeline(append = false) {
+async function loadChannelTimeline(append = false, pinToBottom = false) {
   const channel = channelCache.find(candidate => candidate.name === selectedChannel);
   if (!channel) {
     setViewForChannel("");
@@ -1402,8 +1412,7 @@ async function loadChannelTimeline(append = false) {
   // Measure immediately before replacing the entries. A reader can move while
   // the request is in flight, and that latest position determines whether a
   // refresh should remain pinned.
-  const distanceFromBottom = list.scrollHeight - list.scrollTop - list.clientHeight;
-  const wasNearBottom = distanceFromBottom < 180;
+  const wasNearBottom = pinToBottom || isTimelineNearBottom();
   const previousHeight = list.scrollHeight;
   renderChannelTimeline(loadedTimelineItems);
   if (append) {
