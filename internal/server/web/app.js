@@ -1335,18 +1335,35 @@ function commandAttachment(attachment) {
 }
 
 let loadedTimelineItems = [];
-let stopTimelineBottomAnchor = () => {};
+let stopTimelineScrollAnchor = () => {};
 
 function isTimelineNearBottom() {
   return list.scrollHeight - list.scrollTop - list.clientHeight < 180;
 }
 
-// Rich previews can change the timeline height after the first render as
-// remote images load. Keep a newly opened channel, or one that was already at
-// the bottom when it refreshed, pinned to its newest entry until that media
-// settles. Stop immediately if the reader starts navigating the list.
-function anchorTimelineToBottom() {
-  stopTimelineBottomAnchor();
+function captureTimelineScrollAnchor() {
+  const listTop = list.getBoundingClientRect().top;
+  const entries = list.querySelectorAll('[id^="notification-"], [id^="message-"], [id^="command-"]');
+  for (const entry of entries) {
+    const bounds = entry.getBoundingClientRect();
+    if (bounds.bottom > listTop) return {id: entry.id, offset: bounds.top - listTop};
+  }
+  return null;
+}
+
+function restoreTimelineScrollAnchor(anchor) {
+  if (!anchor) return;
+  const entry = document.getElementById(anchor.id);
+  if (!entry || !list.contains(entry)) return;
+  const offset = entry.getBoundingClientRect().top - list.getBoundingClientRect().top;
+  list.scrollTop += offset - anchor.offset;
+}
+
+// Rich previews can change the timeline height after render as remote images
+// load. Temporarily repeat a requested scroll position while that media
+// settles, but stop immediately if the reader starts navigating the list.
+function maintainTimelineScrollPosition(scroll) {
+  stopTimelineScrollAnchor();
   let active = true;
   let timeout = 0;
   const stop = () => {
@@ -1358,24 +1375,30 @@ function anchorTimelineToBottom() {
       list.removeEventListener(event, stop);
     }
   };
-  stopTimelineBottomAnchor = stop;
-  const scroll = () => {
-    if (active) list.scrollTop = list.scrollHeight;
-  };
-  const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(scroll);
-  observer?.observe(list);
+  stopTimelineScrollAnchor = stop;
+  const restore = () => { if (active) scroll(); };
+  const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(restore);
+  for (const child of list.children) observer?.observe(child);
   for (const event of ["wheel", "touchstart", "pointerdown", "keydown"]) {
     list.addEventListener(event, stop, {once: true});
   }
   for (const image of list.querySelectorAll("img")) {
     if (!image.complete) {
-      image.addEventListener("load", scroll, {once: true});
-      image.addEventListener("error", scroll, {once: true});
+      image.addEventListener("load", restore, {once: true});
+      image.addEventListener("error", restore, {once: true});
     }
   }
-  scroll();
-  requestAnimationFrame(scroll);
+  restore();
+  requestAnimationFrame(restore);
   timeout = setTimeout(stop, 10000);
+}
+
+function anchorTimelineToBottom() {
+  maintainTimelineScrollPosition(() => { list.scrollTop = list.scrollHeight; });
+}
+
+function anchorTimelineToEntry(anchor) {
+  maintainTimelineScrollPosition(() => restoreTimelineScrollAnchor(anchor));
 }
 
 async function loadChannelTimeline(append = false, pinToBottom = false) {
@@ -1413,6 +1436,9 @@ async function loadChannelTimeline(append = false, pinToBottom = false) {
   // the request is in flight, and that latest position determines whether a
   // refresh should remain pinned.
   const wasNearBottom = pinToBottom || isTimelineNearBottom();
+  const scrollAnchor = !append && !initialLoad && !wasNearBottom
+    ? captureTimelineScrollAnchor()
+    : null;
   const previousHeight = list.scrollHeight;
   renderChannelTimeline(loadedTimelineItems);
   if (append) {
@@ -1429,6 +1455,10 @@ async function loadChannelTimeline(append = false, pinToBottom = false) {
     // otherwise increase scrollHeight and leave the reader above the newest
     // entry even though they were at the bottom before the refresh.
     anchorTimelineToBottom();
+  } else if (scrollAnchor) {
+    // Re-rendering replaces every card. Preserve the first visible entry and
+    // its viewport offset so periodic refreshes do not move the reader.
+    anchorTimelineToEntry(scrollAnchor);
   }
 }
 
