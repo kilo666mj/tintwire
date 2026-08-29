@@ -1329,12 +1329,14 @@ function commandAttachment(attachment) {
 }
 
 let loadedTimelineItems = [];
+let stopTimelineBottomAnchor = () => {};
 
 // Rich previews can change the timeline height after the first render as
-// remote images load. Keep a newly opened channel pinned to its newest entry
-// until that initial media settles, but stop immediately if the reader starts
-// navigating the list themselves.
-function anchorInitialTimelineToBottom() {
+// remote images load. Keep a newly opened channel, or one that was already at
+// the bottom when it refreshed, pinned to its newest entry until that media
+// settles. Stop immediately if the reader starts navigating the list.
+function anchorTimelineToBottom() {
+  stopTimelineBottomAnchor();
   let active = true;
   let timeout = 0;
   const stop = () => {
@@ -1346,6 +1348,7 @@ function anchorInitialTimelineToBottom() {
       list.removeEventListener(event, stop);
     }
   };
+  stopTimelineBottomAnchor = stop;
   const scroll = () => {
     if (active) list.scrollTop = list.scrollHeight;
   };
@@ -1380,9 +1383,6 @@ async function loadChannelTimeline(append = false) {
   if (append && timelineNextCursor) parameters.set("before", timelineNextCursor);
   const suffix = parameters.size ? `?${parameters}` : "";
   const initialLoad = !append && loadedTimelineItems.length === 0;
-  const distanceFromBottom = list.scrollHeight - list.scrollTop - list.clientHeight;
-  const wasNearBottom = distanceFromBottom < 180;
-  const previousHeight = list.scrollHeight;
   const response = await fetch(`/api/v1/channels/${encodeURIComponent(channel.id)}/timeline${suffix}`);
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   const data = await response.json();
@@ -1399,6 +1399,12 @@ async function loadChannelTimeline(append = false) {
   loadedTimelineItems = append ? loadedTimelineItems.concat(responseItems) : responseItems;
   loadMoreButton.hidden = !timelineNextCursor;
   loadMoreButton.disabled = false;
+  // Measure immediately before replacing the entries. A reader can move while
+  // the request is in flight, and that latest position determines whether a
+  // refresh should remain pinned.
+  const distanceFromBottom = list.scrollHeight - list.scrollTop - list.clientHeight;
+  const wasNearBottom = distanceFromBottom < 180;
+  const previousHeight = list.scrollHeight;
   renderChannelTimeline(loadedTimelineItems);
   if (append) {
     // Reversing the expanded API page inserts older entries above the current
@@ -1408,9 +1414,12 @@ async function loadChannelTimeline(append = false) {
     // Open the bounded list at the newest entry. This moves only the timeline,
     // so the channel sidebar remains visible. Keep anchoring briefly while
     // lazy-loaded rich-preview images establish their final dimensions.
-    anchorInitialTimelineToBottom();
+    anchorTimelineToBottom();
   } else if (wasNearBottom) {
-    list.scrollTop = list.scrollHeight;
+    // A refresh recreates rich-preview images. Their later load events can
+    // otherwise increase scrollHeight and leave the reader above the newest
+    // entry even though they were at the bottom before the refresh.
+    anchorTimelineToBottom();
   }
 }
 
