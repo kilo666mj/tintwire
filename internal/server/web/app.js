@@ -1029,15 +1029,50 @@ function notificationCardNode(value) {
 
 function mailboxEnabled(inDismissedMode) { return inboxStateEnabled && !inDismissedMode; }
 
+function stableRenderedNode(cache, next, key, value, build) {
+  const signature = JSON.stringify(value);
+  const cached = cache.get(key);
+  const node = cached?.signature === signature ? cached.node : build();
+  next.set(key, {signature, node});
+  return node;
+}
+
+// Keep matching nodes mounted so refreshes do not flash cards, restart their
+// images, or discard focus and transient interaction state.
+function reconcileListChildren(nodes) {
+  for (let index = 0; index < nodes.length; index++) {
+    const node = nodes[index];
+    const current = list.children[index] || null;
+    if (current !== node) list.insertBefore(node, current);
+  }
+  while (list.children.length > nodes.length) list.lastElementChild.remove();
+}
+
+let renderedNotificationNodes = new Map();
+
 function render(values) {
-  list.replaceChildren();
   if (!values.length) {
-    list.append(element("div", "empty", "No notifications yet. Publish a notification to get started."));
+    renderedNotificationNodes = new Map();
+    reconcileListChildren([element("div", "empty", "No notifications yet. Publish a notification to get started.")]);
     return;
   }
   const requestedID = new URLSearchParams(location.search).get("notification");
   if (requestedID) collapsedNotificationIDs.delete(requestedID);
-  for (const value of values) list.append(notificationCardNode(value));
+  const next = new Map();
+  const nodes = values.map(value => {
+    const node = stableRenderedNode(
+      renderedNotificationNodes,
+      next,
+      `notification:${value.id}`,
+      value,
+      () => notificationCardNode(value),
+    );
+    const card = node.matches(".card") ? node : node.querySelector(".card");
+    card?.classList.toggle("card-target", value.id === requestedID);
+    return node;
+  });
+  reconcileListChildren(nodes);
+  renderedNotificationNodes = next;
 
   if (requestedID) {
     const target = document.getElementById(`notification-${requestedID}`);
@@ -1216,13 +1251,15 @@ function updateHeldMessageNotices() {
 
 setInterval(updateHeldMessageNotices, 250);
 
+let renderedTimelineNodes = new Map();
+
 function renderChannelTimeline(items) {
-  list.replaceChildren();
   if (!items.length) {
     const copy = readFilter.value === "1"
       ? "No unread messages or notifications in this channel."
       : "No messages or notifications in this channel yet. Send the first message below.";
-    list.append(element("div", "empty", copy));
+    renderedTimelineNodes = new Map();
+    reconcileListChildren([element("div", "empty", copy)]);
     return;
   }
   const topLevel = [];
@@ -1255,27 +1292,38 @@ function renderChannelTimeline(items) {
       }
     }
   }
+  const next = new Map();
+  const nodes = [];
+  const add = (key, value, build) => {
+    nodes.push(stableRenderedNode(renderedTimelineNodes, next, key, value, build));
+  };
   for (const entry of topLevel) {
     if (entry.type === "notification") {
-      list.append(notificationCardNode(entry.value));
+      add(`notification:${entry.value.id}`, entry.value, () => notificationCardNode(entry.value));
       continue;
     }
     if (entry.type === "command") {
-      list.append(commandNode(entry.value));
+      add(`command:${entry.value.id}`, entry.value, () => commandNode(entry.value));
       continue;
     }
     if (entry.type === "reply") {
-      list.append(messageNode(entry.value, true, entry.heldUntil));
+      add(`reply:${entry.value.id}`, {value: entry.value, heldUntil: entry.heldUntil}, () =>
+        messageNode(entry.value, true, entry.heldUntil));
       continue;
     }
-    list.append(messageNode(entry.value, false, entry.heldUntil));
+    add(`message:${entry.value.id}`, {value: entry.value, heldUntil: entry.heldUntil}, () =>
+      messageNode(entry.value, false, entry.heldUntil));
     const replies = repliesByRoot.get(entry.root) || [];
     if (replies.length) {
-      const thread = element("div", "thread");
-      for (const reply of replies) thread.append(messageNode(reply.message, true, reply.heldUntil));
-      list.append(thread);
+      add(`thread:${entry.root}`, replies, () => {
+        const thread = element("div", "thread");
+        for (const reply of replies) thread.append(messageNode(reply.message, true, reply.heldUntil));
+        return thread;
+      });
     }
   }
+  reconcileListChildren(nodes);
+  renderedTimelineNodes = next;
 }
 
 // Renders a slash-command response as a timeline entry with command attribution
@@ -1366,19 +1414,34 @@ function maintainTimelineScrollPosition(scroll) {
   stopTimelineScrollAnchor();
   let active = true;
   let timeout = 0;
+  let expectedScrollTop = null;
   const stop = () => {
     if (!active) return;
     active = false;
     clearTimeout(timeout);
     observer?.disconnect();
+    list.removeEventListener("scroll", handleScroll);
     for (const event of ["wheel", "touchstart", "pointerdown", "keydown"]) {
       list.removeEventListener(event, stop);
     }
   };
   stopTimelineScrollAnchor = stop;
-  const restore = () => { if (active) scroll(); };
+  const handleScroll = () => {
+    if (!active) return;
+    if (expectedScrollTop !== null && Math.abs(list.scrollTop - expectedScrollTop) < 1) {
+      expectedScrollTop = null;
+      return;
+    }
+    stop();
+  };
+  const restore = () => {
+    if (!active) return;
+    scroll();
+    expectedScrollTop = list.scrollTop;
+  };
   const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(restore);
   for (const child of list.children) observer?.observe(child);
+  list.addEventListener("scroll", handleScroll, {passive: true});
   for (const event of ["wheel", "touchstart", "pointerdown", "keydown"]) {
     list.addEventListener(event, stop, {once: true});
   }
@@ -1428,6 +1491,16 @@ async function loadChannelTimeline(append = false, pinToBottom = false) {
       if (held.channelID !== channel.id || held.expiresAt <= now || responseIDs.has(id)) continue;
       responseItems.unshift(held.item);
     }
+  }
+  // Polling usually returns byte-for-byte equivalent timeline data. Keep the
+  // existing DOM in that case so a no-op refresh cannot disturb scrolling,
+  // focus, selection, or in-progress interaction with a card.
+  const timelineUnchanged = !append && !initialLoad &&
+    JSON.stringify(responseItems) === JSON.stringify(loadedTimelineItems);
+  if (timelineUnchanged) {
+    loadMoreButton.hidden = !timelineNextCursor;
+    loadMoreButton.disabled = false;
+    return;
   }
   loadedTimelineItems = append ? loadedTimelineItems.concat(responseItems) : responseItems;
   loadMoreButton.hidden = !timelineNextCursor;
