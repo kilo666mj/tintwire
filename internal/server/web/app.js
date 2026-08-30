@@ -1700,7 +1700,7 @@ function renderChannelNavigation(channels) {
   const all = channels.reduce((summary, channel) => ({
     name: "", display_name: "All notifications", accent_color: "#67e8f9",
     total_count: summary.total_count + Number(channel.total_count || 0),
-    unread_count: summary.unread_count + Number(channel.unread_count || 0),
+    unread_count: summary.unread_count + (channel.notification_level === "muted" ? 0 : Number(channel.unread_count || 0)),
     firing_count: summary.firing_count + Number(channel.firing_count || 0)
   }), {name: "", display_name: "All notifications", accent_color: "#67e8f9", total_count: 0, unread_count: 0, firing_count: 0});
   const entries = [all, ...channels];
@@ -1766,7 +1766,9 @@ async function loadChannels() {
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
     channelCache = data.channels || [];
-    latestUnreadCount = channelCache.reduce((total, channel) => total + Number(channel.unread_count || 0), 0);
+    latestUnreadCount = channelCache.reduce((total, channel) => (
+      total + (channel.notification_level === "muted" ? 0 : Number(channel.unread_count || 0))
+    ), 0);
     desktopShell?.setUnread(latestUnreadCount);
     if ("setAppBadge" in navigator) {
       if (latestUnreadCount) navigator.setAppBadge(latestUnreadCount).catch(() => {});
@@ -2129,6 +2131,15 @@ async function removeSubscription(subscription) {
   if (!response.ok) throw new Error(`unsubscribe rejected (HTTP ${response.status})`);
 }
 
+async function createPushSubscription() {
+  const subscription = await pushRegistration.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: base64URLBytes(pushConfig.public_key)
+  });
+  await saveSubscription(subscription);
+  return subscription;
+}
+
 function showPushState(enabled, status) {
   alertButton.disabled = false;
   alertButton.textContent = enabled ? "Alerts on" : "Mobile alerts";
@@ -2189,9 +2200,21 @@ async function initializePush() {
     }
     const workerURL = webAssetVersion ? `/sw.js?v=${encodeURIComponent(webAssetVersion)}` : "/sw.js";
     pushRegistration = await navigator.serviceWorker.register(workerURL);
-    const subscription = await pushRegistration.pushManager.getSubscription();
+    let subscription = await pushRegistration.pushManager.getSubscription();
+    let renewed = false;
+    if (!subscription && Notification.permission === "granted") {
+      try {
+        subscription = await createPushSubscription();
+        renewed = true;
+      } catch (error) {
+        alertSetupCopy.textContent = "Tintwire could not renew this device's expired alert subscription automatically. Try enabling alerts again.";
+        showPushState(false, `Alerts need renewal: ${error.message}`);
+        updateInstallUI();
+        return;
+      }
+    }
     if (subscription) {
-      await saveSubscription(subscription);
+      if (!renewed) await saveSubscription(subscription);
       alertSetupCopy.textContent = "This device will receive background alerts and open the matching Tintwire channel when tapped.";
       showPushState(true, "Alerts are enabled on this device.");
     } else if (Notification.permission === "denied") {
@@ -2274,11 +2297,8 @@ async function togglePush() {
       );
       return;
     }
-    const subscription = current || await pushRegistration.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: base64URLBytes(pushConfig.public_key)
-    });
-    await saveSubscription(subscription);
+    if (current) await saveSubscription(current);
+    else await createPushSubscription();
     alertSetupCopy.textContent = "This device will receive background alerts and open the matching Tintwire channel when tapped.";
     showPushState(true, "Alerts are enabled on this device.");
   } catch (error) {

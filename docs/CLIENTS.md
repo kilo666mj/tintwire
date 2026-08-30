@@ -67,7 +67,10 @@ generated once and retained in the same database, so the database must be backed
 up and preserved across upgrades. Firing alerts request high-urgency delivery;
 resolved alerts use the same notification tag and replace their firing alert on
 platforms that support replacement. Permanently expired subscriptions are
-removed automatically.
+removed automatically. If a browser later discards its subscription while
+notification permission remains granted, Tintwire creates and saves a replacement
+the next time the app starts. If the browser requires another user gesture,
+Tintwire leaves the enable control available for a manual retry.
 
 Except for browser-defined localhost exemptions, service workers and Web Push
 require HTTPS. On iPhone and iPad, the in-app setup explains how to add Tintwire
