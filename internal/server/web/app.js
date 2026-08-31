@@ -1668,12 +1668,19 @@ function channelButton(channel) {
   }
   button.append(dot, element("span", "channel-name", channel.display_name));
   const counts = element("span", "channel-counts");
-  if (channel.firing_count) counts.append(element("span", "channel-firing", `${channel.firing_count} firing`));
   if (channel.unread_count) counts.append(element("span", "channel-unread", `${channel.unread_count} unread`));
   else counts.append(element("span", "channel-count", `${channel.total_count} total`));
   button.append(counts);
   button.addEventListener("click", () => selectChannel(channel.name));
   row.append(button);
+  if (channel.firing_count) {
+    const firingButton = element("button", "channel-firing", `${channel.firing_count} firing`);
+    firingButton.type = "button";
+    firingButton.title = `View ${channel.firing_count} firing notifications in ${channel.display_name}`;
+    firingButton.setAttribute("aria-label", firingButton.title);
+    firingButton.addEventListener("click", () => openFiringView(channel.name));
+    row.append(firingButton);
+  }
   if (channel.name && inboxStateEnabled) {
     const muted = channel.notification_level === "muted";
     const muteButton = element("button", "channel-notification-button", muted ? "Muted" : "Mute");
@@ -1754,6 +1761,24 @@ function selectChannel(name) {
   renderChannelNavigation(channelCache);
   updatePrimaryNavigation(name ? "filters" : "");
   setViewForChannel(name);
+  writeFilterURL("pushState");
+  loadNotifications(false);
+  if (channelDialog.open) channelDialog.close();
+  document.querySelector("#inbox").scrollIntoView({block: "start"});
+}
+
+function openFiringView(name) {
+  selectedChannel = name;
+  inboxSearch.value = "";
+  channelFilter.value = name;
+  stateFilter.value = "firing";
+  severityFilter.value = "";
+  readFilter.value = "";
+  timelineNextCursor = "";
+  loadedTimelineItems = [];
+  renderChannelNavigation(channelCache);
+  setViewForChannel(name);
+  updatePrimaryNavigation("filters");
   writeFilterURL("pushState");
   loadNotifications(false);
   if (channelDialog.open) channelDialog.close();
