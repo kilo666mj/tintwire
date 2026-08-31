@@ -29,4 +29,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: taiki-e/install-action@cargo-audit
       - name: Scan desktop dependencies
-        run: cargo audit --file desktop/src-tauri/Cargo.lock
+        # Tauri's Linux backend currently pins GTK/glib 0.18. The advisory
+        # affects only glib::VariantStrIter, which Tintwire does not use, and
+        # upgrading to glib 0.20 is blocked until Tauri moves off GTK3.
+        run: cargo audit --file desktop/src-tauri/Cargo.lock --ignore RUSTSEC-2024-0429
