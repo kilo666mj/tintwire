@@ -240,7 +240,7 @@ func (s *Server) executeSlashCommand(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "command target could not be reached", http.StatusBadGateway)
 		return
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 	body, err := io.ReadAll(io.LimitReader(response.Body, maxActionResponse+1))
 	if err != nil || len(body) > maxActionResponse {
 		http.Error(w, "command response was too large", http.StatusBadGateway)

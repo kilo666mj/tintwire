@@ -88,7 +88,7 @@ func (s *Store) CreateBotNotification(ctx context.Context, bot MattermostBot, ch
 	if err != nil {
 		return Notification{}, err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	now := time.Now().UTC()
 	id, err := newID("ntf_", now)
 	if err != nil {
@@ -143,7 +143,7 @@ func (s *Store) GrantMattermostBotChannel(ctx context.Context, token, teamName, 
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	var userID, botTeam string
 	if err := tx.QueryRowContext(ctx, `SELECT user_id, team_name FROM mattermost_bot_tokens WHERE token_hash=?`, hash[:]).Scan(&userID, &botTeam); errors.Is(err, sql.ErrNoRows) {
 		return ErrInvalidCredentials

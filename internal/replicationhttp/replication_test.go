@@ -18,7 +18,7 @@ func TestSyncPeerPullsContiguousOperations(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer source.Close()
+	defer func() { _ = source.Close() }()
 	if err := source.ConfigureReplication("cluster-test-01", "127.0.0.1"); err != nil {
 		t.Fatal(err)
 	}
@@ -45,7 +45,7 @@ func TestSyncPeerPullsContiguousOperations(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer replica.Close()
+	defer func() { _ = replica.Close() }()
 	if err := replica.ConfigureReplication("cluster-test-01", "node-replica-01"); err != nil {
 		t.Fatal(err)
 	}
@@ -80,7 +80,7 @@ func TestSyncPeerFallsBackToMergedSnapshotAcrossRetainedGap(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer source.Close()
+	defer func() { _ = source.Close() }()
 	if err := source.ConfigureReplication("cluster-test-01", "127.0.0.1"); err != nil {
 		t.Fatal(err)
 	}
@@ -109,7 +109,7 @@ func TestSyncPeerFallsBackToMergedSnapshotAcrossRetainedGap(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer replica.Close()
+	defer func() { _ = replica.Close() }()
 	if err := replica.ConfigureReplication("cluster-test-01", "node-replica-01"); err != nil {
 		t.Fatal(err)
 	}

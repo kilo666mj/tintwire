@@ -27,9 +27,9 @@ func run(args []string, stdout, stderr io.Writer, migrate func(context.Context, 
 		return 2
 	}
 	if err := migrate(context.Background(), *sqlitePath, *postgresDSN); err != nil {
-		fmt.Fprintln(stderr, "migration failed:", err)
+		_, _ = fmt.Fprintln(stderr, "migration failed:", err)
 		return 1
 	}
-	fmt.Fprintln(stdout, "SQLite data migrated and verified successfully")
+	_, _ = fmt.Fprintln(stdout, "SQLite data migrated and verified successfully")
 	return 0
 }

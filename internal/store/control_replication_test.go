@@ -13,7 +13,7 @@ func TestControlSnapshotReplicatesAuthenticationAndPrivateChannelState(t *testin
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer authority.Close()
+	defer func() { _ = authority.Close() }()
 	if err := authority.ConfigureReplication("cluster-test-01", "node-authority-01"); err != nil {
 		t.Fatal(err)
 	}
@@ -52,7 +52,7 @@ func TestControlSnapshotReplicatesAuthenticationAndPrivateChannelState(t *testin
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer replica.Close()
+	defer func() { _ = replica.Close() }()
 	if err := replica.ConfigureReplication("cluster-test-01", "node-replica-01"); err != nil {
 		t.Fatal(err)
 	}
@@ -85,7 +85,7 @@ func TestControlSnapshotRejectsWrongAuthorityAndDigest(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer authority.Close()
+	defer func() { _ = authority.Close() }()
 	if err := authority.ConfigureReplication("cluster-test-01", "node-authority-01"); err != nil {
 		t.Fatal(err)
 	}
@@ -100,7 +100,7 @@ func TestControlSnapshotRejectsWrongAuthorityAndDigest(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer replica.Close()
+	defer func() { _ = replica.Close() }()
 	if err := replica.ConfigureReplication("cluster-test-01", "node-replica-01"); err != nil {
 		t.Fatal(err)
 	}
@@ -125,7 +125,7 @@ func TestControlSnapshotAcceptsLegacyWebhookRows(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer authority.Close()
+	defer func() { _ = authority.Close() }()
 	if err := authority.ConfigureReplication("cluster-test-01", "node-authority-01"); err != nil {
 		t.Fatal(err)
 	}
@@ -163,7 +163,7 @@ func TestControlSnapshotAcceptsLegacyWebhookRows(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer replica.Close()
+	defer func() { _ = replica.Close() }()
 	if err := replica.ConfigureReplication("cluster-test-01", "node-replica-01"); err != nil {
 		t.Fatal(err)
 	}

@@ -36,7 +36,7 @@ func TestChannelSlashCommandTimelineAndVisibility(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	ctx := context.Background()
 	if err := db.BootstrapUser(ctx, "admin", "secure admin password"); err != nil {
 		t.Fatal(err)
@@ -202,7 +202,7 @@ func TestChannelSlashCommandInChannelSharedVisibility(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	ctx := context.Background()
 	if err := db.BootstrapUser(ctx, "admin", "secure admin password"); err != nil {
 		t.Fatal(err)
@@ -328,7 +328,7 @@ func TestChannelCommandOutputSanitization(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	ctx := context.Background()
 	if err := db.BootstrapUser(ctx, "admin", "secure admin password"); err != nil {
 		t.Fatal(err)
@@ -397,7 +397,7 @@ func TestChannelCommandRejectsSlashTextAndChannelAccess(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	ctx := context.Background()
 	if err := db.BootstrapUser(ctx, "admin", "secure admin password"); err != nil {
 		t.Fatal(err)

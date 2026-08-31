@@ -14,7 +14,7 @@ func TestStaleAgentToolReservationCanRecover(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer data.Close()
+	defer func() { _ = data.Close() }()
 	owner, err := data.CreateUser(ctx, "owner", "a sufficiently long password", true)
 	if err != nil {
 		t.Fatal(err)
@@ -38,7 +38,7 @@ func TestStaleActionReservationCanRecover(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer data.Close()
+	defer func() { _ = data.Close() }()
 	if err := data.BootstrapWebhook(ctx, "action-hook", "actions"); err != nil {
 		t.Fatal(err)
 	}

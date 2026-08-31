@@ -14,7 +14,7 @@ func TestReplicationShadowLogIsAtomicAndOrdered(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer data.Close()
+	defer func() { _ = data.Close() }()
 	if err := data.ConfigureReplication("cluster-test-01", "node-test-01"); err != nil {
 		t.Fatal(err)
 	}
@@ -66,7 +66,7 @@ func TestReplicationReplayEquivalentIdempotentAndContiguous(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer source.Close()
+	defer func() { _ = source.Close() }()
 	if err := source.ConfigureReplication("cluster-test-01", "node-source-01"); err != nil {
 		t.Fatal(err)
 	}
@@ -88,7 +88,7 @@ func TestReplicationReplayEquivalentIdempotentAndContiguous(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer replica.Close()
+	defer func() { _ = replica.Close() }()
 	if err := replica.ConfigureReplication("cluster-test-01", "node-replica-01"); err != nil {
 		t.Fatal(err)
 	}
@@ -124,7 +124,7 @@ func TestReplicationIdentityRequiresBothValidIDs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer data.Close()
+	defer func() { _ = data.Close() }()
 	for _, identity := range [][2]string{{"cluster-test-01", ""}, {"short", "node-test-01"}, {"cluster test", "node-test-01"}} {
 		if err := data.ConfigureReplication(identity[0], identity[1]); err == nil {
 			t.Fatalf("accepted identity %#v", identity)
@@ -141,12 +141,12 @@ func TestExternalKeyConvergesAcrossWriters(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer first.Close()
+	defer func() { _ = first.Close() }()
 	second, err := Open(filepath.Join(t.TempDir(), "second.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer second.Close()
+	defer func() { _ = second.Close() }()
 	if err := first.ConfigureReplication("cluster-test-01", "node-first-01"); err != nil {
 		t.Fatal(err)
 	}

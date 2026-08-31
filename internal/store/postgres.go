@@ -19,16 +19,16 @@ func OpenPostgres(dsn string) (*Store, error) {
 	db.SetMaxOpenConns(20)
 	db.SetMaxIdleConns(5)
 	if err := db.Ping(); err != nil {
-		db.Close()
+		_ = db.Close()
 		return nil, fmt.Errorf("connect PostgreSQL database: %w", err)
 	}
 	if _, err := db.Exec(postgresSchema); err != nil {
-		db.Close()
+		_ = db.Close()
 		return nil, fmt.Errorf("initialize PostgreSQL database: %w", err)
 	}
 	var version int
 	if err := db.QueryRow(`SELECT version FROM schema_version WHERE singleton=1`).Scan(&version); err != nil {
-		db.Close()
+		_ = db.Close()
 		return nil, fmt.Errorf("read PostgreSQL schema version: %w", err)
 	}
 	if version == 24 {
@@ -36,7 +36,7 @@ func OpenPostgres(dsn string) (*Store, error) {
 CREATE TABLE IF NOT EXISTS admin_audit_events (id TEXT PRIMARY KEY, actor_user_id TEXT REFERENCES users(id) ON DELETE SET NULL, target_user_id TEXT REFERENCES users(id) ON DELETE SET NULL, action TEXT NOT NULL, detail TEXT NOT NULL DEFAULT '', created_at BIGINT NOT NULL);
 CREATE INDEX IF NOT EXISTS admin_audit_events_created_idx ON admin_audit_events(created_at DESC,id DESC);
 UPDATE schema_version SET version=25 WHERE singleton=1`); err != nil {
-			db.Close()
+			_ = db.Close()
 			return nil, fmt.Errorf("migrate PostgreSQL schema to version 25: %w", err)
 		}
 		version = 25
@@ -53,13 +53,13 @@ CREATE INDEX IF NOT EXISTS channel_messages_channel_idx ON channel_messages(chan
 CREATE INDEX IF NOT EXISTS channel_messages_root_idx ON channel_messages(root_id,created_at,id);
 CREATE UNIQUE INDEX IF NOT EXISTS channel_messages_idempotency_idx ON channel_messages(channel_id,author_user_id,idempotency_key) WHERE idempotency_key <> '';
 UPDATE schema_version SET version=26 WHERE singleton=1`); err != nil {
-			db.Close()
+			_ = db.Close()
 			return nil, fmt.Errorf("migrate PostgreSQL schema to version 26: %w", err)
 		}
 		version = 26
 	}
 	if version != postgresSchemaVersion {
-		db.Close()
+		_ = db.Close()
 		return nil, fmt.Errorf("unsupported PostgreSQL schema version %d", version)
 	}
 	return &Store{db: db, postgres: true}, nil

@@ -96,8 +96,7 @@ func Open(config Config, data *store.Store) (*Node, error) {
 			Suffrage: raft.Voter,
 		}}})
 		if err := future.Error(); err != nil && !errors.Is(err, raft.ErrCantBootstrap) {
-			node.Close()
-			return nil, err
+			return nil, errors.Join(err, node.Close())
 		}
 	}
 	go node.reconcileLoop()
@@ -236,7 +235,7 @@ func (n *Node) Mutate(ctx context.Context, mutation func(*store.Store) (any, err
 	if err != nil {
 		return nil, err
 	}
-	defer os.RemoveAll(directory)
+	defer func() { _ = os.RemoveAll(directory) }()
 	stagedPath := filepath.Join(directory, "control.db")
 	if err := n.data.Backup(ctx, stagedPath); err != nil {
 		return nil, err
@@ -245,7 +244,7 @@ func (n *Node) Mutate(ctx context.Context, mutation func(*store.Store) (any, err
 	if err != nil {
 		return nil, err
 	}
-	defer staged.Close()
+	defer func() { _ = staged.Close() }()
 	status, err := n.data.ReplicationStatus(ctx)
 	if err != nil {
 		return nil, err

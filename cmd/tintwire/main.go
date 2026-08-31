@@ -76,7 +76,7 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	if err := db.ConfigureReplication(*clusterID, *nodeID); err != nil {
 		return fmt.Errorf("configure replication identity: %w", err)
 	}
@@ -108,7 +108,7 @@ func run() error {
 		if err != nil {
 			return fmt.Errorf("initialize control Raft: %w", err)
 		}
-		defer consensus.Close()
+		defer func() { _ = consensus.Close() }()
 	}
 
 	var serverConsensus server.ControlConsensus

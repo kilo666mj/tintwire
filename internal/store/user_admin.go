@@ -36,7 +36,7 @@ FROM users u ORDER BY u.username COLLATE NOCASE`, localInboxUserID, time.Now().U
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	users := make([]ManagedUser, 0)
 	for rows.Next() {
 		var user ManagedUser
@@ -65,8 +65,7 @@ FROM users u ORDER BY u.username COLLATE NOCASE`, localInboxUserID, time.Now().U
 		for membershipRows.Next() {
 			var membership ManagedMembership
 			if err := membershipRows.Scan(&membership.ChannelID, &membership.ChannelName, &membership.Role); err != nil {
-				membershipRows.Close()
-				return nil, err
+				return nil, errors.Join(err, membershipRows.Close())
 			}
 			users[i].Memberships = append(users[i].Memberships, membership)
 		}
@@ -82,7 +81,7 @@ func (s *Store) SetManagedUserAdmin(ctx context.Context, actorID, userID string,
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	protected, currentAdmin, disabled, err := managedUserState(ctx, tx, userID)
 	if err != nil {
 		return err
@@ -123,7 +122,7 @@ func (s *Store) SetManagedUserDisabled(ctx context.Context, actorID, userID stri
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	protected, admin, currentlyDisabled, err := managedUserState(ctx, tx, userID)
 	if err != nil {
 		return err
@@ -165,7 +164,7 @@ func (s *Store) RevokeManagedUserSessions(ctx context.Context, actorID, userID s
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	protected, _, _, err := managedUserState(ctx, tx, userID)
 	if err != nil {
 		return err
@@ -205,7 +204,7 @@ func (s *Store) ResetManagedUserPassword(ctx context.Context, actorID, userID, p
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	if _, err := tx.ExecContext(ctx, `UPDATE users SET password_hash=? WHERE id=?`, hash, userID); err != nil {
 		return err
 	}
@@ -223,7 +222,7 @@ func (s *Store) RemoveChannelMember(ctx context.Context, actorID, channelID, use
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	if _, err := tx.ExecContext(ctx, `DELETE FROM channel_memberships WHERE channel_id=? AND user_id=?`, channelID, userID); err != nil {
 		return err
 	}
@@ -241,7 +240,7 @@ func (s *Store) SetChannelMemberByID(ctx context.Context, actorID, channelID, us
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	result, err := tx.ExecContext(ctx, `INSERT INTO channel_memberships(user_id,channel_id,role,created_at) SELECT u.id,c.id,?,? FROM users u CROSS JOIN channels c WHERE u.id=? AND c.id=? ON CONFLICT(user_id,channel_id) DO UPDATE SET role=excluded.role`, role, time.Now().UTC().UnixMilli(), userID, channelID)
 	if err != nil {
 		return err

@@ -43,7 +43,7 @@ func TestMigrateSQLiteToPostgres(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer destination.Close()
+	defer func() { _ = destination.Close() }()
 	assertMigrationSchemaParity(t, ctx, sourceSchema(t, ctx, path), destination)
 	listed, err := destination.QueryNotifications(ctx, NotificationQuery{ID: created.ID, Limit: 1})
 	if err != nil {
@@ -60,12 +60,12 @@ func sourceSchema(t *testing.T, ctx context.Context, path string) map[string][]s
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer source.Close()
+	defer func() { _ = source.Close() }()
 	rows, err := source.db.QueryContext(ctx, `SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'`)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	tables := map[string][]string{}
 	for rows.Next() {
 		var name string
@@ -98,7 +98,7 @@ func assertMigrationSchemaParity(t *testing.T, ctx context.Context, sqliteTables
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	postgresTables := map[string][]string{}
 	for rows.Next() {
 		var table, column string

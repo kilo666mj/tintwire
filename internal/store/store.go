@@ -302,11 +302,11 @@ CREATE TABLE IF NOT EXISTS notifications (
 CREATE INDEX IF NOT EXISTS notifications_created_at_idx
     ON notifications(created_at DESC, id DESC);
 `); err != nil {
-		db.Close()
+		_ = db.Close()
 		return nil, fmt.Errorf("initialize database: %w", err)
 	}
 	if err := migrate(db); err != nil {
-		db.Close()
+		_ = db.Close()
 		return nil, fmt.Errorf("migrate database: %w", err)
 	}
 
@@ -359,7 +359,7 @@ CREATE INDEX notification_events_notification_idx
 
 PRAGMA user_version = 1;
 `); err != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 			return err
 		}
 		if err := tx.Commit(); err != nil {
@@ -387,7 +387,7 @@ CREATE TABLE push_subscriptions (
 
 PRAGMA user_version = 2;
 `); err != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 			return err
 		}
 		if err := tx.Commit(); err != nil {
@@ -404,7 +404,7 @@ PRAGMA user_version = 2;
 ALTER TABLE notifications ADD COLUMN card_json BLOB NOT NULL DEFAULT X'';
 PRAGMA user_version = 3;
 `); err != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 			return err
 		}
 		if err := tx.Commit(); err != nil {
@@ -433,7 +433,7 @@ CREATE TABLE sessions (
 CREATE INDEX sessions_expiry_idx ON sessions(expires_at);
 PRAGMA user_version = 4;
 `); err != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 			return err
 		}
 		if err := tx.Commit(); err != nil {
@@ -451,7 +451,7 @@ ALTER TABLE push_subscriptions ADD COLUMN user_id TEXT REFERENCES users(id) ON D
 CREATE INDEX push_subscriptions_user_idx ON push_subscriptions(user_id);
 PRAGMA user_version = 5;
 `); err != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 			return err
 		}
 		if err := tx.Commit(); err != nil {
@@ -473,7 +473,7 @@ CREATE TABLE channel_read_state (
 );
 PRAGMA user_version = 6;
 `); err != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 			return err
 		}
 		if err := tx.Commit(); err != nil {
@@ -493,7 +493,7 @@ ALTER TABLE channels ADD COLUMN accent_color TEXT NOT NULL DEFAULT '';
 UPDATE channels SET display_name = name WHERE display_name = '';
 PRAGMA user_version = 7;
 `); err != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 			return err
 		}
 		if err := tx.Commit(); err != nil {
@@ -518,7 +518,7 @@ CREATE TABLE channel_memberships (
 );
 PRAGMA user_version = 8;
 `); err != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 			return err
 		}
 		if err := tx.Commit(); err != nil {
@@ -535,7 +535,7 @@ PRAGMA user_version = 8;
 ALTER TABLE notification_events ADD COLUMN actor_user_id TEXT REFERENCES users(id) ON DELETE SET NULL;
 PRAGMA user_version = 9;
 `); err != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 			return err
 		}
 		if err := tx.Commit(); err != nil {
@@ -569,7 +569,7 @@ CREATE TABLE action_executions (
 );
 PRAGMA user_version = 10;
 `); err != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 			return err
 		}
 		if err := tx.Commit(); err != nil {
@@ -609,7 +609,7 @@ CREATE TABLE mattermost_posts (
 CREATE INDEX mattermost_posts_channel_time_idx ON mattermost_posts(channel_id,created_at,id);
 PRAGMA user_version = 11;
 `); err != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 			return err
 		}
 		if err := tx.Commit(); err != nil {
@@ -632,7 +632,7 @@ CREATE TABLE mattermost_reactions (
 );
 PRAGMA user_version = 12;
 `); err != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 			return err
 		}
 		if err := tx.Commit(); err != nil {
@@ -669,7 +669,7 @@ CREATE TABLE slash_command_responses (
 CREATE INDEX slash_command_responses_execution_idx ON slash_command_responses(execution_id,created_at,id);
 PRAGMA user_version = 13;
 `); err != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 			return err
 		}
 		if err := tx.Commit(); err != nil {
@@ -696,7 +696,7 @@ INSERT OR IGNORE INTO users(id,username,password_hash,created_at,is_admin)
 VALUES('usr_tintwire_local_inbox','tintwire-local-inbox',X'',0,1);
 PRAGMA user_version = 14;
 `); err != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 			return err
 		}
 		if err := tx.Commit(); err != nil {
@@ -752,7 +752,7 @@ ALTER TABLE notifications ADD COLUMN agent_id TEXT REFERENCES agents(id);
 ALTER TABLE notifications ADD COLUMN agent_run_id TEXT REFERENCES agent_runs(id);
 PRAGMA user_version = 15;
 `); err != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 			return err
 		}
 		if err := tx.Commit(); err != nil {
@@ -777,7 +777,7 @@ CREATE TABLE agent_tool_invocations (
 );
 PRAGMA user_version = 16;
 `); err != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 			return err
 		}
 		if err := tx.Commit(); err != nil {
@@ -799,7 +799,7 @@ CREATE TABLE channel_notification_preferences (
 );
 PRAGMA user_version = 17;
 `); err != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 			return err
 		}
 		if err := tx.Commit(); err != nil {
@@ -816,7 +816,7 @@ ALTER TABLE agents ADD COLUMN oauth_subject TEXT;
 CREATE UNIQUE INDEX agents_oauth_subject_idx ON agents(oauth_subject) WHERE oauth_subject IS NOT NULL;
 PRAGMA user_version = 18;
 `); err != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 			return err
 		}
 		if err := tx.Commit(); err != nil {
@@ -846,7 +846,7 @@ CREATE TABLE replication_operations (
 CREATE INDEX replication_operations_created_idx ON replication_operations(created_at, origin, sequence);
 PRAGMA user_version = 19;
 `); err != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 			return err
 		}
 		if err := tx.Commit(); err != nil {
@@ -867,7 +867,7 @@ CREATE TABLE replication_quarantine (
 );
 PRAGMA user_version = 20;
 `); err != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 			return err
 		}
 		if err := tx.Commit(); err != nil {
@@ -890,7 +890,7 @@ CREATE TABLE replication_peer_status (
 );
 PRAGMA user_version = 21;
 `); err != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 			return err
 		}
 		if err := tx.Commit(); err != nil {
@@ -911,7 +911,7 @@ CREATE TABLE replication_snapshot_status (
 );
 PRAGMA user_version = 22;
 `); err != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 			return err
 		}
 		if err := tx.Commit(); err != nil {
@@ -935,7 +935,7 @@ CREATE TABLE oidc_login_states (
 CREATE INDEX oidc_login_states_expiry_idx ON oidc_login_states(expires_at);
 PRAGMA user_version = 23;
 `); err != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 			return err
 		}
 		if err := tx.Commit(); err != nil {
@@ -951,7 +951,7 @@ PRAGMA user_version = 23;
 ALTER TABLE webhooks ADD COLUMN revoked_at INTEGER;
 PRAGMA user_version = 24;
 `); err != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 			return err
 		}
 		if err := tx.Commit(); err != nil {
@@ -976,7 +976,7 @@ CREATE TABLE admin_audit_events (
 CREATE INDEX admin_audit_events_created_idx ON admin_audit_events(created_at DESC,id DESC);
 PRAGMA user_version = 25;
 `); err != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 			return err
 		}
 		if err := tx.Commit(); err != nil {
@@ -1006,7 +1006,7 @@ CREATE INDEX channel_messages_root_idx ON channel_messages(root_id, created_at, 
 CREATE UNIQUE INDEX channel_messages_idempotency_idx ON channel_messages(channel_id, author_user_id, idempotency_key) WHERE idempotency_key <> '';
 PRAGMA user_version = 26;
 `); err != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 			return err
 		}
 		if err := tx.Commit(); err != nil {
@@ -1100,7 +1100,7 @@ func (s *Store) ConsumeOIDCLoginState(ctx context.Context, state string) (OIDCLo
 	if err != nil {
 		return OIDCLoginState{}, err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	var result OIDCLoginState
 	err = tx.QueryRowContext(ctx, `SELECT verifier,nonce FROM oidc_login_states WHERE state_hash=? AND expires_at>?`, hash[:], time.Now().UTC().UnixMilli()).Scan(&result.Verifier, &result.Nonce)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -1293,7 +1293,7 @@ func (s *Store) RotateSession(ctx context.Context, token string, lifetime time.D
 	if err != nil {
 		return "", time.Time{}, err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	var userID string
 	if err := tx.QueryRowContext(ctx, `SELECT user_id FROM sessions WHERE token_hash = ? AND expires_at > ?`, oldHash[:], now.UnixMilli()).Scan(&userID); errors.Is(err, sql.ErrNoRows) {
 		return "", time.Time{}, ErrInvalidCredentials
@@ -1323,7 +1323,7 @@ func (s *Store) CheckWritable(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	if _, err := tx.ExecContext(ctx, `INSERT INTO app_settings(key,value) VALUES ('readiness_probe','1') ON CONFLICT(key) DO UPDATE SET value=excluded.value`); err != nil {
 		return err
 	}
@@ -1338,7 +1338,7 @@ func (s *Store) BootstrapWebhook(ctx context.Context, token, channelName string)
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	var channelID string
 	err = tx.QueryRowContext(ctx, `SELECT id FROM channels WHERE name = ?`, channelName).Scan(&channelID)
@@ -1410,7 +1410,7 @@ func (s *Store) CreateChannel(ctx context.Context, input CreateChannelInput) (Ch
 	if err != nil {
 		return ChannelSummary{}, "", err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	_, err = tx.ExecContext(ctx, `INSERT INTO channels(id, name, display_name, description, accent_color, visibility, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`, channelID, input.Name, input.DisplayName, input.Description, input.AccentColor, input.Visibility, now.UnixMilli())
 	if err != nil {
 		return ChannelSummary{}, "", err
@@ -1473,7 +1473,7 @@ func (s *Store) CreateWebhook(ctx context.Context, channelID string, channelLock
 	if err != nil {
 		return Webhook{}, "", err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	if _, err := tx.ExecContext(ctx, `INSERT INTO webhooks(id,token_hash,channel_id,created_at,kind) VALUES(?,?,?,?,'incoming')`, id, hash[:], channelID, now.UnixMilli()); err != nil {
 		return Webhook{}, "", err
 	}
@@ -1495,7 +1495,7 @@ func (s *Store) DuplicateWebhook(ctx context.Context, id string) (Webhook, strin
 	if err != nil {
 		return Webhook{}, "", err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	var channelID, channelName string
 	var oldHash []byte
@@ -1544,7 +1544,7 @@ ORDER BY w.created_at DESC,w.id DESC`)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	result := make([]Webhook, 0)
 	for rows.Next() {
 		var item Webhook
@@ -1570,7 +1570,7 @@ func (s *Store) SetWebhookChannelLocked(ctx context.Context, id string, channelL
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	var tokenHash []byte
 	err = tx.QueryRowContext(ctx, `SELECT token_hash FROM webhooks WHERE id=? AND kind='incoming' AND revoked_at IS NULL`, id).Scan(&tokenHash)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -1609,7 +1609,7 @@ func (s *Store) ImportWebhooks(ctx context.Context, imports []WebhookImport, app
 	if err != nil {
 		return WebhookImportResult{}, err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	result := WebhookImportResult{}
 	seen := make(map[[32]byte]struct{}, len(imports))
 	for _, item := range imports {
@@ -1686,7 +1686,7 @@ func (s *Store) ImportMattermostBot(ctx context.Context, token, username, teamNa
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	var userID, channelID string
 	if err := tx.QueryRowContext(ctx, `SELECT id FROM users WHERE username=?`, username).Scan(&userID); errors.Is(err, sql.ErrNoRows) {
 		return fmt.Errorf("%w: bot user does not exist", ErrImportConflict)
@@ -1776,7 +1776,7 @@ func (s *Store) RecordMattermostPost(ctx context.Context, bot MattermostBot, cha
 		if err != nil {
 			return MattermostPost{}, err
 		}
-		defer tx.Rollback()
+		defer func() { _ = tx.Rollback() }()
 		var rootNotification, state string
 		if err := tx.QueryRowContext(ctx, `SELECT notification_id FROM mattermost_posts WHERE id=? AND channel_id=?`, rootID, channelID).Scan(&rootNotification); errors.Is(err, sql.ErrNoRows) {
 			return MattermostPost{}, ErrNotificationNotFound
@@ -1820,7 +1820,7 @@ func (s *Store) ListMattermostPosts(ctx context.Context, channelID string, since
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	posts := make([]MattermostPost, 0)
 	for rows.Next() {
 		var post MattermostPost
@@ -1836,7 +1836,7 @@ func (s *Store) ListMattermostPosts(ctx context.Context, channelID string, since
 	if err != nil {
 		return nil, err
 	}
-	defer nativeRows.Close()
+	defer func() { _ = nativeRows.Close() }()
 	for nativeRows.Next() {
 		var post MattermostPost
 		if err := nativeRows.Scan(&post.ID, &post.ChannelID, &post.UserID, &post.Message, &post.RootID, &post.CreateAt); err != nil {
@@ -1865,7 +1865,7 @@ func (s *Store) RecordMattermostApproval(ctx context.Context, notificationID str
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	var postID, channelID, state string
 	if err := tx.QueryRowContext(ctx, `SELECT mp.id,mp.channel_id,n.state FROM mattermost_posts mp JOIN notifications n ON n.id=mp.notification_id WHERE mp.notification_id=? AND mp.root_id=''`, notificationID).Scan(&postID, &channelID, &state); errors.Is(err, sql.ErrNoRows) {
 		return ErrNotificationNotFound
@@ -1918,7 +1918,7 @@ func (s *Store) ListMattermostReactions(ctx context.Context, postID, channelID s
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	result := make([]MattermostReaction, 0)
 	for rows.Next() {
 		var reaction MattermostReaction
@@ -1953,7 +1953,7 @@ func (s *Store) CreateFromWebhook(ctx context.Context, token string, input Incom
 	if err != nil {
 		return Notification{}, err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	tokenHash := sha256.Sum256([]byte(token))
 	var webhookID, channelID, channelName string
@@ -2112,7 +2112,7 @@ ORDER BY e.created_at, e.id`, notificationID)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	events := make([]NotificationEvent, 0)
 	for rows.Next() {
@@ -2161,7 +2161,7 @@ func (s *Store) SetNotificationState(ctx context.Context, notificationID string,
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	var currentState, channelID string
 	var updatedAt int64
 	err = tx.QueryRowContext(ctx, `SELECT state, channel_id, updated_at FROM notifications WHERE id = ?`, notificationID).Scan(&currentState, &channelID, &updatedAt)
@@ -2295,7 +2295,7 @@ WHERE 1 = 1`
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	notifications := make([]Notification, 0)
 	for rows.Next() {
@@ -2350,7 +2350,7 @@ func (s *Store) MarkAllRead(ctx context.Context, userID string, readAt time.Time
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	if _, err := tx.ExecContext(ctx, `
 INSERT INTO channel_read_state(user_id, channel_id, read_at)
 SELECT ?, id, MAX(?, COALESCE((SELECT MAX(updated_at) FROM notifications WHERE channel_id=channels.id), 0), COALESCE((SELECT MAX(created_at) FROM channel_messages WHERE channel_id=channels.id AND deleted_at IS NULL), 0), COALESCE((SELECT MAX(r.created_at) FROM slash_command_responses r JOIN slash_command_executions e ON e.id=r.execution_id WHERE e.channel_id=channels.id AND r.response_type='in_channel'), 0)) FROM channels WHERE true
@@ -2371,7 +2371,7 @@ func (s *Store) MarkChannelRead(ctx context.Context, user User, channelID string
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	result, err := tx.ExecContext(ctx, `
 INSERT INTO channel_read_state(user_id, channel_id, read_at)
 SELECT ?, c.id, MAX(?, COALESCE((SELECT MAX(updated_at) FROM notifications WHERE channel_id=c.id), 0), COALESCE((SELECT MAX(created_at) FROM channel_messages WHERE channel_id=c.id AND deleted_at IS NULL), 0), COALESCE((SELECT MAX(r.created_at) FROM slash_command_responses r JOIN slash_command_executions e ON e.id=r.execution_id WHERE e.channel_id=c.id AND r.response_type='in_channel'), 0))
@@ -2492,7 +2492,7 @@ WHERE 1 = 1`
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	channels := make([]ChannelSummary, 0)
 	for rows.Next() {
 		var channel ChannelSummary
@@ -2548,7 +2548,7 @@ func (s *Store) SaveSettings(ctx context.Context, values map[string]string) erro
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	for key, value := range values {
 		if _, err := tx.ExecContext(ctx, `
 INSERT INTO app_settings(key, value) VALUES (?, ?)
@@ -2610,7 +2610,7 @@ ORDER BY created_at`)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	result := make([]PushSubscription, 0)
 	for rows.Next() {
 		var subscription PushSubscription
@@ -2645,7 +2645,7 @@ ORDER BY ps.created_at`, includeAnonymous, notificationID)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	result := make([]PushSubscription, 0)
 	for rows.Next() {
 		var subscription PushSubscription
@@ -2679,7 +2679,7 @@ ORDER BY ps.created_at`, messageID)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	result := make([]PushSubscription, 0)
 	for rows.Next() {
 		var subscription PushSubscription
@@ -2714,7 +2714,7 @@ ORDER BY ps.created_at`, responseID)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	result := make([]PushSubscription, 0)
 	for rows.Next() {
 		var subscription PushSubscription
@@ -2869,7 +2869,7 @@ func (s *Store) ImportSlashCommands(ctx context.Context, commands []SlashCommand
 	if err != nil {
 		return 0, 0, err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	seen := map[string]bool{}
 	for _, command := range commands {
 		key := command.Team + "\x00" + command.Trigger
@@ -2917,7 +2917,7 @@ func (s *Store) SlashCommands(ctx context.Context, team string, actor User) ([]S
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	var result []SlashCommand
 	for rows.Next() {
 		var command SlashCommand
@@ -2982,7 +2982,7 @@ func (s *Store) UseSlashResponseToken(ctx context.Context, tokenHash string) (Sl
 	if err != nil {
 		return SlashCommandExecution{}, err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	var execution SlashCommandExecution
 	var expiry int64
 	var count int
@@ -3009,7 +3009,7 @@ func (s *Store) SlashCommandResponses(ctx context.Context, executionID string, a
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	var result []SlashCommandResponse
 	for rows.Next() {
 		var value SlashCommandResponse
@@ -3049,7 +3049,7 @@ func (s *Store) CompleteActionExecution(ctx context.Context, key, status, respon
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	var notificationID string
 	var actionIndex int
 	if err := tx.QueryRowContext(ctx, `SELECT notification_id,action_index FROM action_executions WHERE operation_key=?`, key).Scan(&notificationID, &actionIndex); err != nil {
@@ -3099,7 +3099,7 @@ ORDER BY CASE WHEN e.status='succeeded' THEN 0 ELSE 1 END,e.completed_at DESC`, 
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	for rows.Next() {
 		var notificationID, status, responseText, actor string
 		var combinedIndex int

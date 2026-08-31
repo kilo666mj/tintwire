@@ -15,7 +15,7 @@ func TestManagedWebhookLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	channel, _, err := db.CreateChannel(ctx, CreateChannelInput{Name: "alerts", DisplayName: "Alerts", Visibility: "public"})
 	if err != nil {
 		t.Fatal(err)
@@ -122,7 +122,7 @@ func TestRecurringResolvedNotificationBecomesVisibleAndUnreadAgain(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	if err := db.BootstrapWebhook(ctx, "hook", "alerts"); err != nil {
 		t.Fatal(err)
 	}

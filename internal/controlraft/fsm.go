@@ -73,7 +73,7 @@ func (f *FSM) Snapshot() (raft.FSMSnapshot, error) {
 }
 
 func (f *FSM) Restore(reader io.ReadCloser) error {
-	defer reader.Close()
+	defer func() { _ = reader.Close() }()
 	var cmd command
 	if err := json.NewDecoder(reader).Decode(&cmd); err != nil {
 		return err

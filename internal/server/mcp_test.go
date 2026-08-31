@@ -89,7 +89,7 @@ func mcpFixture(t *testing.T, admin bool) (http.Handler, *store.Store, *mcpClien
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { db.Close() })
+	t.Cleanup(func() { _ = db.Close() })
 	ctx := context.Background()
 	owner, err := db.CreateUser(ctx, "admin", "secure admin password", true)
 	if err != nil {

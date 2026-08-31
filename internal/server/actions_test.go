@@ -72,7 +72,7 @@ func TestActionServiceUsesReplicatedSettingKey(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	ctx := context.Background()
 
 	settingKey := base64.StdEncoding.EncodeToString(make([]byte, 32))
@@ -102,7 +102,7 @@ func TestActionServiceStoresMissingSettingKey(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	ctx := context.Background()
 	seedKey := base64.StdEncoding.EncodeToString(make([]byte, 32))
 
@@ -133,7 +133,7 @@ func TestActionServiceRecoversFromBlankStoredKey(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	ctx := context.Background()
 
 	if err := db.SaveSettings(ctx, map[string]string{actionEncryptionKeySetting: "   "}); err != nil {
@@ -173,7 +173,7 @@ func TestActionServiceRecoversFromInvalidStoredKey(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	ctx := context.Background()
 
 	if err := db.SaveSettings(ctx, map[string]string{actionEncryptionKeySetting: "not-base64"}); err != nil {

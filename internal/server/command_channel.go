@@ -42,7 +42,7 @@ func (s *Server) dispatchSlashCommand(ctx context.Context, command store.SlashCo
 	if err != nil {
 		return nil, errors.New("command target could not be reached")
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 	body, err := io.ReadAll(io.LimitReader(response.Body, maxActionResponse+1))
 	if err != nil || len(body) > maxActionResponse {
 		return nil, errors.New("command response was too large")

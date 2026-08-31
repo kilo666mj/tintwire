@@ -35,7 +35,7 @@ func VerifyDatabase(ctx context.Context, path string) error {
 	if err != nil {
 		return err
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	var result string
 	if err := db.QueryRowContext(ctx, `PRAGMA integrity_check`).Scan(&result); err != nil {
 		return err

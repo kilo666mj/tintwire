@@ -286,7 +286,7 @@ WHERE m.channel_id = ? AND m.deleted_at IS NULL`
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	messages := make([]ChannelMessage, 0)
 	for rows.Next() {
 		var message ChannelMessage
@@ -331,7 +331,7 @@ ORDER BY m.created_at ASC, m.id ASC`, channelID, rootID, rootID)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	replies := make([]ChannelMessage, 0)
 	for rows.Next() {
 		var message ChannelMessage
@@ -479,7 +479,7 @@ WHERE e.channel_id = ? AND (r.response_type = 'in_channel' OR e.user_id = ?)`
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	commands := make([]CommandTimelineItem, 0)
 	for rows.Next() {
 		var item CommandTimelineItem
@@ -541,7 +541,7 @@ WHERE 1 = 1`
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	counts := make(map[string]channelMessageCount)
 	for rows.Next() {
 		var id string
@@ -598,7 +598,7 @@ WHERE 1=1`
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	counts := make(map[string]channelMessageCount)
 	for rows.Next() {
 		var channelID string

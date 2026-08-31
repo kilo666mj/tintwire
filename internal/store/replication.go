@@ -71,7 +71,7 @@ func (s *Store) ReplicationMetrics(ctx context.Context) (ReplicationMetrics, err
 		var origin string
 		var count uint64
 		if err := rows.Scan(&origin, &count); err != nil {
-			rows.Close()
+			_ = rows.Close()
 			return metrics, err
 		}
 		metrics.Operations[origin] = count
@@ -94,7 +94,7 @@ func (s *Store) ReplicationMetrics(ctx context.Context) (ReplicationMetrics, err
 	if err != nil {
 		return metrics, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	for rows.Next() {
 		var peer ReplicationPeerStatus
 		var success sql.NullInt64
@@ -140,7 +140,7 @@ func (s *Store) ReplicationStatus(ctx context.Context) (ReplicationStatus, error
 	if err != nil {
 		return status, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	for rows.Next() {
 		var origin string
 		var sequence uint64
@@ -227,7 +227,7 @@ func (s *Store) PruneReplicationOperations(ctx context.Context, origin string, t
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	var high uint64
 	if err := tx.QueryRowContext(ctx, `SELECT COALESCE(MAX(sequence),0) FROM replication_operations WHERE origin=?`, origin).Scan(&high); err != nil {
 		return err
@@ -254,7 +254,7 @@ FROM replication_operations WHERE origin=? AND sequence>? ORDER BY sequence LIMI
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	operations := make([]ReplicationOperation, 0)
 	for rows.Next() {
 		operation := ReplicationOperation{Version: replicationProtocolVersion}
@@ -280,7 +280,7 @@ func (s *Store) ApplyReplicationOperations(ctx context.Context, operations []Rep
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	origin := operations[0].Origin
 	var cursor uint64
 	err = tx.QueryRowContext(ctx, `SELECT sequence FROM replication_cursors WHERE origin=?`, origin).Scan(&cursor)

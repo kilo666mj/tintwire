@@ -28,7 +28,7 @@ func timelineTestStore(t *testing.T) (*Store, context.Context, User) {
 
 func TestChannelMessageCreateAndTimelineOrder(t *testing.T) {
 	data, ctx, user := timelineTestStore(t)
-	defer data.Close()
+	defer func() { _ = data.Close() }()
 
 	if err := data.BootstrapWebhook(ctx, "hook", "general"); err != nil {
 		t.Fatal(err)
@@ -79,7 +79,7 @@ func TestChannelMessageCreateAndTimelineOrder(t *testing.T) {
 
 func TestChannelMessageIdempotency(t *testing.T) {
 	data, ctx, user := timelineTestStore(t)
-	defer data.Close()
+	defer func() { _ = data.Close() }()
 
 	if err := data.BootstrapWebhook(ctx, "hook", "general"); err != nil {
 		t.Fatal(err)
@@ -117,7 +117,7 @@ func TestChannelMessageIdempotency(t *testing.T) {
 
 func TestChannelMessagePrivateAccess(t *testing.T) {
 	data, ctx, _ := timelineTestStore(t)
-	defer data.Close()
+	defer func() { _ = data.Close() }()
 
 	channel, _, err := data.CreateChannel(ctx, CreateChannelInput{Name: "private", DisplayName: "Private", Visibility: "private"})
 	if err != nil {
@@ -156,7 +156,7 @@ func TestChannelMessagePrivateAccess(t *testing.T) {
 
 func TestChannelTimelinePagination(t *testing.T) {
 	data, ctx, user := timelineTestStore(t)
-	defer data.Close()
+	defer func() { _ = data.Close() }()
 
 	if err := data.BootstrapWebhook(ctx, "hook", "general"); err != nil {
 		t.Fatal(err)
@@ -211,7 +211,7 @@ func TestChannelTimelinePagination(t *testing.T) {
 
 func TestChannelTimelineOrdersUpdatedNotificationByVisibleTimestamp(t *testing.T) {
 	data, ctx, user := timelineTestStore(t)
-	defer data.Close()
+	defer func() { _ = data.Close() }()
 
 	if err := data.BootstrapWebhook(ctx, "hook", "general"); err != nil {
 		t.Fatal(err)
@@ -244,7 +244,7 @@ func TestChannelTimelineOrdersUpdatedNotificationByVisibleTimestamp(t *testing.T
 
 func TestChannelTimelineSearchesMessagesAndNotifications(t *testing.T) {
 	data, ctx, user := timelineTestStore(t)
-	defer data.Close()
+	defer func() { _ = data.Close() }()
 
 	if err := data.BootstrapWebhook(ctx, "hook", "general"); err != nil {
 		t.Fatal(err)
@@ -278,7 +278,7 @@ func TestChannelTimelineSearchesMessagesAndNotifications(t *testing.T) {
 
 func TestChannelMessageUnreadCounts(t *testing.T) {
 	data, ctx, user := timelineTestStore(t)
-	defer data.Close()
+	defer func() { _ = data.Close() }()
 	other, err := data.CreateUser(ctx, "bob", "another sufficiently long password", false)
 	if err != nil {
 		t.Fatal(err)
@@ -369,7 +369,7 @@ func TestChannelMessageUnreadCounts(t *testing.T) {
 
 func TestChannelMessagePushPreferencesAndAuthorization(t *testing.T) {
 	data, ctx, author := timelineTestStore(t)
-	defer data.Close()
+	defer func() { _ = data.Close() }()
 	if err := data.BootstrapWebhook(ctx, "hook", "general"); err != nil {
 		t.Fatal(err)
 	}

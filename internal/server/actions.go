@@ -480,7 +480,7 @@ func (s *Server) executeHTTPAction(w http.ResponseWriter, r *http.Request) {
 		s.finishAction(w, r, operationKey, actor, "failed", "Action target could not be reached", http.StatusBadGateway)
 		return
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 	body, readErr := io.ReadAll(io.LimitReader(response.Body, maxActionResponse+1))
 	if readErr != nil || len(body) > maxActionResponse {
 		s.finishAction(w, r, operationKey, actor, "failed", "Action response was too large", http.StatusBadGateway)
@@ -622,7 +622,7 @@ func (s *Server) executeMattermostAction(w http.ResponseWriter, r *http.Request)
 		s.finishAction(w, r, operationKey, actor, "failed", "Action target could not be reached", http.StatusBadGateway)
 		return
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 	body, err := io.ReadAll(io.LimitReader(response.Body, maxActionResponse+1))
 	if err != nil || len(body) > maxActionResponse {
 		s.finishAction(w, r, operationKey, actor, "failed", "Action response was too large", http.StatusBadGateway)

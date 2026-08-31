@@ -333,7 +333,7 @@ func (p *pushService) send(ctx context.Context, payload []byte, state string, su
 		slog.Warn("web push delivery failed")
 		return
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 	_, _ = io.Copy(io.Discard, io.LimitReader(response.Body, 1024))
 	if response.StatusCode == http.StatusGone || response.StatusCode == http.StatusNotFound {
 		if err := p.store.RemoveUserPushSubscription(ctx, subscription.UserID, subscription.Endpoint); err != nil && !errors.Is(err, store.ErrInvalidCredentials) {

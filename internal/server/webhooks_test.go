@@ -17,7 +17,7 @@ func TestAdminManagesWebhooks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	if err := db.BootstrapUser(context.Background(), "admin", "secure webhook password"); err != nil {
 		t.Fatal(err)
 	}

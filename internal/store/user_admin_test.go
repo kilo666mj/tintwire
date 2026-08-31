@@ -14,7 +14,7 @@ func TestManagedUserSafetyAndAccess(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer data.Close()
+	defer func() { _ = data.Close() }()
 	admin, err := data.CreateUser(ctx, "admin", "secure admin password", true)
 	if err != nil {
 		t.Fatal(err)

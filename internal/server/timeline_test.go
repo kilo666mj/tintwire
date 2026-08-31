@@ -259,7 +259,7 @@ func TestChannelMessagePrivateAuthorization(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	if err := db.BootstrapUser(context.Background(), "admin", "secure private password"); err != nil {
 		t.Fatal(err)
 	}

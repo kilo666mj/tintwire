@@ -66,7 +66,7 @@ INSERT INTO notifications VALUES ('notification', 'channel', 'webhook', 'legacy'
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer store.Close()
+	defer func() { _ = store.Close() }()
 	notifications, err := store.ListNotifications(context.Background(), 10)
 	if err != nil {
 		t.Fatal(err)
@@ -93,7 +93,7 @@ func TestMarkChannelReadLeavesOtherChannelsUnread(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer data.Close()
+	defer func() { _ = data.Close() }()
 	if err := data.BootstrapUser(ctx, "reader", "a secure test password"); err != nil {
 		t.Fatal(err)
 	}
@@ -149,7 +149,7 @@ func TestUserAuthenticationAndSessions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer data.Close()
+	defer func() { _ = data.Close() }()
 	ctx := context.Background()
 	if err := data.BootstrapUser(ctx, "alice", "correct horse battery staple"); err != nil {
 		t.Fatal(err)
@@ -235,7 +235,7 @@ PRAGMA user_version = 1;
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer store.Close()
+	defer func() { _ = store.Close() }()
 	if err := store.SavePushSubscription(context.Background(), PushSubscription{
 		Endpoint: "https://push.example/device", P256DH: "key", Auth: "auth",
 	}); err != nil {
@@ -255,7 +255,7 @@ func TestOIDCLoginStateAndUserProvisioning(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { data.Close() })
+	t.Cleanup(func() { _ = data.Close() })
 	ctx := context.Background()
 	if err := data.CreateOIDCLoginState(ctx, "state", "verifier", "nonce", time.Minute); err != nil {
 		t.Fatal(err)
@@ -291,7 +291,7 @@ func TestPushSubscriptionsPersistAndUpdate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer store.Close()
+	defer func() { _ = store.Close() }()
 	ctx := context.Background()
 	first := PushSubscription{Endpoint: "https://push.example/one", P256DH: "key-one", Auth: "auth-one"}
 	if err := store.SavePushSubscription(ctx, first); err != nil {
@@ -322,7 +322,7 @@ func TestAuthenticatedUserCanClaimAnonymousPushSubscription(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer data.Close()
+	defer func() { _ = data.Close() }()
 	ctx := context.Background()
 	user, err := data.CreateUser(ctx, "member", "secure member password", false)
 	if err != nil {
@@ -366,7 +366,7 @@ func TestPushSubscriptionOwnershipAndNotificationVisibility(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer data.Close()
+	defer func() { _ = data.Close() }()
 	ctx := context.Background()
 	member, err := data.CreateUser(ctx, "member", "secure member password", false)
 	if err != nil {
@@ -455,7 +455,7 @@ func TestSettingsRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer store.Close()
+	defer func() { _ = store.Close() }()
 	ctx := context.Background()
 	if err := store.SaveSettings(ctx, map[string]string{"example": "value"}); err != nil {
 		t.Fatal(err)
@@ -475,7 +475,7 @@ func TestChannelSummariesIncludeFiringCounts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer data.Close()
+	defer func() { _ = data.Close() }()
 	ctx := context.Background()
 	if err := data.BootstrapWebhook(ctx, "prometheus-token", "prometheus"); err != nil {
 		t.Fatal(err)

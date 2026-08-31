@@ -29,26 +29,26 @@ func run(args []string, stdout, stderr io.Writer) int {
 	defer cancel()
 	if *verify != "" {
 		if err := store.VerifyDatabase(ctx, *verify); err != nil {
-			fmt.Fprintln(stderr, err)
+			_, _ = fmt.Fprintln(stderr, err)
 			return 1
 		}
-		fmt.Fprintf(stdout, "verified %s\n", *verify)
+		_, _ = fmt.Fprintf(stdout, "verified %s\n", *verify)
 		return 0
 	}
 	if *destination == "" {
-		fmt.Fprintln(stderr, "-out is required when creating a backup")
+		_, _ = fmt.Fprintln(stderr, "-out is required when creating a backup")
 		return 2
 	}
 	data, err := store.Open(*database)
 	if err != nil {
-		fmt.Fprintln(stderr, err)
+		_, _ = fmt.Fprintln(stderr, err)
 		return 1
 	}
-	defer data.Close()
+	defer func() { _ = data.Close() }()
 	if err := data.Backup(ctx, *destination); err != nil {
-		fmt.Fprintln(stderr, err)
+		_, _ = fmt.Fprintln(stderr, err)
 		return 1
 	}
-	fmt.Fprintf(stdout, "created and verified %s\n", *destination)
+	_, _ = fmt.Fprintf(stdout, "created and verified %s\n", *destination)
 	return 0
 }

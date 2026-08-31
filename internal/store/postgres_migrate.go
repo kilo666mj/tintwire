@@ -35,7 +35,7 @@ func MigrateSQLiteToPostgres(ctx context.Context, sqlitePath, postgresDSN string
 	if err != nil {
 		return fmt.Errorf("open SQLite source: %w", err)
 	}
-	defer source.Close()
+	defer func() { _ = source.Close() }()
 	if err := source.PingContext(ctx); err != nil {
 		return fmt.Errorf("connect SQLite source: %w", err)
 	}
@@ -44,13 +44,13 @@ func MigrateSQLiteToPostgres(ctx context.Context, sqlitePath, postgresDSN string
 	if err != nil {
 		return err
 	}
-	defer destination.Close()
+	defer func() { _ = destination.Close() }()
 
 	tx, err := destination.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin PostgreSQL migration: %w", err)
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	for _, table := range migrationTables {
 		var count int64
@@ -96,7 +96,7 @@ func MigrateSQLiteToPostgres(ctx context.Context, sqlitePath, postgresDSN string
 				destinations[i] = &values[i]
 			}
 			if err := rows.Scan(destinations...); err != nil {
-				rows.Close()
+				_ = rows.Close()
 				return fmt.Errorf("scan SQLite table %s: %w", table, err)
 			}
 			for i, column := range columns {
@@ -118,7 +118,7 @@ func MigrateSQLiteToPostgres(ctx context.Context, sqlitePath, postgresDSN string
 				}
 			}
 			if _, err := tx.ExecContext(ctx, insert, values...); err != nil {
-				rows.Close()
+				_ = rows.Close()
 				return fmt.Errorf("copy SQLite table %s: %w", table, err)
 			}
 			copied++
@@ -154,7 +154,7 @@ func sqliteTableColumns(ctx context.Context, db *sql.DB, table string) ([]sqlite
 	if err != nil {
 		return nil, fmt.Errorf("inspect SQLite table %s: %w", table, err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	var columns []sqliteColumn
 	for rows.Next() {
 		var position, notNull, primaryKey int

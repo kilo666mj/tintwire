@@ -57,7 +57,7 @@ func TestMattermostWebhookRoundTrip(t *testing.T) {
 	listRecorder := httptest.NewRecorder()
 	handler.ServeHTTP(listRecorder, listRequest)
 	listResponse := listRecorder.Result()
-	defer listResponse.Body.Close()
+	defer func() { _ = listResponse.Body.Close() }()
 	var result struct {
 		Notifications []store.Notification `json:"notifications"`
 		UnreadCount   int                  `json:"unread_count"`
@@ -122,7 +122,7 @@ func TestMattermostWebhookRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer reopened.Close()
+	defer func() { _ = reopened.Close() }()
 	persisted, err := reopened.ListNotifications(context.Background(), 10)
 	if err != nil {
 		t.Fatal(err)
@@ -138,7 +138,7 @@ func TestPasswordLoginRateLimit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	if _, err := db.CreateUser(ctx, "limited-user", "a sufficiently long password", false); err != nil {
 		t.Fatal(err)
 	}
@@ -264,7 +264,7 @@ func TestMattermostWebhookValidation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	if err := db.BootstrapWebhook(context.Background(), "known-hook", "general"); err != nil {
 		t.Fatal(err)
 	}
@@ -288,7 +288,7 @@ func TestMattermostWebhookValidation(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			response := postJSON(t, handler, test.path, []byte(test.payload))
-			defer response.Body.Close()
+			defer func() { _ = response.Body.Close() }()
 			if response.StatusCode != test.status {
 				t.Fatalf("status = %d, want %d, body = %q", response.StatusCode, test.status, readBody(t, response))
 			}
@@ -307,7 +307,7 @@ func TestMattermostWebhookChannelOverridePolicy(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	ctx := context.Background()
 	if err := db.BootstrapWebhook(ctx, "unlocked-hook", "default"); err != nil {
 		t.Fatal(err)
@@ -324,7 +324,7 @@ func TestMattermostWebhookChannelOverridePolicy(t *testing.T) {
 	if overridden.StatusCode != http.StatusOK {
 		t.Fatalf("public override status = %d, body = %q", overridden.StatusCode, readBody(t, overridden))
 	}
-	overridden.Body.Close()
+	_ = overridden.Body.Close()
 	notifications, err := db.ListNotifications(ctx, 10)
 	if err != nil {
 		t.Fatal(err)
@@ -337,13 +337,13 @@ func TestMattermostWebhookChannelOverridePolicy(t *testing.T) {
 	if denied.StatusCode != http.StatusForbidden {
 		t.Fatalf("unknown override status = %d, body = %q", denied.StatusCode, readBody(t, denied))
 	}
-	denied.Body.Close()
+	_ = denied.Body.Close()
 
 	locked := postJSON(t, handler, "/hooks/other-hook", []byte(`{"text":"fixed","channel":"default"}`))
 	if locked.StatusCode != http.StatusOK {
 		t.Fatalf("locked override status = %d, body = %q", locked.StatusCode, readBody(t, locked))
 	}
-	locked.Body.Close()
+	_ = locked.Body.Close()
 	notifications, err = db.ListNotifications(ctx, 10)
 	if err != nil {
 		t.Fatal(err)
@@ -358,7 +358,7 @@ func TestSlackBlockKitNormalization(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	if err := db.BootstrapWebhook(context.Background(), "slack-hook", "slack"); err != nil {
 		t.Fatal(err)
 	}
@@ -374,7 +374,7 @@ func TestSlackBlockKitNormalization(t *testing.T) {
 	if response.StatusCode != http.StatusOK {
 		t.Fatalf("status = %d, body = %q", response.StatusCode, readBody(t, response))
 	}
-	response.Body.Close()
+	_ = response.Body.Close()
 	notifications, err := db.ListNotifications(context.Background(), 10)
 	if err != nil {
 		t.Fatal(err)
@@ -398,7 +398,7 @@ func TestMattermostWebhookFormPayloads(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	if err := db.BootstrapWebhook(context.Background(), "form-hook", "compatibility"); err != nil {
 		t.Fatal(err)
 	}
@@ -447,7 +447,7 @@ func TestNativeCardRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	if err := db.BootstrapWebhook(context.Background(), "publisher-token", "release-lists"); err != nil {
 		t.Fatal(err)
 	}
@@ -527,7 +527,7 @@ func TestCompatibilityFixtures(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	if err := db.BootstrapWebhook(context.Background(), "fixture-token", "release-lists"); err != nil {
 		t.Fatal(err)
 	}
@@ -548,7 +548,7 @@ func TestNativeCardValidationAndAuthentication(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	if err := db.BootstrapWebhook(context.Background(), "known-token", "general"); err != nil {
 		t.Fatal(err)
 	}
@@ -588,7 +588,7 @@ func TestNotificationSearchAndFilters(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	if err := db.BootstrapWebhook(context.Background(), "ops-token", "operations"); err != nil {
 		t.Fatal(err)
 	}
@@ -597,7 +597,7 @@ func TestNotificationSearchAndFilters(t *testing.T) {
 	if webhook.StatusCode != http.StatusOK {
 		t.Fatalf("webhook status = %d", webhook.StatusCode)
 	}
-	webhook.Body.Close()
+	_ = webhook.Body.Close()
 	native := httptest.NewRequest(http.MethodPost, "/api/v1/notifications", bytes.NewBufferString(`{"version":1,"title":"Disk almost full","summary":"web01 needs attention","severity":"critical","source":"monitor","rows":[{"primary":"web01","tags":["storage"]}]}`))
 	native.Header.Set("Content-Type", "application/json")
 	native.Header.Set("Authorization", "Bearer ops-token")
@@ -657,7 +657,7 @@ func TestSimpleMessagePublishing(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	if err := db.BootstrapWebhook(context.Background(), "script-token", "scripts"); err != nil {
 		t.Fatal(err)
 	}
@@ -708,7 +708,7 @@ func TestNotificationHistoryCursor(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	if err := db.BootstrapWebhook(context.Background(), "history-hook", "history"); err != nil {
 		t.Fatal(err)
 	}
@@ -718,7 +718,7 @@ func TestNotificationHistoryCursor(t *testing.T) {
 		if response.StatusCode != http.StatusOK {
 			t.Fatalf("post %q status = %d", text, response.StatusCode)
 		}
-		response.Body.Close()
+		_ = response.Body.Close()
 	}
 	type page struct {
 		Notifications []store.Notification `json:"notifications"`
@@ -764,7 +764,7 @@ func TestReaderAuthentication(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	if err := db.BootstrapUser(context.Background(), "operator", "a secure test password"); err != nil {
 		t.Fatal(err)
 	}
@@ -799,7 +799,7 @@ func TestReaderAuthentication(t *testing.T) {
 	if posted.StatusCode != http.StatusOK {
 		t.Fatalf("authenticated setup webhook status = %d", posted.StatusCode)
 	}
-	posted.Body.Close()
+	_ = posted.Body.Close()
 
 	authenticated := httptest.NewRequest(http.MethodGet, "/api/v1/notifications", nil)
 	authenticated.AddCookie(cookies[0])
@@ -1009,7 +1009,7 @@ func TestCanonicalPublicURLSecuresProxySessionsAndOrigin(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	if err := db.BootstrapUser(context.Background(), "operator", "a secure test password"); err != nil {
 		t.Fatal(err)
 	}
@@ -1052,7 +1052,7 @@ func TestChannelAdministration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	if err := db.BootstrapUser(context.Background(), "admin", "secure channel password"); err != nil {
 		t.Fatal(err)
 	}
@@ -1312,7 +1312,7 @@ func TestChannelAdministration(t *testing.T) {
 	if notImported.StatusCode != http.StatusNotFound {
 		t.Fatalf("dry-run created webhook, status = %d", notImported.StatusCode)
 	}
-	notImported.Body.Close()
+	_ = notImported.Body.Close()
 	importPayload = `{"webhooks":[{"id":"` + importedSecret + `","channel":"security"}]}`
 	importRequest = httptest.NewRequest(http.MethodPost, "/api/v1/admin/import/webhooks", bytes.NewBufferString(importPayload))
 	importRequest.Header.Set("Origin", "http://example.com")
@@ -1336,7 +1336,7 @@ func TestChannelAdministration(t *testing.T) {
 	if imported.StatusCode != http.StatusOK {
 		t.Fatalf("imported webhook status = %d", imported.StatusCode)
 	}
-	imported.Body.Close()
+	_ = imported.Body.Close()
 	importRequest = httptest.NewRequest(http.MethodPost, "/api/v1/admin/import/webhooks", bytes.NewBufferString(importPayload))
 	importRequest.Header.Set("Origin", "http://example.com")
 	importRequest.Host = "example.com"
@@ -1395,7 +1395,7 @@ func TestRegisteredHTTPActionIsRedactedAuthorizedAndIdempotent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	if err := db.BootstrapUser(context.Background(), "admin", "secure action password"); err != nil {
 		t.Fatal(err)
 	}
@@ -1573,7 +1573,7 @@ func TestMattermostBotCompatibilityBridge(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	if err := db.BootstrapUser(context.Background(), "admin", "secure admin password"); err != nil {
 		t.Fatal(err)
 	}
@@ -1824,7 +1824,7 @@ func TestSlashCommandCompatibility(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	if err := db.BootstrapUser(context.Background(), "admin", "secure admin password"); err != nil {
 		t.Fatal(err)
 	}
@@ -1950,7 +1950,7 @@ func TestActionKeyCanRecoverFromReplicatedSetting(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	if err := db.BootstrapUser(context.Background(), "admin", "secure action password"); err != nil {
 		t.Fatal(err)
 	}
@@ -2098,7 +2098,7 @@ func TestAlertmanagerFiringAndResolvedUpdateOneNotification(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	if err := db.BootstrapWebhook(context.Background(), "alert-hook", "prometheus"); err != nil {
 		t.Fatal(err)
 	}
@@ -2125,7 +2125,7 @@ func TestAlertmanagerFiringAndResolvedUpdateOneNotification(t *testing.T) {
 	if response.StatusCode != http.StatusOK {
 		t.Fatalf("firing status = %d, body = %q", response.StatusCode, readBody(t, response))
 	}
-	response.Body.Close()
+	_ = response.Body.Close()
 	first, err := db.ListNotifications(context.Background(), 10)
 	if err != nil {
 		t.Fatal(err)
@@ -2141,7 +2141,7 @@ func TestAlertmanagerFiringAndResolvedUpdateOneNotification(t *testing.T) {
 	if response.StatusCode != http.StatusOK {
 		t.Fatalf("resolved status = %d, body = %q", response.StatusCode, readBody(t, response))
 	}
-	response.Body.Close()
+	_ = response.Body.Close()
 	latest, err := db.ListNotifications(context.Background(), 10)
 	if err != nil {
 		t.Fatal(err)
@@ -2204,7 +2204,7 @@ func TestEmbeddedWebAssets(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	handler := server.New(db)
 
 	for _, path := range []string{"/", "/assets/emoji.js", "/assets/markdown.js", "/assets/app.js", "/assets/icon.svg", "/assets/icon-192.png", "/assets/icon-512.png", "/assets/apple-touch-icon.png", "/manifest.webmanifest", "/sw.js"} {
@@ -2213,7 +2213,7 @@ func TestEmbeddedWebAssets(t *testing.T) {
 			recorder := httptest.NewRecorder()
 			handler.ServeHTTP(recorder, request)
 			response := recorder.Result()
-			defer response.Body.Close()
+			defer func() { _ = response.Body.Close() }()
 			if response.StatusCode != http.StatusOK {
 				t.Fatalf("status = %d, want 200", response.StatusCode)
 			}
@@ -2282,7 +2282,7 @@ func TestPushSubscriptionEnrollmentRequiresSameOrigin(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	handler, err := server.NewWithOptions(db, server.Options{VAPIDContact: "mailto:admin@example.com"})
 	if err != nil {
 		t.Fatal(err)
@@ -2342,7 +2342,7 @@ func TestEventStreamConnects(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	handler := server.New(db)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -2351,7 +2351,7 @@ func TestEventStreamConnects(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	handler.ServeHTTP(recorder, request)
 	response := recorder.Result()
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 
 	if response.StatusCode != http.StatusOK {
 		t.Fatalf("status = %d, want 200", response.StatusCode)

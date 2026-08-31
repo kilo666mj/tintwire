@@ -109,7 +109,7 @@ func (s *Store) CreateAgent(ctx context.Context, input CreateAgentInput) (Agent,
 	if err != nil {
 		return Agent{}, "", err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	adminValue := 0
 	if input.IsAdmin {
 		adminValue = 1
@@ -182,7 +182,7 @@ ORDER BY a.name`)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	agents := make([]Agent, 0)
 	for rows.Next() {
 		agent := Agent{Channels: []string{}}
@@ -222,7 +222,7 @@ ORDER BY c.name`, agentID)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	channels := make([]string, 0)
 	for rows.Next() {
 		var entry string
@@ -298,7 +298,7 @@ func (s *Store) RevokeAgent(ctx context.Context, name string) error {
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	var agentID string
 	err = tx.QueryRowContext(ctx, `SELECT id FROM agents WHERE name = ?`, strings.TrimSpace(name)).Scan(&agentID)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -424,7 +424,7 @@ LIMIT ?`, agentID, limit)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	runs := make([]AgentRun, 0)
 	for rows.Next() {
 		var run AgentRun
@@ -447,7 +447,7 @@ FROM agent_run_events WHERE run_id = ? ORDER BY created_at, id LIMIT 500`, runID
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	events := make([]AgentRunEvent, 0)
 	for rows.Next() {
 		var event AgentRunEvent
@@ -489,7 +489,7 @@ func (s *Store) CreateFromAgent(ctx context.Context, agent Agent, channelName, r
 	if err != nil {
 		return Notification{}, err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	var channelID string
 	err = tx.QueryRowContext(ctx, `SELECT id FROM channels WHERE name = ?`, strings.TrimSpace(channelName)).Scan(&channelID)

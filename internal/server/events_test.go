@@ -19,7 +19,7 @@ func TestWebhookPublishesEvent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	if err := db.BootstrapWebhook(context.Background(), "test-hook", "prometheus"); err != nil {
 		t.Fatal(err)
 	}

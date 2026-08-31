@@ -19,7 +19,7 @@ func TestFSMApplyAndRestoreCommittedSnapshot(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer source.Close()
+	defer func() { _ = source.Close() }()
 	if err := source.ConfigureReplication("cluster-test-01", "node-leader-01"); err != nil {
 		t.Fatal(err)
 	}
@@ -53,7 +53,7 @@ func TestFSMApplyAndRestoreCommittedSnapshot(t *testing.T) {
 	}
 
 	replica, fsm := newReplica("node-replica-01")
-	defer replica.Close()
+	defer func() { _ = replica.Close() }()
 	if err := AppliedError(fsm.Apply(&raft.Log{Data: encoded})); err != nil {
 		t.Fatal(err)
 	}
@@ -62,7 +62,7 @@ func TestFSMApplyAndRestoreCommittedSnapshot(t *testing.T) {
 	}
 
 	restored, restoredFSM := newReplica("node-replica-02")
-	defer restored.Close()
+	defer func() { _ = restored.Close() }()
 	if err := restoredFSM.Restore(io.NopCloser(bytes.NewReader(encoded))); err != nil {
 		t.Fatal(err)
 	}

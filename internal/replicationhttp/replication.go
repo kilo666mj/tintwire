@@ -239,7 +239,7 @@ func (s *Syncer) getLimit(ctx context.Context, peer *url.URL, path string, limit
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != 200 {
 		return fmt.Errorf("peer returned %s", resp.Status)
 	}

@@ -767,7 +767,7 @@ func readWebhookPayload(w http.ResponseWriter, r *http.Request, mediaType string
 		return nil, errors.New("unable to parse multipart webhook")
 	}
 	if r.MultipartForm != nil {
-		defer r.MultipartForm.RemoveAll()
+		defer func() { _ = r.MultipartForm.RemoveAll() }()
 	}
 	payload := r.FormValue("payload")
 	if payload == "" {
@@ -1641,16 +1641,16 @@ func (s *Server) ready(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) metrics(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
-	fmt.Fprintf(w, "# TYPE tintwire_http_requests_total counter\ntintwire_http_requests_total %d\n", s.requests.Load())
-	fmt.Fprintf(w, "# TYPE tintwire_http_errors_total counter\ntintwire_http_errors_total %d\n", s.errors.Load())
-	fmt.Fprintln(w, "# HELP tintwire_webhook_rejections_total Rejected incoming webhook requests by reason.")
-	fmt.Fprintln(w, "# TYPE tintwire_webhook_rejections_total counter")
-	fmt.Fprintf(w, "tintwire_webhook_rejections_total{reason=%q} %d\n", "unknown", s.unknownWebhooks.Load())
-	fmt.Fprintf(w, "# TYPE tintwire_uptime_seconds gauge\ntintwire_uptime_seconds %.0f\n", time.Since(s.startedAt).Seconds())
+	_, _ = fmt.Fprintf(w, "# TYPE tintwire_http_requests_total counter\ntintwire_http_requests_total %d\n", s.requests.Load())
+	_, _ = fmt.Fprintf(w, "# TYPE tintwire_http_errors_total counter\ntintwire_http_errors_total %d\n", s.errors.Load())
+	_, _ = fmt.Fprintln(w, "# HELP tintwire_webhook_rejections_total Rejected incoming webhook requests by reason.")
+	_, _ = fmt.Fprintln(w, "# TYPE tintwire_webhook_rejections_total counter")
+	_, _ = fmt.Fprintf(w, "tintwire_webhook_rejections_total{reason=%q} %d\n", "unknown", s.unknownWebhooks.Load())
+	_, _ = fmt.Fprintf(w, "# TYPE tintwire_uptime_seconds gauge\ntintwire_uptime_seconds %.0f\n", time.Since(s.startedAt).Seconds())
 	s.subscribersMu.RLock()
 	subscribers := len(s.subscribers)
 	s.subscribersMu.RUnlock()
-	fmt.Fprintf(w, "# TYPE tintwire_event_subscribers gauge\ntintwire_event_subscribers %d\n", subscribers)
+	_, _ = fmt.Fprintf(w, "# TYPE tintwire_event_subscribers gauge\ntintwire_event_subscribers %d\n", subscribers)
 	if s.consensus != nil {
 		leader := 0
 		if s.consensus.IsLeader() {
@@ -1662,9 +1662,9 @@ func (s *Server) metrics(w http.ResponseWriter, _ *http.Request) {
 		}
 		leaderID, _ := s.consensus.Leader()
 		voters, _ := s.consensus.VoterCount()
-		fmt.Fprintf(w, "# TYPE tintwire_control_raft_leader gauge\ntintwire_control_raft_leader{leader_id=%q} %d\n", leaderID, leader)
-		fmt.Fprintf(w, "# TYPE tintwire_control_raft_quorum_healthy gauge\ntintwire_control_raft_quorum_healthy %d\n", healthy)
-		fmt.Fprintf(w, "# TYPE tintwire_control_raft_voters gauge\ntintwire_control_raft_voters %d\n", voters)
+		_, _ = fmt.Fprintf(w, "# TYPE tintwire_control_raft_leader gauge\ntintwire_control_raft_leader{leader_id=%q} %d\n", leaderID, leader)
+		_, _ = fmt.Fprintf(w, "# TYPE tintwire_control_raft_quorum_healthy gauge\ntintwire_control_raft_quorum_healthy %d\n", healthy)
+		_, _ = fmt.Fprintf(w, "# TYPE tintwire_control_raft_voters gauge\ntintwire_control_raft_voters %d\n", voters)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
@@ -1673,20 +1673,20 @@ func (s *Server) metrics(w http.ResponseWriter, _ *http.Request) {
 		slog.Warn("load replication metrics", "error", err)
 		return
 	}
-	fmt.Fprintln(w, "# TYPE tintwire_replication_operations gauge")
+	_, _ = fmt.Fprintln(w, "# TYPE tintwire_replication_operations gauge")
 	for origin, count := range replication.Operations {
-		fmt.Fprintf(w, "tintwire_replication_operations{origin=%q} %d\n", origin, count)
+		_, _ = fmt.Fprintf(w, "tintwire_replication_operations{origin=%q} %d\n", origin, count)
 	}
-	fmt.Fprintf(w, "# TYPE tintwire_replication_quarantined gauge\ntintwire_replication_quarantined %d\n", replication.Quarantined)
+	_, _ = fmt.Fprintf(w, "# TYPE tintwire_replication_quarantined gauge\ntintwire_replication_quarantined %d\n", replication.Quarantined)
 	var lastSnapshot int64
 	if replication.LastSnapshotAt != nil {
 		lastSnapshot = replication.LastSnapshotAt.Unix()
 	}
-	fmt.Fprintf(w, "# TYPE tintwire_replication_snapshot_applications_total counter\ntintwire_replication_snapshot_applications_total %d\n", replication.SnapshotApplications)
-	fmt.Fprintf(w, "# TYPE tintwire_replication_snapshot_last_applied_timestamp_seconds gauge\ntintwire_replication_snapshot_last_applied_timestamp_seconds %d\n", lastSnapshot)
-	fmt.Fprintln(w, "# TYPE tintwire_replication_peer_up gauge")
-	fmt.Fprintln(w, "# TYPE tintwire_replication_peer_failures gauge")
-	fmt.Fprintln(w, "# TYPE tintwire_replication_peer_last_success_timestamp_seconds gauge")
+	_, _ = fmt.Fprintf(w, "# TYPE tintwire_replication_snapshot_applications_total counter\ntintwire_replication_snapshot_applications_total %d\n", replication.SnapshotApplications)
+	_, _ = fmt.Fprintf(w, "# TYPE tintwire_replication_snapshot_last_applied_timestamp_seconds gauge\ntintwire_replication_snapshot_last_applied_timestamp_seconds %d\n", lastSnapshot)
+	_, _ = fmt.Fprintln(w, "# TYPE tintwire_replication_peer_up gauge")
+	_, _ = fmt.Fprintln(w, "# TYPE tintwire_replication_peer_failures gauge")
+	_, _ = fmt.Fprintln(w, "# TYPE tintwire_replication_peer_last_success_timestamp_seconds gauge")
 	for _, peer := range replication.Peers {
 		up := 0
 		var lastSuccess int64
@@ -1696,9 +1696,9 @@ func (s *Server) metrics(w http.ResponseWriter, _ *http.Request) {
 				up = 1
 			}
 		}
-		fmt.Fprintf(w, "tintwire_replication_peer_up{peer=%q,node_id=%q} %d\n", peer.Peer, peer.NodeID, up)
-		fmt.Fprintf(w, "tintwire_replication_peer_failures{peer=%q,node_id=%q} %d\n", peer.Peer, peer.NodeID, peer.ConsecutiveFailures)
-		fmt.Fprintf(w, "tintwire_replication_peer_last_success_timestamp_seconds{peer=%q,node_id=%q} %d\n", peer.Peer, peer.NodeID, lastSuccess)
+		_, _ = fmt.Fprintf(w, "tintwire_replication_peer_up{peer=%q,node_id=%q} %d\n", peer.Peer, peer.NodeID, up)
+		_, _ = fmt.Fprintf(w, "tintwire_replication_peer_failures{peer=%q,node_id=%q} %d\n", peer.Peer, peer.NodeID, peer.ConsecutiveFailures)
+		_, _ = fmt.Fprintf(w, "tintwire_replication_peer_last_success_timestamp_seconds{peer=%q,node_id=%q} %d\n", peer.Peer, peer.NodeID, lastSuccess)
 	}
 }
 

@@ -125,7 +125,7 @@ func (s *Store) ExportControlSnapshot(ctx context.Context, authority string) (Co
 	if err != nil {
 		return ControlSnapshot{}, err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	snapshot := ControlSnapshot{Version: controlSnapshotVersion, ClusterID: s.replicationClusterID, Authority: authority, CreatedAt: time.Now().UTC()}
 	for _, definition := range controlTableDefinitions {
 		rows, err := tx.QueryContext(ctx, `SELECT `+strings.Join(definition.Columns, ",")+` FROM `+definition.Name)
@@ -140,7 +140,7 @@ func (s *Store) ExportControlSnapshot(ctx context.Context, authority string) (Co
 				destinations[i] = &values[i]
 			}
 			if err := rows.Scan(destinations...); err != nil {
-				rows.Close()
+				_ = rows.Close()
 				return ControlSnapshot{}, err
 			}
 			encoded := make([]ControlSnapshotValue, len(values))
@@ -155,7 +155,7 @@ func (s *Store) ExportControlSnapshot(ctx context.Context, authority string) (Co
 				case []byte:
 					encoded[i].Blob = hex.EncodeToString(value)
 				default:
-					rows.Close()
+					_ = rows.Close()
 					return ControlSnapshot{}, fmt.Errorf("unsupported %s snapshot value %T", definition.Name, value)
 				}
 			}
@@ -215,7 +215,7 @@ func (s *Store) applyControlSnapshot(ctx context.Context, snapshot ControlSnapsh
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	for i := len(controlTableDefinitions) - 1; i >= 0; i-- {
 		definition := controlTableDefinitions[i]
 		if definition.Replace {

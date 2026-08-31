@@ -17,7 +17,7 @@ func TestPostgresCoreLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer data.Close()
+	defer func() { _ = data.Close() }()
 	ctx := context.Background()
 	if err := data.BootstrapWebhook(ctx, "postgres-test-hook", "operations"); err != nil {
 		t.Fatal(err)

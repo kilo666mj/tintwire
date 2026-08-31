@@ -52,7 +52,7 @@ func (s *Store) BuildReplicationSnapshot(ctx context.Context) (ReplicationSnapsh
 	if err != nil {
 		return ReplicationSnapshot{}, err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	snapshot := ReplicationSnapshot{Version: replicationSnapshotVersion, ProtocolVersion: replicationProtocolVersion, ClusterID: s.replicationClusterID, Source: s.replicationNodeID, CreatedAt: time.Now().UTC(), Cursors: make(map[string]uint64), Notifications: make([]ReplicationSnapshotNotification, 0)}
 	rows, err := tx.QueryContext(ctx, `SELECT origin,MAX(sequence) FROM (SELECT origin,sequence FROM replication_operations UNION ALL SELECT origin,sequence FROM replication_cursors) GROUP BY origin`)
 	if err != nil {
@@ -62,7 +62,7 @@ func (s *Store) BuildReplicationSnapshot(ctx context.Context) (ReplicationSnapsh
 		var origin string
 		var sequence uint64
 		if err := rows.Scan(&origin, &sequence); err != nil {
-			rows.Close()
+			_ = rows.Close()
 			return ReplicationSnapshot{}, err
 		}
 		snapshot.Cursors[origin] = sequence
@@ -77,7 +77,7 @@ func (s *Store) BuildReplicationSnapshot(ctx context.Context) (ReplicationSnapsh
 	for rows.Next() {
 		var notification ReplicationSnapshotNotification
 		if err := rows.Scan(&notification.ID, &notification.ChannelID, &notification.WebhookID, &notification.Text, &notification.Username, &notification.IconURL, &notification.Attachments, &notification.RawPayload, &notification.Card, &notification.CreatedAt, &notification.UpdatedAt, &notification.ExternalKey, &notification.State); err != nil {
-			rows.Close()
+			_ = rows.Close()
 			return ReplicationSnapshot{}, err
 		}
 		snapshot.Notifications = append(snapshot.Notifications, notification)
@@ -114,7 +114,7 @@ func (s *Store) ApplyReplicationSnapshot(ctx context.Context, snapshot Replicati
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	seen := make(map[string]bool, len(snapshot.Notifications))
 	for _, incoming := range snapshot.Notifications {
 		if incoming.ID == "" || incoming.ChannelID == "" || incoming.WebhookID == "" || incoming.CreatedAt <= 0 || incoming.UpdatedAt < incoming.CreatedAt || stateRank(incoming.State) < 0 || !validSnapshotJSON(incoming.Attachments) || !validSnapshotJSON(incoming.RawPayload) || !validSnapshotJSON(incoming.Card) || seen[incoming.ID] {

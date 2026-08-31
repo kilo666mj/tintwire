@@ -14,7 +14,7 @@ func TestReplicationSnapshotMergesGapAndPreservesLocalAndControlState(t *testing
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer source.Close()
+	defer func() { _ = source.Close() }()
 	if err := source.ConfigureReplication("cluster-test-01", "node-source-01"); err != nil {
 		t.Fatal(err)
 	}
@@ -40,7 +40,7 @@ func TestReplicationSnapshotMergesGapAndPreservesLocalAndControlState(t *testing
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer replica.Close()
+	defer func() { _ = replica.Close() }()
 	if err := replica.ConfigureReplication("cluster-test-01", "node-replica-01"); err != nil {
 		t.Fatal(err)
 	}
@@ -103,7 +103,7 @@ func TestPrunedLocalOriginContinuesSequence(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer data.Close()
+	defer func() { _ = data.Close() }()
 	if err := data.ConfigureReplication("cluster-test-01", "node-source-01"); err != nil {
 		t.Fatal(err)
 	}
