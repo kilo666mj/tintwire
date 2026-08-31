@@ -2198,7 +2198,7 @@ func (s *Store) SetNotificationState(ctx context.Context, notificationID string,
 	if err != nil {
 		return err
 	}
-	if _, err := tx.ExecContext(ctx, `INSERT INTO notification_events(id, notification_id, state, raw_payload_json, created_at, actor_user_id) VALUES (?, ?, ?, X'7B7D', ?, ?)`, eventID, notificationID, nextState, now.UnixMilli(), actor.ID); err != nil {
+	if _, err := tx.ExecContext(ctx, `INSERT INTO notification_events(id, notification_id, state, raw_payload_json, created_at, actor_user_id) VALUES (?, ?, ?, ?, ?, ?)`, eventID, notificationID, nextState, []byte("{}"), now.UnixMilli(), actor.ID); err != nil {
 		return err
 	}
 	if err := s.appendReplicationOperation(ctx, tx, "notification.state", channelID, "user", actor.ID, map[string]any{

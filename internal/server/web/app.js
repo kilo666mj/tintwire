@@ -678,11 +678,23 @@ function operationButtons(notification) {
   summary.title = "Shared with everyone in this channel";
   const actions = element("div", "operation-buttons");
   actions.append(element("div", "incident-state-copy", "These changes are shared with everyone in this channel."));
+  const feedback = element("div", "action-feedback");
   const transition = async state => {
     for (const button of actions.querySelectorAll("button")) button.disabled = true;
-    const response = await fetch(`/api/v1/notifications/${encodeURIComponent(notification.id)}/state`, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({state})});
-    if (response.ok) loadNotifications(false);
-    else for (const button of actions.querySelectorAll("button")) button.disabled = false;
+    feedback.className = "action-feedback";
+    feedback.textContent = "";
+    try {
+      const response = await fetch(`/api/v1/notifications/${encodeURIComponent(notification.id)}/state`, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({state})});
+      if (!response.ok) {
+        const detail = (await response.text()).trim();
+        throw new Error(detail || `HTTP ${response.status}`);
+      }
+      await loadNotifications(false);
+    } catch (error) {
+      feedback.className = "action-feedback action-feedback-failed";
+      feedback.textContent = `Unable to ${state === "resolved" ? "resolve" : "acknowledge"}: ${error.message}`;
+      for (const button of actions.querySelectorAll("button")) button.disabled = false;
+    }
   };
   if (notification.state === "received" || notification.state === "firing") {
     const acknowledge = element("button", "operation-button", "Acknowledge"); acknowledge.type="button"; acknowledge.addEventListener("click", () => transition("acknowledged")); actions.append(acknowledge);
@@ -690,6 +702,7 @@ function operationButtons(notification) {
   if (notification.state !== "resolved") {
     const resolve = element("button", "operation-button operation-resolve", "Resolve"); resolve.type="button"; resolve.addEventListener("click", () => transition("resolved")); actions.append(resolve);
   }
+  actions.append(feedback);
   disclosure.append(summary, actions);
   return disclosure;
 }
