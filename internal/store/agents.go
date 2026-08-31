@@ -264,7 +264,6 @@ func (s *Store) AgentForToken(ctx context.Context, token string) (Agent, User, e
 	}
 	hash := sha256.Sum256([]byte(token))
 	agent := Agent{Channels: []string{}}
-	user := User{}
 	var createdAt int64
 	var credentialID string
 	err := s.db.QueryRowContext(ctx, `
@@ -284,7 +283,7 @@ WHERE c.token_hash = ? AND c.revoked_at IS NULL AND a.enabled = 1 AND a.revoked_
 		return Agent{}, User{}, err
 	}
 	agent.CreatedAt = time.UnixMilli(createdAt).UTC()
-	user = User{ID: agent.UserID, Username: agent.Username, IsAdmin: agent.IsAdmin}
+	user := User{ID: agent.UserID, Username: agent.Username, IsAdmin: agent.IsAdmin}
 	if _, err := s.db.ExecContext(ctx, `UPDATE agent_credentials SET last_used_at = ? WHERE id = ?`, time.Now().UTC().UnixMilli(), credentialID); err != nil {
 		return Agent{}, User{}, err
 	}

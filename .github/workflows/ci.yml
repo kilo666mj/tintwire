@@ -29,6 +29,10 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+      - name: Lint
+        uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
+        with:
+          version: v2.13.2
       - name: Install test runtimes
         run: sudo apt-get update && sudo apt-get install -y postgresql-client
       - name: Test
