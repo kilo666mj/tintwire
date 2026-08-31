@@ -347,7 +347,7 @@ func (p *pushService) send(ctx context.Context, payload []byte, state string, su
 }
 
 func notificationPushPayload(notification store.Notification) pushPayload {
-	label := "Tintwire"
+	label := ""
 	switch notification.State {
 	case "firing":
 		label = "Firing"
@@ -364,10 +364,10 @@ func notificationPushPayload(notification store.Notification) pushPayload {
 		timestamp = createdAt.UnixMilli()
 	}
 	subject, body := pushPresentation(notification)
-	title := label + " · " + notification.ChannelName
+	title := notification.ChannelName
 	if subject != "" {
 		parts := make([]string, 0, 3)
-		if label != "Tintwire" {
+		if label != "" {
 			parts = append(parts, label)
 		}
 		parts = append(parts, subject, notification.ChannelName)

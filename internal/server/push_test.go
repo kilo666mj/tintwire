@@ -28,6 +28,16 @@ func TestNotificationPushPayloadUsesStableTagAndLifecycle(t *testing.T) {
 	}
 }
 
+func TestNotificationPushPayloadDoesNotRepeatApplicationName(t *testing.T) {
+	notification := store.Notification{
+		ID: "ntf_mastodon", ChannelName: "mastodon", Text: "New post",
+	}
+	payload := notificationPushPayload(notification)
+	if payload.Title != "mastodon" || payload.Body != "New post" {
+		t.Fatalf("payload = %#v", payload)
+	}
+}
+
 func TestPushSummaryRemovesRedundantAlertmanagerLifecyclePrefix(t *testing.T) {
 	for input, want := range map[string]string{
 		"[FIRING:12] Disk full": "Disk full",
