@@ -129,6 +129,19 @@ func TestMarkChannelReadLeavesOtherChannelsUnread(t *testing.T) {
 	if count, err := data.UnreadCount(ctx, reader); err != nil || count != 1 {
 		t.Fatalf("unread count = %d, %v", count, err)
 	}
+	if err := data.SetChannelNotificationPreference(ctx, reader, channels[1].ID, "muted"); err != nil {
+		t.Fatal(err)
+	}
+	if count, err := data.UnreadCount(ctx, reader); err != nil || count != 0 {
+		t.Fatalf("unread count with remaining channel muted = %d, %v", count, err)
+	}
+	channels, err = data.ListChannels(ctx, reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if channels[1].UnreadCount != 1 {
+		t.Fatalf("muted channel unread count = %d, want channel-local count preserved", channels[1].UnreadCount)
+	}
 }
 
 func TestUserAuthenticationAndSessions(t *testing.T) {

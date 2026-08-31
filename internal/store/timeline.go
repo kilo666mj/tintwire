@@ -505,6 +505,8 @@ LEFT JOIN channel_read_state rs ON rs.channel_id = m.channel_id AND rs.user_id =
 WHERE m.deleted_at IS NULL AND ? <> '' AND m.created_at > COALESCE(rs.read_at, 0)`
 	statement += ` AND m.author_user_id <> ?`
 	args := []any{user.ID, user.ID, user.ID}
+	statement += ` AND COALESCE((SELECT p.level FROM channel_notification_preferences p WHERE p.user_id=? AND p.channel_id=c.id), 'all') <> 'muted'`
+	args = append(args, user.ID)
 	if user.ID != "" && !user.IsAdmin {
 		statement += ` AND (c.visibility = 'public' OR EXISTS (SELECT 1 FROM channel_memberships mm WHERE mm.channel_id = c.id AND mm.user_id = ?))`
 		args = append(args, user.ID)
@@ -563,6 +565,8 @@ JOIN channels c ON c.id = e.channel_id
 LEFT JOIN channel_read_state rs ON rs.channel_id = e.channel_id AND rs.user_id = ?
 WHERE r.response_type = 'in_channel' AND r.created_at > COALESCE(rs.read_at, 0)`
 	args := []any{user.ID}
+	statement += ` AND COALESCE((SELECT p.level FROM channel_notification_preferences p WHERE p.user_id=? AND p.channel_id=c.id), 'all') <> 'muted'`
+	args = append(args, user.ID)
 	if !user.IsAdmin {
 		statement += ` AND (c.visibility = 'public' OR EXISTS (SELECT 1 FROM channel_memberships m WHERE m.channel_id=c.id AND m.user_id=?))`
 		args = append(args, user.ID)

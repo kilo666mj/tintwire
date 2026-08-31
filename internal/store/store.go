@@ -245,6 +245,7 @@ type NotificationQuery struct {
 	DismissedOnly  bool
 	Severity       string
 	UnreadOnly     bool
+	ExcludeMuted   bool
 	OrderByUpdated bool
 	BeforeAt       int64
 	BeforeID       string
@@ -2252,6 +2253,10 @@ WHERE 1 = 1`
 		statement += ` AND (c.visibility = 'public' OR EXISTS (SELECT 1 FROM channel_memberships m WHERE m.channel_id = c.id AND m.user_id = ?))`
 		args = append(args, query.UserID)
 	}
+	if query.ExcludeMuted && query.UserID != "" {
+		statement += ` AND COALESCE((SELECT p.level FROM channel_notification_preferences p WHERE p.user_id = ? AND p.channel_id = c.id), 'all') <> 'muted'`
+		args = append(args, query.UserID)
+	}
 	if search := strings.TrimSpace(query.Search); search != "" {
 		statement += ` AND (n.text LIKE ? ESCAPE '\' COLLATE NOCASE OR n.username LIKE ? ESCAPE '\' COLLATE NOCASE OR c.name LIKE ? ESCAPE '\' COLLATE NOCASE OR CAST(n.card_json AS TEXT) LIKE ? ESCAPE '\' COLLATE NOCASE OR CAST(n.attachments_json AS TEXT) LIKE ? ESCAPE '\' COLLATE NOCASE)`
 		pattern := "%" + escapeLike(search) + "%"
@@ -2447,9 +2452,10 @@ LEFT JOIN channel_read_state rs ON rs.channel_id = n.channel_id AND rs.user_id =
 LEFT JOIN notification_user_state us ON us.notification_id = n.id AND us.user_id = ?
 WHERE (COALESCE(us.unread, 0) = 1 OR n.updated_at > MAX(COALESCE(rs.read_at, 0), COALESCE(us.read_at, 0)))
   AND us.dismissed_at IS NULL
+  AND COALESCE((SELECT p.level FROM channel_notification_preferences p WHERE p.user_id = ? AND p.channel_id = c.id), 'all') <> 'muted'
   AND (? OR c.visibility = 'public' OR EXISTS (
     SELECT 1 FROM channel_memberships m WHERE m.channel_id = c.id AND m.user_id = ?
-  ))`, user.ID, user.ID, user.IsAdmin, user.ID).Scan(&count)
+  ))`, user.ID, user.ID, user.ID, user.IsAdmin, user.ID).Scan(&count)
 	if err != nil {
 		return 0, err
 	}

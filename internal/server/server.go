@@ -821,6 +821,7 @@ func (s *Server) listNotifications(w http.ResponseWriter, r *http.Request) {
 		query.UserID = user.ID
 		query.UserAdmin = user.IsAdmin
 		query.UnreadOnly = truthy(r.URL.Query().Get("unread"))
+		query.ExcludeMuted = query.Channel == ""
 	}
 	limit := 100
 	if value := r.URL.Query().Get("limit"); value != "" {

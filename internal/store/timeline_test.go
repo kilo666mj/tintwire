@@ -321,6 +321,15 @@ func TestChannelMessageUnreadCounts(t *testing.T) {
 	if count != 1 {
 		t.Fatalf("incoming unread count = %d, want 1", count)
 	}
+	if err := data.SetChannelNotificationPreference(ctx, user, channel, "muted"); err != nil {
+		t.Fatal(err)
+	}
+	if count, err = data.UnreadCount(ctx, user); err != nil || count != 0 {
+		t.Fatalf("muted channel message unread count = %d, error = %v", count, err)
+	}
+	if err := data.SetChannelNotificationPreference(ctx, user, channel, "all"); err != nil {
+		t.Fatal(err)
+	}
 	channels, err := data.ListChannels(ctx, user)
 	if err != nil {
 		t.Fatal(err)

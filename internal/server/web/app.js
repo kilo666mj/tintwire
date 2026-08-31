@@ -1697,10 +1697,10 @@ function channelButton(channel) {
 }
 
 function renderChannelNavigation(channels) {
-  const all = channels.reduce((summary, channel) => ({
+  const all = channels.filter(channel => channel.notification_level !== "muted").reduce((summary, channel) => ({
     name: "", display_name: "All notifications", accent_color: "#67e8f9",
     total_count: summary.total_count + Number(channel.total_count || 0),
-    unread_count: summary.unread_count + (channel.notification_level === "muted" ? 0 : Number(channel.unread_count || 0)),
+    unread_count: summary.unread_count + Number(channel.unread_count || 0),
     firing_count: summary.firing_count + Number(channel.firing_count || 0)
   }), {name: "", display_name: "All notifications", accent_color: "#67e8f9", total_count: 0, unread_count: 0, firing_count: 0});
   const entries = [all, ...channels];

@@ -868,6 +868,18 @@ func TestReaderAuthentication(t *testing.T) {
 	if len(channelResult.Channels) != 1 || channelResult.Channels[0].Name != "private" || channelResult.Channels[0].DisplayName != "private" || channelResult.Channels[0].UnreadCount != 1 || channelResult.Channels[0].TotalCount != 1 {
 		t.Fatalf("channels = %#v", channelResult.Channels)
 	}
+	if err := db.SetChannelNotificationPreference(context.Background(), operator, channelResult.Channels[0].ID, "muted"); err != nil {
+		t.Fatal(err)
+	}
+	if mutedGlobal := listByQuery(""); len(mutedGlobal) != 0 {
+		t.Fatalf("global feed includes muted channel notifications: %#v", mutedGlobal)
+	}
+	if mutedChannel := listByQuery("?channel=private"); len(mutedChannel) != 1 {
+		t.Fatalf("explicit muted channel feed = %#v, want its notification", mutedChannel)
+	}
+	if err := db.SetChannelNotificationPreference(context.Background(), operator, channelResult.Channels[0].ID, "all"); err != nil {
+		t.Fatal(err)
+	}
 	markRead := httptest.NewRequest(http.MethodPost, "/api/v1/notifications/read", nil)
 	markRead.Header.Set("Origin", "http://example.com")
 	markRead.Host = "example.com"
@@ -2246,8 +2258,8 @@ func TestEmbeddedWebAssets(t *testing.T) {
 						t.Fatalf("inbox HTML does not contain %s", marker)
 					}
 				}
-				if !strings.Contains(string(body), `.channel-timeline-view .list{align-content:start;grid-auto-rows:max-content;`) {
-					t.Fatal("channel timeline must preserve intrinsic card row heights")
+				if !strings.Contains(string(body), `.channel-timeline-view .list{align-content:end;grid-auto-rows:max-content;`) {
+					t.Fatal("channel timeline must bottom-align intrinsic-height card rows")
 				}
 				if !strings.Contains(string(body), `height:calc(100dvh - 300px);min-height:320px;`) {
 					t.Fatal("desktop channel timeline must track the viewport height")
