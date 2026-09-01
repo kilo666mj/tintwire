@@ -58,12 +58,11 @@ fn stored_origin(app: &AppHandle) -> Option<String> {
 #[cfg(target_os = "linux")]
 fn running_under_hyprland() -> bool {
     std::env::var_os("HYPRLAND_INSTANCE_SIGNATURE").is_some()
-        || std::env::var("XDG_CURRENT_DESKTOP")
-            .is_ok_and(|desktop| {
-                desktop
-                    .split(':')
-                    .any(|name| name.eq_ignore_ascii_case("hyprland"))
-            })
+        || std::env::var("XDG_CURRENT_DESKTOP").is_ok_and(|desktop| {
+            desktop
+                .split(':')
+                .any(|name| name.eq_ignore_ascii_case("hyprland"))
+        })
 }
 
 /// Grants the configured origin — and only that origin — permission to call this
