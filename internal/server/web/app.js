@@ -123,6 +123,10 @@ const savedViewForm = document.querySelector("#saved-view-form");
 const savedViewClose = document.querySelector("#saved-view-close");
 const savedViewName = document.querySelector("#saved-view-name");
 const savedViewChannels = document.querySelector("#saved-view-channels");
+const savedViewSearch = document.querySelector("#saved-view-search");
+const savedViewState = document.querySelector("#saved-view-state");
+const savedViewSeverity = document.querySelector("#saved-view-severity");
+const savedViewUnread = document.querySelector("#saved-view-unread");
 const savedViewStatus = document.querySelector("#saved-view-status");
 const composer = document.querySelector("#composer");
 const composerInput = document.querySelector("#composer-input");
@@ -1750,6 +1754,12 @@ function renderChannelNavigation(channels) {
 function writeFilterURL(method) {
   const parameters = new URLSearchParams(new FormData(inboxFilters));
   for (const [key, value] of [...parameters]) if (!value) parameters.delete(key);
+  const activeViewID = new URLSearchParams(location.search).get("view");
+  if (activeViewID && selectedChannels.length && !selectedChannel) {
+    parameters.delete("channel");
+    parameters.set("channels", selectedChannels.join(","));
+    parameters.set("view", activeViewID);
+  }
   history[method](null, "", parameters.size ? `?${parameters}` : location.pathname);
 }
 
@@ -1886,6 +1896,10 @@ function renderSavedViews() {
     button.type = "button";
     button.title = view.channels.join(", ");
     button.addEventListener("click", () => applySavedView(view));
+    const edit = element("button", "channel-mute-button", "⚙");
+    edit.type = "button";
+    edit.title = `Edit ${view.name} defaults`;
+    edit.addEventListener("click", () => openSavedViewDialog(view));
     const remove = element("button", "channel-mute-button", "×");
     remove.type = "button";
     remove.title = `Delete ${view.name}`;
@@ -1894,7 +1908,7 @@ function renderSavedViews() {
       const response = await fetch(`/api/v1/saved-views/${encodeURIComponent(view.id)}`, {method:"DELETE"});
       if (response.ok) await loadSavedViews();
     });
-    row.append(button, remove);
+    row.append(button, edit, remove);
     return row;
   }));
 }
@@ -1909,9 +1923,14 @@ async function loadSavedViews() {
   if (view) { selectedChannels = [...view.channels]; feedTitle.textContent = view.name; }
 }
 
-savedViewAdd.addEventListener("click", () => {
-  const suggested = selectedChannels.length ? selectedChannels : channelCache.filter(channel => /mastodon|bluesky/i.test(`${channel.name} ${channel.display_name}`)).map(channel => channel.name);
-  savedViewName.value = "News";
+function openSavedViewDialog(view = null) {
+  const suggested = view?.channels || (selectedChannels.length ? selectedChannels : channelCache.filter(channel => /mastodon|bluesky/i.test(`${channel.name} ${channel.display_name}`)).map(channel => channel.name));
+  savedViewName.value = view?.name || "News";
+  savedViewName.readOnly = Boolean(view);
+  savedViewSearch.value = view?.q || "";
+  savedViewState.value = view?.state || "";
+  savedViewSeverity.value = view?.severity || "";
+  savedViewUnread.value = view ? (view.unread ? "1" : "") : "1";
   savedViewStatus.textContent = "";
   savedViewChannels.replaceChildren(...channelCache.map(channel => {
     const option = element("option", "", channel.display_name || channel.name);
@@ -1922,7 +1941,8 @@ savedViewAdd.addEventListener("click", () => {
   savedViewDialog.showModal();
   savedViewName.focus();
   savedViewName.select();
-});
+}
+savedViewAdd.addEventListener("click", () => openSavedViewDialog());
 savedViewClose.addEventListener("click", () => savedViewDialog.close());
 savedViewDialog.addEventListener("click", event => { if (event.target === savedViewDialog) savedViewDialog.close(); });
 savedViewForm.addEventListener("submit", async event => {
@@ -1930,7 +1950,7 @@ savedViewForm.addEventListener("submit", async event => {
   const name = savedViewName.value.trim();
   const channels = [...savedViewChannels.selectedOptions].map(option => option.value);
   if (!channels.length) { savedViewStatus.textContent = "Choose at least one channel."; return; }
-  const response = await fetch("/api/v1/saved-views", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({name, channels, q:inboxSearch.value.trim(), state:stateFilter.value, severity:severityFilter.value, unread:false})});
+  const response = await fetch("/api/v1/saved-views", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({name, channels, q:savedViewSearch.value.trim(), state:savedViewState.value, severity:savedViewSeverity.value, unread:savedViewUnread.value === "1"})});
   if (!response.ok) { savedViewStatus.textContent = (await response.text()).trim() || "Unable to save view"; return; }
   const view = await response.json();
   savedViewDialog.close();
@@ -2104,7 +2124,8 @@ function filtersChanged() {
   filterTimer = setTimeout(() => {
     if (stateFilter.value === "dismissed") readFilter.value = "";
     selectedChannel = channelFilter.value;
-    selectedChannels = [];
+    const activeViewID = new URLSearchParams(location.search).get("view");
+    if (selectedChannel || !activeViewID) selectedChannels = [];
     renderChannelNavigation(channelCache);
     updatePrimaryNavigation();
     writeFilterURL("replaceState");

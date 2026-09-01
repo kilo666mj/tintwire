@@ -217,7 +217,11 @@
     <div class="channel-form">
       <label><span>Name</span><input id="saved-view-name" maxlength="40" value="News" required></label>
       <label><span>Channels</span><select id="saved-view-channels" multiple size="8" required></select></label>
-      <p class="alert-setup-copy">Choose one or more channels. Saved views include both read and unread items and do not change alert delivery.</p>
+      <label><span>Default search</span><input id="saved-view-search" type="search" placeholder="No search filter"></label>
+      <label><span>Default lifecycle</span><select id="saved-view-state"><option value="">Any state</option><option value="received">Received</option><option value="firing">Firing</option><option value="acknowledged">Acknowledged</option><option value="resolved">Resolved</option><option value="dismissed">Archived</option></select></label>
+      <label><span>Default severity</span><select id="saved-view-severity"><option value="">Any severity</option><option value="info">Info</option><option value="warning">Warning</option><option value="critical">Critical</option><option value="success">Success</option></select></label>
+      <label><span>Default read state</span><select id="saved-view-unread"><option value="1">Unread only</option><option value="">Read &amp; unread</option></select></label>
+      <p class="alert-setup-copy">Defaults are restored whenever the view is opened. Temporary filter changes stay inside the view and do not alter alert delivery.</p>
       <button type="submit">Save view</button><p id="saved-view-status" class="alert-setup-status" role="status"></p>
     </div>
   </form>

@@ -16,10 +16,11 @@ padding and type, and on displays wider than 1500 pixels arranges the feed in tw
 columns. Roomy view stays available on the same display.
 
 Named views combine up to 20 channels into one chronological notification feed.
-They are stored per user, retain the current search/lifecycle/severity filters,
-open with both read and unread items by default, and are represented in the URL
-for bookmarking and browser navigation. Explicitly selected channels remain in a
-view even when their alert delivery is muted; views never change alert settings.
+They are stored per user with editable search, lifecycle, severity, and read-state
+defaults, and are represented in the URL for bookmarking and browser navigation.
+Changing a filter temporarily keeps the named view active; reopening it restores
+its saved defaults. Explicitly selected channels remain in a view even when their
+alert delivery is muted, and views never change alert settings.
 
 ## Desktop client
 
