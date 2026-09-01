@@ -2253,7 +2253,7 @@ func TestEmbeddedWebAssets(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				for _, marker := range []string{`id="channel-list"`, `id="channel-edit-button"`, `id="mobile-channel-edit-button"`, `id="mobile-channel-list"`, `id="feed-title"`, `id="alert-dialog"`, `id="alert-setup-button"`, `<option value="dismissed">Archived</option>`} {
+				for _, marker := range []string{`id="channel-list"`, `id="channel-sort-button"`, `id="channel-edit-button"`, `id="mobile-channel-sort-button"`, `id="mobile-channel-edit-button"`, `id="mobile-channel-list"`, `id="feed-title"`, `id="alert-dialog"`, `id="alert-setup-button"`, `<option value="dismissed">Archived</option>`} {
 					if !strings.Contains(string(body), marker) {
 						t.Fatalf("inbox HTML does not contain %s", marker)
 					}

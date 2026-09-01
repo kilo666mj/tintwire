@@ -15,6 +15,11 @@ Compact view is a stored preference rather than a viewport rule: it tightens car
 padding and type, and on displays wider than 1500 pixels arranges the feed in two
 columns. Roomy view stays available on the same display.
 
+The Channels header also has a stored **Unread first** preference. It keeps **All
+notifications** pinned at the top, then orders channels by unread count, firing
+count, and their normal order. The same control is available in the mobile
+channel picker.
+
 Named views combine up to 20 channels into one chronological notification feed.
 They are stored per user with editable search, lifecycle, severity, and read-state
 defaults, and are represented in the URL for bookmarking and browser navigation.

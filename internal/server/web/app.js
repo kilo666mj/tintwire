@@ -108,6 +108,8 @@ const filterConsole = document.querySelector("#filter-console");
 const inbox = document.querySelector("#inbox");
 const channelList = document.querySelector("#channel-list");
 const mobileChannelList = document.querySelector("#mobile-channel-list");
+const channelSortButton = document.querySelector("#channel-sort-button");
+const mobileChannelSortButton = document.querySelector("#mobile-channel-sort-button");
 const mobileChannelToggle = document.querySelector("#mobile-channel-toggle");
 const channelDialog = document.querySelector("#channel-dialog");
 const channelDialogClose = document.querySelector("#channel-dialog-close");
@@ -1673,6 +1675,7 @@ let selectedChannel = new URLSearchParams(location.search).get("channel") || "";
 let selectedChannels = (new URLSearchParams(location.search).get("channels") || "").split(",").filter(Boolean);
 let savedViewCache = [];
 let editingChannelID = "";
+let unreadChannelsFirst = localStorage.getItem("tintwire-channel-sort") === "unread";
 
 function channelButton(channel) {
   const row = element("div", "channel-row");
@@ -1736,7 +1739,12 @@ function renderChannelNavigation(channels) {
     unread_count: summary.unread_count + Number(channel.unread_count || 0),
     firing_count: summary.firing_count + Number(channel.firing_count || 0)
   }), {name: "", display_name: "All notifications", accent_color: "#67e8f9", total_count: 0, unread_count: 0, firing_count: 0});
-  const entries = [all, ...channels];
+  const orderedChannels = unreadChannelsFirst ? channels.map((channel, index) => ({channel, index})).sort((left, right) => (
+    Number(right.channel.unread_count || 0) - Number(left.channel.unread_count || 0) ||
+    Number(right.channel.firing_count || 0) - Number(left.channel.firing_count || 0) ||
+    left.index - right.index
+  )).map(entry => entry.channel) : channels;
+  const entries = [all, ...orderedChannels];
   channelList.replaceChildren(...entries.map(channelButton));
   mobileChannelList.replaceChildren(...entries.map(channelButton));
   const selected = entries.find(channel => channel.name === selectedChannel) || all;
@@ -1747,6 +1755,22 @@ function renderChannelNavigation(channels) {
   const unread = all.unread_count ? ` · ${all.unread_count} unread` : "";
   mobileChannelToggle.textContent = `${selected.name ? selected.display_name : "Channels"}${unread}`;
 }
+
+function applyChannelSort(unreadFirst) {
+  unreadChannelsFirst = unreadFirst;
+  for (const button of [channelSortButton, mobileChannelSortButton]) {
+    button.setAttribute("aria-pressed", String(unreadFirst));
+    button.title = unreadFirst ? "Restore the default channel order" : "Put channels with unread items first";
+  }
+  renderChannelNavigation(channelCache);
+}
+
+for (const button of [channelSortButton, mobileChannelSortButton]) button.addEventListener("click", () => {
+  localStorage.setItem("tintwire-channel-sort", unreadChannelsFirst ? "default" : "unread");
+  applyChannelSort(!unreadChannelsFirst);
+});
+
+applyChannelSort(unreadChannelsFirst);
 
 function writeFilterURL(method) {
   const parameters = new URLSearchParams(new FormData(inboxFilters));
