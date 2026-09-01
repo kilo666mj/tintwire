@@ -55,6 +55,17 @@ fn stored_origin(app: &AppHandle) -> Option<String> {
     value.as_str().map(str::to_string)
 }
 
+#[cfg(target_os = "linux")]
+fn running_under_hyprland() -> bool {
+    std::env::var_os("HYPRLAND_INSTANCE_SIGNATURE").is_some()
+        || std::env::var("XDG_CURRENT_DESKTOP")
+            .is_ok_and(|desktop| {
+                desktop
+                    .split(':')
+                    .any(|name| name.eq_ignore_ascii_case("hyprland"))
+            })
+}
+
 /// Grants the configured origin — and only that origin — permission to call this
 /// shell's commands. The capability is added at runtime because the origin is
 /// installation-specific and unknown when the client is built.
@@ -373,6 +384,10 @@ fn main() {
                 .clone();
             if let Some(window) = handle.get_webview_window(MAIN_WINDOW) {
                 window.set_icon(icon.clone())?;
+                #[cfg(target_os = "linux")]
+                if running_under_hyprland() {
+                    window.set_decorations(false)?;
+                }
             }
             build_tray(&handle, Image::from_bytes(TRAY_ICON)?)?;
             // With no stored origin the window keeps the bundled first-run
