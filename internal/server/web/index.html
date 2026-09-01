@@ -35,15 +35,6 @@
       <span class="command-mark" aria-hidden="true"><span class="command-signalmark"></span></span>
       <span class="command-brand-copy"><strong>Tint<span>wire</span></strong><small>Signal console</small></span>
     </a>
-    <nav class="command-nav" aria-label="Primary navigation">
-      <div class="command-nav-label">Command</div>
-      <a id="inbox-nav" class="active" href="#inbox" aria-label="Inbox"><span class="command-nav-icon">◇</span><span>Inbox</span></a>
-      <div class="command-nav-label">Signals</div>
-      <a id="filters-nav" href="#filter-console"><span class="command-nav-icon">⌇</span><span>Filters</span></a>
-      <a id="activity-nav" href="#inbox"><span class="command-nav-icon">△</span><span>Activity</span></a>
-      <a id="automation-open" href="#automation-dialog" aria-label="Automation" aria-haspopup="dialog" hidden><span class="command-nav-icon">⚙</span><span>Automation</span></a>
-      <a id="users-open" href="#users-dialog" aria-label="Users" aria-haspopup="dialog" hidden><span class="command-nav-icon">♙</span><span>Users</span></a>
-    </nav>
     <section class="channel-section" aria-labelledby="channel-list-label">
       <div class="channel-section-header">
         <div id="channel-list-label" class="command-nav-label">Channels</div>
@@ -58,6 +49,8 @@
     </section>
     <div class="sidebar-controls">
       <div id="session-identity" class="session-identity" hidden></div>
+      <button id="automation-open" class="command-control" type="button" aria-haspopup="dialog" hidden>Integrations</button>
+      <button id="users-open" class="command-control" type="button" aria-haspopup="dialog" hidden>Users</button>
       <button id="alert-button" class="command-control" type="button" disabled>Enable alerts</button>
       <span id="alert-status" class="alert-status">Checking notification support…</span>
       <button id="density-button" class="command-control" type="button" aria-pressed="false">Compact view</button>
@@ -103,7 +96,7 @@
 <dialog id="automation-dialog" class="automation-dialog" aria-labelledby="automation-dialog-title">
   <div class="automation-card">
     <div class="channel-dialog-heading">
-      <div><div class="section-label">Admin control plane</div><h2 id="automation-dialog-title">Bots &amp; webhooks</h2></div>
+      <div><div class="section-label">Bots, webhooks &amp; actions</div><h2 id="automation-dialog-title">Integrations</h2></div>
       <button id="automation-close" class="alert-dialog-close" type="button" aria-label="Close automation management">×</button>
     </div>
     <p class="automation-copy">Credentials are shown once when created. Existing secrets cannot be recovered.</p>

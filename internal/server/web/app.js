@@ -105,9 +105,6 @@ const credentialTitle = document.querySelector("#credential-title");
 const credentialValue = document.querySelector("#credential-value");
 const credentialCopy = document.querySelector("#credential-copy");
 const filterConsole = document.querySelector("#filter-console");
-const inboxNav = document.querySelector("#inbox-nav");
-const filtersNav = document.querySelector("#filters-nav");
-const activityNav = document.querySelector("#activity-nav");
 const inbox = document.querySelector("#inbox");
 const channelList = document.querySelector("#channel-list");
 const mobileChannelList = document.querySelector("#mobile-channel-list");
@@ -1763,14 +1760,6 @@ function writeFilterURL(method) {
   history[method](null, "", parameters.size ? `?${parameters}` : location.pathname);
 }
 
-function updatePrimaryNavigation(preferred = "") {
-  const filtered = Boolean(selectedChannel || selectedChannels.length || inboxSearch.value.trim() || stateFilter.value || severityFilter.value);
-  const mode = preferred || (filtered ? "filters" : (readFilter.value === "1" ? "inbox" : "activity"));
-  inboxNav.classList.toggle("active", mode === "inbox");
-  filtersNav.classList.toggle("active", mode === "filters");
-  activityNav.classList.toggle("active", mode === "activity");
-}
-
 function showPrimaryFeed(unreadOnly) {
   selectedChannel = "";
   selectedChannels = [];
@@ -1782,14 +1771,16 @@ function showPrimaryFeed(unreadOnly) {
   timelineNextCursor = "";
   renderChannelNavigation(channelCache);
   setViewForChannel("");
-  updatePrimaryNavigation(unreadOnly ? "inbox" : "activity");
   writeFilterURL("pushState");
   loadNotifications(false);
   document.querySelector("#inbox").scrollIntoView({block: "start"});
 }
 
 function selectChannel(name) {
-  if (name === selectedChannel) return;
+  if (name === selectedChannel) {
+    if (!name && (selectedChannels.length || inboxSearch.value.trim() || stateFilter.value || severityFilter.value || readFilter.value !== "1")) showPrimaryFeed(true);
+    return;
+  }
   selectedChannel = name;
   selectedChannels = [];
   if (name) readFilter.value = "1";
@@ -1797,7 +1788,6 @@ function selectChannel(name) {
   loadedTimelineItems = [];
   channelFilter.value = name;
   renderChannelNavigation(channelCache);
-  updatePrimaryNavigation(name ? "filters" : "");
   setViewForChannel(name);
   writeFilterURL("pushState");
   loadNotifications(false);
@@ -1816,7 +1806,6 @@ function openFiringView(name) {
   loadedTimelineItems = [];
   renderChannelNavigation(channelCache);
   setViewForChannel(name);
-  updatePrimaryNavigation("filters");
   writeFilterURL("pushState");
   loadNotifications(false);
   if (channelDialog.open) channelDialog.close();
@@ -1858,7 +1847,6 @@ async function loadChannels() {
     if (preferred) alertChannel.value = preferred.id;
     renderChannelNavigation(channelCache);
     setViewForChannel(selectedChannel);
-    updatePrimaryNavigation();
     updateReadControl();
   } catch (error) {
     const message = element("span", "channel-loading channel-error", `Channels unavailable · ${error.message}`);
@@ -1883,7 +1871,6 @@ function applySavedView(view) {
   for (const [key, value] of [...parameters]) if (!value) parameters.delete(key);
   history.pushState(null, "", `?${parameters}`);
   renderSavedViews();
-  updatePrimaryNavigation("filters");
   loadNotifications(false);
 }
 
@@ -2127,7 +2114,6 @@ function filtersChanged() {
     const activeViewID = new URLSearchParams(location.search).get("view");
     if (selectedChannel || !activeViewID) selectedChannels = [];
     renderChannelNavigation(channelCache);
-    updatePrimaryNavigation();
     writeFilterURL("replaceState");
     loadNotifications(false);
   }, 180);
@@ -2146,7 +2132,6 @@ window.addEventListener("popstate", () => {
   readFilter.value = parameters.has("notification") ? "" : (parameters.get("unread") || "1");
   renderChannelNavigation(channelCache);
   setViewForChannel(selectedChannel);
-  updatePrimaryNavigation();
   loadNotifications(false);
 });
 
@@ -2619,22 +2604,6 @@ readButton.addEventListener("click", async () => {
 if (matchMedia("(max-width: 700px)").matches && ![inboxSearch.value, stateFilter.value, severityFilter.value].some(Boolean)) {
   filterConsole.open = false;
 }
-inboxNav.addEventListener("click", event => {
-  event.preventDefault();
-  showPrimaryFeed(true);
-});
-activityNav.addEventListener("click", event => {
-  event.preventDefault();
-  showPrimaryFeed(false);
-});
-filtersNav.addEventListener("click", event => {
-  event.preventDefault();
-  filterConsole.open = true;
-  filterConsole.hidden = false;
-  updatePrimaryNavigation("filters");
-  filterConsole.scrollIntoView({block: "start"});
-  inboxSearch.focus({preventScroll: true});
-});
 
 // Compact view trades card padding and type scale for more cards on screen, and
 // at very wide viewports splits the feed into two columns. It is a stored
