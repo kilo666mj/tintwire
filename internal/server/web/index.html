@@ -52,6 +52,10 @@
       </div>
       <div id="channel-list" class="channel-list"><span class="channel-loading">Loading…</span></div>
     </section>
+    <section class="channel-section saved-view-section" aria-labelledby="saved-view-label">
+      <div class="channel-section-header"><div id="saved-view-label" class="command-nav-label">Views</div><button id="saved-view-add" class="channel-create-button" type="button">Add</button></div>
+      <div id="saved-view-list" class="channel-list"><span class="channel-loading">Loading…</span></div>
+    </section>
     <div class="sidebar-controls">
       <div id="session-identity" class="session-identity" hidden></div>
       <button id="alert-button" class="command-control" type="button" disabled>Enable alerts</button>
@@ -206,6 +210,17 @@
       <p id="alert-preference-status" class="alert-setup-status" role="status"></p>
     </div>
   </div>
+</dialog>
+<dialog id="saved-view-dialog" class="channel-dialog">
+  <form id="saved-view-form" class="channel-dialog-card">
+    <div class="channel-dialog-heading"><div><div class="section-label">Combined feed</div><h2>Save a view</h2></div><button id="saved-view-close" class="alert-dialog-close" type="button" aria-label="Close">×</button></div>
+    <div class="channel-form">
+      <label><span>Name</span><input id="saved-view-name" maxlength="40" value="News" required></label>
+      <label><span>Channels</span><select id="saved-view-channels" multiple size="8" required></select></label>
+      <p class="alert-setup-copy">Choose one or more channels. Saved views include both read and unread items and do not change alert delivery.</p>
+      <button type="submit">Save view</button><p id="saved-view-status" class="alert-setup-status" role="status"></p>
+    </div>
+  </form>
 </dialog>
 <div id="login-overlay" class="login-overlay" hidden>
   <form id="login-form" class="login-card">

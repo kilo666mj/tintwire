@@ -240,6 +240,7 @@ type NotificationQuery struct {
 	Limit          int
 	Search         string
 	Channel        string
+	Channels       []string
 	State          string
 	ShowDismissed  bool
 	DismissedOnly  bool
@@ -251,6 +252,16 @@ type NotificationQuery struct {
 	BeforeID       string
 	UserID         string
 	UserAdmin      bool
+}
+
+type SavedView struct {
+	ID       string   `json:"id"`
+	Name     string   `json:"name"`
+	Channels []string `json:"channels"`
+	Search   string   `json:"q,omitempty"`
+	State    string   `json:"state,omitempty"`
+	Severity string   `json:"severity,omitempty"`
+	Unread   bool     `json:"unread"`
 }
 
 type NotificationInboxAction string
@@ -1012,6 +1023,27 @@ PRAGMA user_version = 26;
 		if err := tx.Commit(); err != nil {
 			return err
 		}
+	}
+	if version < 27 {
+		tx, err := db.Begin()
+		if err != nil {
+			return err
+		}
+		if _, err := tx.Exec(`
+CREATE TABLE saved_views (
+    id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name TEXT NOT NULL, definition_json BLOB NOT NULL, created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL, UNIQUE(user_id,name)
+);
+PRAGMA user_version = 27;
+`); err != nil {
+			_ = tx.Rollback()
+			return err
+		}
+		if err := tx.Commit(); err != nil {
+			return err
+		}
+		version = 27
 	}
 	return nil
 }
@@ -2269,6 +2301,11 @@ WHERE 1 = 1`
 	if query.Channel != "" {
 		statement += ` AND c.name = ?`
 		args = append(args, query.Channel)
+	} else if len(query.Channels) > 0 {
+		statement += ` AND c.name IN (` + strings.TrimSuffix(strings.Repeat("?,", len(query.Channels)), ",") + `)`
+		for _, channel := range query.Channels {
+			args = append(args, channel)
+		}
 	}
 	if query.State != "" {
 		statement += ` AND n.state = ?`

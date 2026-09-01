@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-const postgresSchemaVersion = 26
+const postgresSchemaVersion = 27
 
 func init() {
 	sql.Register("tintwire-postgres", newPostgresDriver())
@@ -58,6 +58,13 @@ UPDATE schema_version SET version=26 WHERE singleton=1`); err != nil {
 		}
 		version = 26
 	}
+	if version == 26 {
+		if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS saved_views (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, name TEXT NOT NULL, definition_json BYTEA NOT NULL, created_at BIGINT NOT NULL, updated_at BIGINT NOT NULL, UNIQUE(user_id,name)); UPDATE schema_version SET version=27 WHERE singleton=1`); err != nil {
+			_ = db.Close()
+			return nil, fmt.Errorf("migrate PostgreSQL schema to version 27: %w", err)
+		}
+		version = 27
+	}
 	if version != postgresSchemaVersion {
 		_ = db.Close()
 		return nil, fmt.Errorf("unsupported PostgreSQL schema version %d", version)
@@ -72,13 +79,18 @@ CREATE TABLE IF NOT EXISTS schema_version (
     singleton SMALLINT PRIMARY KEY CHECK (singleton = 1),
     version INTEGER NOT NULL
 );
-INSERT INTO schema_version(singleton,version) VALUES(1,26)
+INSERT INTO schema_version(singleton,version) VALUES(1,27)
 ON CONFLICT(singleton) DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS app_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY, username CITEXT NOT NULL UNIQUE, password_hash BYTEA NOT NULL,
     created_at BIGINT NOT NULL, is_admin INTEGER NOT NULL DEFAULT 0, oidc_subject TEXT, disabled_at BIGINT
+);
+CREATE TABLE IF NOT EXISTS saved_views (
+    id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name TEXT NOT NULL, definition_json BYTEA NOT NULL, created_at BIGINT NOT NULL,
+    updated_at BIGINT NOT NULL, UNIQUE(user_id,name)
 );
 CREATE UNIQUE INDEX IF NOT EXISTS users_oidc_subject_idx ON users(oidc_subject) WHERE oidc_subject IS NOT NULL;
 CREATE TABLE IF NOT EXISTS admin_audit_events (

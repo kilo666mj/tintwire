@@ -15,6 +15,12 @@ Compact view is a stored preference rather than a viewport rule: it tightens car
 padding and type, and on displays wider than 1500 pixels arranges the feed in two
 columns. Roomy view stays available on the same display.
 
+Named views combine up to 20 channels into one chronological notification feed.
+They are stored per user, retain the current search/lifecycle/severity filters,
+open with both read and unread items by default, and are represented in the URL
+for bookmarking and browser navigation. Explicitly selected channels remain in a
+view even when their alert delivery is muted; views never change alert settings.
+
 ## Desktop client
 
 A Tauri desktop client lives in [`desktop/`](../desktop/README.md). It loads the

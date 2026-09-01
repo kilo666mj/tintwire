@@ -116,6 +116,14 @@ const channelDialog = document.querySelector("#channel-dialog");
 const channelDialogClose = document.querySelector("#channel-dialog-close");
 const inboxToast = document.querySelector("#inbox-toast");
 const feedTitle = document.querySelector("#feed-title");
+const savedViewList = document.querySelector("#saved-view-list");
+const savedViewAdd = document.querySelector("#saved-view-add");
+const savedViewDialog = document.querySelector("#saved-view-dialog");
+const savedViewForm = document.querySelector("#saved-view-form");
+const savedViewClose = document.querySelector("#saved-view-close");
+const savedViewName = document.querySelector("#saved-view-name");
+const savedViewChannels = document.querySelector("#saved-view-channels");
+const savedViewStatus = document.querySelector("#saved-view-status");
 const composer = document.querySelector("#composer");
 const composerInput = document.querySelector("#composer-input");
 const composerSubmit = document.querySelector("#composer-submit");
@@ -135,6 +143,7 @@ const sentMessageHoldMilliseconds = 10000;
 const heldSentMessages = new Map();
 
 function updateReadControl() {
+  readButton.hidden = !inboxStateEnabled || selectedChannels.length > 0;
   const selected = channelCache.find(channel => channel.name === selectedChannel);
   const visibleUnreadCount = selected ? Number(selected.unread_count || 0) : latestUnreadCount;
   readButton.textContent = visibleUnreadCount
@@ -1163,6 +1172,7 @@ async function loadNotifications(append = false, announce = false, pinTimelineTo
   try {
     const parameters = new URLSearchParams(new FormData(inboxFilters));
     for (const [key, value] of [...parameters]) if (!value) parameters.delete(key);
+    if (selectedChannels.length) { parameters.delete("channel"); parameters.set("channels", selectedChannels.join(",")); }
     if (append && nextCursor) parameters.set("before", nextCursor);
     const response = await fetch(`/api/v1/notifications?${parameters}`);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -1659,6 +1669,8 @@ composer.addEventListener("submit", async event => {
 
 let channelCache = [];
 let selectedChannel = new URLSearchParams(location.search).get("channel") || "";
+let selectedChannels = (new URLSearchParams(location.search).get("channels") || "").split(",").filter(Boolean);
+let savedViewCache = [];
 let editingChannelID = "";
 
 function channelButton(channel) {
@@ -1729,7 +1741,8 @@ function renderChannelNavigation(channels) {
   const selected = entries.find(channel => channel.name === selectedChannel) || all;
   channelEditButton.hidden = !isAdmin || !selected.name;
   mobileChannelEditButton.hidden = !isAdmin || !selected.name;
-  feedTitle.textContent = selected.display_name;
+  const activeView = savedViewCache.find(view => view.id === new URLSearchParams(location.search).get("view"));
+  feedTitle.textContent = activeView ? activeView.name : selected.display_name;
   const unread = all.unread_count ? ` · ${all.unread_count} unread` : "";
   mobileChannelToggle.textContent = `${selected.name ? selected.display_name : "Channels"}${unread}`;
 }
@@ -1741,7 +1754,7 @@ function writeFilterURL(method) {
 }
 
 function updatePrimaryNavigation(preferred = "") {
-  const filtered = Boolean(selectedChannel || inboxSearch.value.trim() || stateFilter.value || severityFilter.value);
+  const filtered = Boolean(selectedChannel || selectedChannels.length || inboxSearch.value.trim() || stateFilter.value || severityFilter.value);
   const mode = preferred || (filtered ? "filters" : (readFilter.value === "1" ? "inbox" : "activity"));
   inboxNav.classList.toggle("active", mode === "inbox");
   filtersNav.classList.toggle("active", mode === "filters");
@@ -1750,6 +1763,7 @@ function updatePrimaryNavigation(preferred = "") {
 
 function showPrimaryFeed(unreadOnly) {
   selectedChannel = "";
+  selectedChannels = [];
   inboxSearch.value = "";
   channelFilter.value = "";
   stateFilter.value = "";
@@ -1767,6 +1781,7 @@ function showPrimaryFeed(unreadOnly) {
 function selectChannel(name) {
   if (name === selectedChannel) return;
   selectedChannel = name;
+  selectedChannels = [];
   if (name) readFilter.value = "1";
   timelineNextCursor = "";
   loadedTimelineItems = [];
@@ -1841,6 +1856,87 @@ async function loadChannels() {
     mobileChannelList.replaceChildren(element("span", "channel-loading channel-error", "Channels unavailable"));
   }
 }
+
+function applySavedView(view) {
+  selectedChannel = "";
+  selectedChannels = [...view.channels];
+  inboxSearch.value = view.q || "";
+  channelFilter.value = "";
+  stateFilter.value = view.state || "";
+  severityFilter.value = view.severity || "";
+  readFilter.value = view.unread ? "1" : "";
+  feedTitle.textContent = view.name;
+  const parameters = new URLSearchParams(new FormData(inboxFilters));
+  parameters.delete("channel");
+  parameters.set("channels", selectedChannels.join(","));
+  parameters.set("view", view.id);
+  for (const [key, value] of [...parameters]) if (!value) parameters.delete(key);
+  history.pushState(null, "", `?${parameters}`);
+  renderSavedViews();
+  updatePrimaryNavigation("filters");
+  loadNotifications(false);
+}
+
+function renderSavedViews() {
+  const activeID = new URLSearchParams(location.search).get("view") || "";
+  if (!savedViewCache.length) { savedViewList.replaceChildren(element("span", "channel-loading", "No saved views")); return; }
+  savedViewList.replaceChildren(...savedViewCache.map(view => {
+    const row = element("div", "channel-row");
+    const button = element("button", `channel-item${view.id === activeID ? " active" : ""}`, view.name);
+    button.type = "button";
+    button.title = view.channels.join(", ");
+    button.addEventListener("click", () => applySavedView(view));
+    const remove = element("button", "channel-mute-button", "×");
+    remove.type = "button";
+    remove.title = `Delete ${view.name}`;
+    remove.addEventListener("click", async () => {
+      if (!confirm(`Delete the saved view “${view.name}”?`)) return;
+      const response = await fetch(`/api/v1/saved-views/${encodeURIComponent(view.id)}`, {method:"DELETE"});
+      if (response.ok) await loadSavedViews();
+    });
+    row.append(button, remove);
+    return row;
+  }));
+}
+
+async function loadSavedViews() {
+  const response = await fetch("/api/v1/saved-views");
+  if (!response.ok) { savedViewList.replaceChildren(element("span", "channel-loading", "Views unavailable")); return; }
+  savedViewCache = (await response.json()).views || [];
+  renderSavedViews();
+  const requested = new URLSearchParams(location.search).get("view");
+  const view = savedViewCache.find(candidate => candidate.id === requested);
+  if (view) { selectedChannels = [...view.channels]; feedTitle.textContent = view.name; }
+}
+
+savedViewAdd.addEventListener("click", () => {
+  const suggested = selectedChannels.length ? selectedChannels : channelCache.filter(channel => /mastodon|bluesky/i.test(`${channel.name} ${channel.display_name}`)).map(channel => channel.name);
+  savedViewName.value = "News";
+  savedViewStatus.textContent = "";
+  savedViewChannels.replaceChildren(...channelCache.map(channel => {
+    const option = element("option", "", channel.display_name || channel.name);
+    option.value = channel.name;
+    option.selected = suggested.includes(channel.name);
+    return option;
+  }));
+  savedViewDialog.showModal();
+  savedViewName.focus();
+  savedViewName.select();
+});
+savedViewClose.addEventListener("click", () => savedViewDialog.close());
+savedViewDialog.addEventListener("click", event => { if (event.target === savedViewDialog) savedViewDialog.close(); });
+savedViewForm.addEventListener("submit", async event => {
+  event.preventDefault();
+  const name = savedViewName.value.trim();
+  const channels = [...savedViewChannels.selectedOptions].map(option => option.value);
+  if (!channels.length) { savedViewStatus.textContent = "Choose at least one channel."; return; }
+  const response = await fetch("/api/v1/saved-views", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({name, channels, q:inboxSearch.value.trim(), state:stateFilter.value, severity:severityFilter.value, unread:false})});
+  if (!response.ok) { savedViewStatus.textContent = (await response.text()).trim() || "Unable to save view"; return; }
+  const view = await response.json();
+  savedViewDialog.close();
+  await loadSavedViews();
+  applySavedView(view);
+});
 
 mobileChannelToggle.addEventListener("click", () => channelDialog.showModal());
 channelDialogClose.addEventListener("click", () => channelDialog.close());
@@ -2008,6 +2104,7 @@ function filtersChanged() {
   filterTimer = setTimeout(() => {
     if (stateFilter.value === "dismissed") readFilter.value = "";
     selectedChannel = channelFilter.value;
+    selectedChannels = [];
     renderChannelNavigation(channelCache);
     updatePrimaryNavigation();
     writeFilterURL("replaceState");
@@ -2021,6 +2118,7 @@ window.addEventListener("popstate", () => {
   const parameters = new URLSearchParams(location.search);
   inboxSearch.value = parameters.get("q") || "";
   selectedChannel = parameters.get("channel") || "";
+  selectedChannels = (parameters.get("channels") || "").split(",").filter(Boolean);
   channelFilter.value = selectedChannel;
   stateFilter.value = parameters.get("state") || "";
   severityFilter.value = parameters.get("severity") || "";
@@ -2418,6 +2516,7 @@ async function initializeSession(desktopAuthExchanged = false) {
     logoutButton.hidden = !session.auth_required;
     readButton.hidden = !inboxStateEnabled;
     await loadChannels();
+    await loadSavedViews();
     await loadNotifications(false);
     connectEvents();
     // The desktop shell delivers native alerts from its resident window, so the

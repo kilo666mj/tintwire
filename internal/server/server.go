@@ -187,6 +187,15 @@ type notificationInboxRequest struct {
 	Action store.NotificationInboxAction `json:"action"`
 }
 
+type savedViewRequest struct {
+	Name     string   `json:"name"`
+	Channels []string `json:"channels"`
+	Search   string   `json:"q"`
+	State    string   `json:"state"`
+	Severity string   `json:"severity"`
+	Unread   bool     `json:"unread"`
+}
+
 type webhookImportRequest struct {
 	DryRun   bool `json:"dry_run"`
 	Webhooks []struct {
@@ -262,6 +271,9 @@ func NewWithOptions(data *store.Store, options Options) (http.Handler, error) {
 	mux.HandleFunc("POST /api/v1/auth/desktop/session", s.requireControlAuthority(s.desktopSession))
 	mux.HandleFunc("GET /api/v1/notifications", s.requireReader(s.listNotifications))
 	mux.HandleFunc("GET /api/v1/channels", s.requireReader(s.listChannels))
+	mux.HandleFunc("GET /api/v1/saved-views", s.requireReader(s.listSavedViews))
+	mux.HandleFunc("POST /api/v1/saved-views", s.requireReader(s.requireControlAuthority(s.saveSavedView)))
+	mux.HandleFunc("DELETE /api/v1/saved-views/{id}", s.requireReader(s.requireControlAuthority(s.deleteSavedView)))
 	mux.HandleFunc("POST /api/v1/channels", s.requireReader(s.requireControlAuthority(s.createChannel)))
 	mux.HandleFunc("PUT /api/v1/channels/{id}", s.requireReader(s.requireControlAuthority(s.updateChannel)))
 	mux.HandleFunc("PUT /api/v1/channels/{id}/members/{username}", s.requireReader(s.requireControlAuthority(s.setChannelMember)))
@@ -809,6 +821,22 @@ func (s *Server) listNotifications(w http.ResponseWriter, r *http.Request) {
 		Search: r.URL.Query().Get("q"), Channel: r.URL.Query().Get("channel"),
 		State: r.URL.Query().Get("state"), Severity: r.URL.Query().Get("severity"),
 	}
+	if values := r.URL.Query()["channels"]; len(values) > 0 {
+		seen := map[string]bool{}
+		for _, value := range values {
+			for _, channel := range strings.Split(value, ",") {
+				channel = strings.TrimSpace(channel)
+				if channel != "" && !seen[channel] {
+					query.Channels = append(query.Channels, channel)
+					seen[channel] = true
+				}
+			}
+		}
+		if len(query.Channels) > 20 {
+			http.Error(w, "at most 20 channels may be selected", http.StatusBadRequest)
+			return
+		}
+	}
 	if truthy(r.URL.Query().Get("include_dismissed")) {
 		query.ShowDismissed = true
 	}
@@ -821,7 +849,7 @@ func (s *Server) listNotifications(w http.ResponseWriter, r *http.Request) {
 		query.UserID = user.ID
 		query.UserAdmin = user.IsAdmin
 		query.UnreadOnly = truthy(r.URL.Query().Get("unread"))
-		query.ExcludeMuted = query.Channel == ""
+		query.ExcludeMuted = query.Channel == "" && len(query.Channels) == 0
 	}
 	limit := 100
 	if value := r.URL.Query().Get("limit"); value != "" {
