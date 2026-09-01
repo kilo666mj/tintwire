@@ -13,7 +13,7 @@ func (s *Store) ListSavedViews(ctx context.Context, userID string) ([]SavedView,
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	views := []SavedView{}
 	for rows.Next() {
 		var view SavedView

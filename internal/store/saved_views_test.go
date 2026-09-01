@@ -12,7 +12,7 @@ func TestSavedViewsAreUserScopedAndUpdatedByName(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	ctx := context.Background()
 	first, err := db.SaveSavedView(ctx, LocalInboxUser().ID, SavedView{Name: "News", Channels: []string{"mastodon", "bluesky"}})
 	if err != nil {
@@ -46,7 +46,7 @@ func TestNotificationQueryCombinesNamedChannels(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	ctx := context.Background()
 	for _, name := range []string{"mastodon", "bluesky", "operations"} {
 		channel, _, err := db.CreateChannel(ctx, CreateChannelInput{Name: name, Visibility: "public"})
