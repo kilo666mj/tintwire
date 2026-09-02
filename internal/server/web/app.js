@@ -1576,6 +1576,8 @@ function setViewForChannel(name) {
     list.before(loadMoreButton);
     loadMoreButton.hidden = !timelineNextCursor;
   } else {
+    currentChannelID = "";
+    clearReply();
     inbox.classList.remove("channel-timeline-view");
     inboxFilters.classList.remove("timeline-search");
     inboxSearch.placeholder = "Search notifications…";
@@ -1887,6 +1889,7 @@ function applySavedView(view) {
   stateFilter.value = view.state || "";
   severityFilter.value = view.severity || "";
   readFilter.value = view.unread ? "1" : "";
+  setViewForChannel("");
   feedTitle.textContent = view.name;
   const parameters = new URLSearchParams(new FormData(inboxFilters));
   parameters.delete("channel");

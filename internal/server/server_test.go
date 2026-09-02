@@ -2247,6 +2247,13 @@ func TestEmbeddedWebAssets(t *testing.T) {
 						t.Fatalf("inbox JavaScript does not contain %s", marker)
 					}
 				}
+				javascript := string(body)
+				applySavedViewStart := strings.Index(javascript, "function applySavedView(view) {")
+				renderSavedViewsStart := strings.Index(javascript, "function renderSavedViews() {")
+				if applySavedViewStart < 0 || renderSavedViewsStart <= applySavedViewStart ||
+					!strings.Contains(javascript[applySavedViewStart:renderSavedViewsStart], `setViewForChannel("");`) {
+					t.Fatal("opening a saved view must leave channel timeline mode and hide its composer")
+				}
 			}
 			if path == "/" {
 				body, err := io.ReadAll(response.Body)
