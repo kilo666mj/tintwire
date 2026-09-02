@@ -1786,6 +1786,10 @@ function writeFilterURL(method) {
   history[method](null, "", parameters.size ? `?${parameters}` : location.pathname);
 }
 
+function scrollInboxIntoViewOnMobile() {
+  if (matchMedia("(max-width: 700px)").matches) inbox.scrollIntoView({block: "start"});
+}
+
 function showPrimaryFeed(unreadOnly) {
   selectedChannel = "";
   selectedChannels = [];
@@ -1799,7 +1803,7 @@ function showPrimaryFeed(unreadOnly) {
   setViewForChannel("");
   writeFilterURL("pushState");
   loadNotifications(false);
-  document.querySelector("#inbox").scrollIntoView({block: "start"});
+  scrollInboxIntoViewOnMobile();
 }
 
 function selectChannel(name) {
@@ -1818,7 +1822,7 @@ function selectChannel(name) {
   writeFilterURL("pushState");
   loadNotifications(false);
   if (channelDialog.open) channelDialog.close();
-  document.querySelector("#inbox").scrollIntoView({block: "start"});
+  scrollInboxIntoViewOnMobile();
 }
 
 function openFiringView(name) {
@@ -1835,7 +1839,7 @@ function openFiringView(name) {
   writeFilterURL("pushState");
   loadNotifications(false);
   if (channelDialog.open) channelDialog.close();
-  document.querySelector("#inbox").scrollIntoView({block: "start"});
+  scrollInboxIntoViewOnMobile();
 }
 
 async function loadChannels() {

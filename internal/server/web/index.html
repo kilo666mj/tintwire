@@ -38,9 +38,11 @@
     <section class="channel-section" aria-labelledby="channel-list-label">
       <div class="channel-section-header">
         <div id="channel-list-label" class="command-nav-label">Channels</div>
-        <button id="channel-sort-button" class="channel-sort-button" type="button" aria-pressed="false">Unread first</button>
-        <button id="channel-edit-button" class="channel-create-button" type="button" hidden>Edit</button>
-        <button id="channel-create-button" class="channel-create-button" type="button" hidden>Add channel</button>
+        <div class="channel-section-actions">
+          <button id="channel-sort-button" class="channel-sort-button" type="button" aria-pressed="false">Unread first</button>
+          <button id="channel-edit-button" class="channel-create-button" type="button" hidden>Edit</button>
+          <button id="channel-create-button" class="channel-create-button" type="button" hidden>Add channel</button>
+        </div>
       </div>
       <div id="channel-list" class="channel-list"><span class="channel-loading">Loading…</span></div>
     </section>
