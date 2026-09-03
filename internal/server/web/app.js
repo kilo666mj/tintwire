@@ -23,16 +23,17 @@ const desktopShell = window.__TAURI__?.core ? {
   },
 } : null;
 
-// Webviews do not consistently create a new native window for target=_blank.
-// Hand those explicit external-link clicks to the desktop shell instead; the
-// browser/PWA path and ordinary in-app navigation remain unchanged.
+// Webviews do not consistently create a new native window for external links.
+// Hand explicit new-window links and cross-origin links to the desktop shell;
+// the browser/PWA path and ordinary same-origin navigation remain unchanged.
 document.addEventListener("click", event => {
   if (!desktopShell || !(event.target instanceof Element)) return;
-  const link = event.target.closest("a[target='_blank'][href]");
+  const link = event.target.closest("a[href]");
   if (!link || link.hasAttribute("download")) return;
   let target;
   try { target = new URL(link.href, location.href); } catch (_) { return; }
   if (target.protocol !== "http:" && target.protocol !== "https:") return;
+  if (link.target !== "_blank" && target.origin === location.origin) return;
   event.preventDefault();
   desktopShell.openExternal(target.href).catch(error => console.error("Unable to open external link", error));
 });
