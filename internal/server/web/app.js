@@ -23,6 +23,69 @@ const desktopShell = window.__TAURI__?.core ? {
   },
 } : null;
 
+const appShell = document.querySelector(".app-shell");
+const sidebarResizer = document.querySelector("#sidebar-resizer");
+const sidebarWidthStorageKey = "tintwire-sidebar-width";
+const sidebarMinWidth = 76;
+const sidebarCompactWidth = 140;
+
+function sidebarMaxWidth() {
+  return Math.max(sidebarMinWidth, Math.min(480, window.innerWidth - 420));
+}
+
+function applySidebarWidth(width, persist = false) {
+  const maximum = sidebarMaxWidth();
+  const next = Math.round(Math.min(maximum, Math.max(sidebarMinWidth, Number(width) || sidebarMinWidth)));
+  appShell.style.setProperty("--sidebar-width", `${next}px`);
+  document.body.classList.toggle("sidebar-expanded", next > sidebarCompactWidth);
+  sidebarResizer.setAttribute("aria-valuenow", String(next));
+  sidebarResizer.setAttribute("aria-valuemax", String(maximum));
+  if (persist) localStorage.setItem(sidebarWidthStorageKey, String(next));
+  return next;
+}
+
+function initializeSidebarResize() {
+  const stored = Number(localStorage.getItem(sidebarWidthStorageKey));
+  applySidebarWidth(stored || (window.innerWidth <= 1100 ? sidebarMinWidth : 250));
+
+  let activePointer = null;
+  sidebarResizer.addEventListener("pointerdown", event => {
+    if (event.button !== 0) return;
+    activePointer = event.pointerId;
+    sidebarResizer.setPointerCapture(event.pointerId);
+    document.body.classList.add("sidebar-resizing");
+    event.preventDefault();
+  });
+  sidebarResizer.addEventListener("pointermove", event => {
+    if (event.pointerId === activePointer) applySidebarWidth(event.clientX);
+  });
+  const finishResize = event => {
+    if (event.pointerId !== activePointer) return;
+    activePointer = null;
+    document.body.classList.remove("sidebar-resizing");
+    applySidebarWidth(parseFloat(getComputedStyle(appShell).getPropertyValue("--sidebar-width")), true);
+  };
+  sidebarResizer.addEventListener("pointerup", finishResize);
+  sidebarResizer.addEventListener("pointercancel", finishResize);
+  sidebarResizer.addEventListener("keydown", event => {
+    const current = parseFloat(getComputedStyle(appShell).getPropertyValue("--sidebar-width"));
+    let next = current;
+    if (event.key === "ArrowLeft") next -= 16;
+    else if (event.key === "ArrowRight") next += 16;
+    else if (event.key === "Home") next = sidebarMinWidth;
+    else if (event.key === "End") next = sidebarMaxWidth();
+    else return;
+    event.preventDefault();
+    applySidebarWidth(next, true);
+  });
+  sidebarResizer.addEventListener("dblclick", () => applySidebarWidth(250, true));
+  window.addEventListener("resize", () => applySidebarWidth(
+    Number(localStorage.getItem(sidebarWidthStorageKey)) || parseFloat(getComputedStyle(appShell).getPropertyValue("--sidebar-width")),
+  ));
+}
+
+initializeSidebarResize();
+
 // Webviews do not consistently create a new native window for external links.
 // Hand explicit new-window links and cross-origin links to the desktop shell;
 // the browser/PWA path and ordinary same-origin navigation remain unchanged.

@@ -2247,6 +2247,11 @@ func TestEmbeddedWebAssets(t *testing.T) {
 						t.Fatalf("inbox JavaScript does not contain %s", marker)
 					}
 				}
+				for _, marker := range []string{`sidebarResizer.addEventListener("pointerdown"`, `localStorage.setItem(sidebarWidthStorageKey`, `sidebarResizer.addEventListener("keydown"`} {
+					if !strings.Contains(string(body), marker) {
+						t.Fatalf("inbox JavaScript does not contain sidebar resizing behavior %s", marker)
+					}
+				}
 				javascript := string(body)
 				applySavedViewStart := strings.Index(javascript, "function applySavedView(view) {")
 				renderSavedViewsStart := strings.Index(javascript, "function renderSavedViews() {")
@@ -2260,7 +2265,7 @@ func TestEmbeddedWebAssets(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				for _, marker := range []string{`id="channel-list"`, `class="channel-section-actions"`, `id="channel-sort-button"`, `id="channel-edit-button"`, `id="mobile-channel-sort-button"`, `id="mobile-channel-edit-button"`, `id="mobile-channel-list"`, `id="feed-title"`, `id="alert-dialog"`, `id="alert-setup-button"`, `<option value="dismissed">Archived</option>`} {
+				for _, marker := range []string{`id="channel-list"`, `class="channel-section-actions"`, `id="channel-sort-button"`, `id="channel-edit-button"`, `id="mobile-channel-sort-button"`, `id="mobile-channel-edit-button"`, `id="mobile-channel-list"`, `id="feed-title"`, `id="alert-dialog"`, `id="alert-setup-button"`, `id="sidebar-resizer"`, `role="separator"`, `<option value="dismissed">Archived</option>`} {
 					if !strings.Contains(string(body), marker) {
 						t.Fatalf("inbox HTML does not contain %s", marker)
 					}
