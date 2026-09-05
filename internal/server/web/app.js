@@ -922,7 +922,8 @@ function inboxButtons(notification) {
   }
   const read = element("button", "card-inbox-button", notification.unread ? "Mark read" : "Mark unread");
   const archive = element("button", "card-inbox-button card-dismiss-button", "Archive");
-  read.title = notification.unread ? "Remove from the unread view; keep in history" : "Return to the unread view";
+  read.classList.add("card-read-button");
+  read.title = notification.unread ? "Mark read (R marks the first unread card); keep in history" : "Return to the unread view";
   archive.title = "Hide from normal history; restore from the Archived filter";
   read.type = archive.type = "button";
   read.addEventListener("click", async () => {
@@ -1042,6 +1043,21 @@ let selectedNotificationID = "";
 function notificationCards() {
   return [...list.querySelectorAll(".card")];
 }
+
+function handleReadShortcut(event) {
+  if (event.key !== "r" || event.defaultPrevented || event.repeat || event.isComposing ||
+      event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
+  if (!inboxStateEnabled || document.querySelector("dialog[open]")) return;
+  const target = document.activeElement;
+  if (target?.isContentEditable || target?.closest("input, textarea, select, [role='textbox']")) return;
+  const card = list.querySelector(".card-unread");
+  const read = card?.querySelector(".card-read-button");
+  if (!read || read.disabled) return;
+  event.preventDefault();
+  read.click();
+}
+
+document.addEventListener("keydown", handleReadShortcut);
 
 function selectedCard() {
   return selectedNotificationID
