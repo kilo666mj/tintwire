@@ -1490,9 +1490,60 @@ function commandAttachment(attachment) {
 
 let loadedTimelineItems = [];
 let stopTimelineScrollAnchor = () => {};
+const timelineNewMessages = document.querySelector("#timeline-new-messages");
+const timelineJumpLatest = document.querySelector("#timeline-jump-latest");
+let timelineArrivalScope = "";
+let timelineArrivalChannel = "";
+let timelineSeenItems = new Set();
+let timelineArrivalsPrimed = false;
+let timelineNewestArrival = 0;
 
-function isTimelineNearBottom() {
-  return list.scrollHeight - list.scrollTop - list.clientHeight < 180;
+function resetTimelineArrivals(scope = "") {
+  timelineArrivalScope = scope;
+  timelineSeenItems = new Set();
+  timelineArrivalsPrimed = false;
+  timelineNewestArrival = 0;
+  timelineNewMessages.hidden = true;
+}
+
+function trackTimelineArrivals(items, append, wasNearBottom) {
+  // Older entries can enter the newest page after read items disappear. They
+  // are history, not arrivals; pagination also only seeds the known IDs.
+  const hasNewItems = items.some(item => item.created_at >= timelineNewestArrival &&
+    !timelineSeenItems.has(`${item.kind}:${item.id}`));
+  if (timelineArrivalsPrimed && !append && hasNewItems && !wasNearBottom) {
+    timelineNewMessages.hidden = false;
+  }
+  for (const item of items) {
+    timelineSeenItems.add(`${item.kind}:${item.id}`);
+    timelineNewestArrival = Math.max(timelineNewestArrival, item.created_at);
+  }
+  timelineArrivalsPrimed = true;
+  if (wasNearBottom && !append) timelineNewMessages.hidden = true;
+}
+
+function timelineUsesDocumentScroll() {
+  return matchMedia("(max-width: 700px)").matches;
+}
+
+function clearVisibleTimelineArrivals() {
+  if (!timelineNewMessages.hidden && isTimelineNearBottom(24)) timelineNewMessages.hidden = true;
+}
+
+list.addEventListener("scroll", clearVisibleTimelineArrivals, {passive: true});
+window.addEventListener("scroll", clearVisibleTimelineArrivals, {passive: true});
+window.addEventListener("resize", clearVisibleTimelineArrivals);
+timelineJumpLatest.addEventListener("click", () => {
+  anchorTimelineToBottom();
+  timelineNewMessages.hidden = true;
+  // Keep keyboard focus in the conversation after hiding the clicked button.
+  list.setAttribute("tabindex", "-1");
+  list.focus({preventScroll: true});
+});
+
+function isTimelineNearBottom(threshold = 180) {
+  if (timelineUsesDocumentScroll()) return list.getBoundingClientRect().bottom - window.innerHeight < threshold;
+  return list.scrollHeight - list.scrollTop - list.clientHeight < threshold;
 }
 
 function captureTimelineScrollAnchor() {
@@ -1563,6 +1614,10 @@ function maintainTimelineScrollPosition(scroll) {
 }
 
 function anchorTimelineToBottom() {
+  if (timelineUsesDocumentScroll()) {
+    list.lastElementChild?.scrollIntoView({block: "end", behavior: "instant"});
+    return;
+  }
   maintainTimelineScrollPosition(() => { list.scrollTop = list.scrollHeight; });
 }
 
@@ -1582,12 +1637,15 @@ async function loadChannelTimeline(append = false, pinToBottom = false) {
   if (search) parameters.set("q", search);
   if (stateFilter.value) parameters.set("state", stateFilter.value);
   if (readFilter.value === "1") parameters.set("unread", "1");
+  const arrivalScope = `${channel.id}?${parameters}`;
+  if (timelineArrivalScope !== arrivalScope) resetTimelineArrivals(arrivalScope);
   if (append && timelineNextCursor) parameters.set("before", timelineNextCursor);
   const suffix = parameters.size ? `?${parameters}` : "";
   const initialLoad = !append && loadedTimelineItems.length === 0;
   const response = await fetch(`/api/v1/channels/${encodeURIComponent(channel.id)}/timeline${suffix}`);
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   const data = await response.json();
+  if (selectedChannel !== channel.name || timelineArrivalScope !== arrivalScope) return;
   timelineNextCursor = data.next_cursor || "";
   const responseItems = data.items || [];
   if (!append && readFilter.value === "1") {
@@ -1604,6 +1662,7 @@ async function loadChannelTimeline(append = false, pinToBottom = false) {
   const timelineUnchanged = !append && !initialLoad &&
     JSON.stringify(responseItems) === JSON.stringify(loadedTimelineItems);
   if (timelineUnchanged) {
+    if (!timelineArrivalsPrimed) trackTimelineArrivals(responseItems, append, isTimelineNearBottom());
     loadMoreButton.hidden = !timelineNextCursor;
     loadMoreButton.disabled = false;
     return;
@@ -1615,6 +1674,7 @@ async function loadChannelTimeline(append = false, pinToBottom = false) {
   // the request is in flight, and that latest position determines whether a
   // refresh should remain pinned.
   const wasNearBottom = pinToBottom || isTimelineNearBottom();
+  trackTimelineArrivals(responseItems, append, wasNearBottom);
   const scrollAnchor = !append && !initialLoad && !wasNearBottom
     ? captureTimelineScrollAnchor()
     : null;
@@ -1644,6 +1704,8 @@ async function loadChannelTimeline(append = false, pinToBottom = false) {
 // Toggles between the global notification feed (all channels) and the selected
 // channel's merged timeline with its composer.
 function setViewForChannel(name) {
+  if (timelineArrivalChannel !== name || !name) resetTimelineArrivals();
+  timelineArrivalChannel = name;
   if (name) {
     inbox.classList.add("channel-timeline-view");
     filterConsole.hidden = false;

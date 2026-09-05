@@ -2270,11 +2270,11 @@ func TestEmbeddedWebAssets(t *testing.T) {
 						t.Fatalf("inbox HTML does not contain %s", marker)
 					}
 				}
-				if !strings.Contains(string(body), `.channel-timeline-view .list{align-content:end;flex:1 1 auto;grid-auto-rows:max-content;`) {
+				if !strings.Contains(string(body), `.channel-timeline-view .list{align-content:safe end;flex:1 1 auto;grid-auto-rows:max-content;`) {
 					t.Fatal("channel timeline must bottom-align intrinsic-height card rows")
 				}
 				if !strings.Contains(string(body), `.command-workspace:has(>.channel-timeline-view){display:flex;flex-direction:column;height:100dvh;overflow:hidden}`) ||
-					!strings.Contains(string(body), `.channel-timeline-view .list{align-content:end;flex:1 1 auto;`) {
+					!strings.Contains(string(body), `.channel-timeline-view .list{align-content:safe end;flex:1 1 auto;`) {
 					t.Fatal("desktop channel timeline must fit its header, list, and composer within the viewport")
 				}
 				for _, asset := range []string{"/manifest.webmanifest", "/assets/sentinel.css", "/assets/emoji.js", "/assets/markdown.js", "/assets/app.js"} {
