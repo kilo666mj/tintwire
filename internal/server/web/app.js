@@ -872,6 +872,8 @@ async function updateInboxState(notification, action) {
     body: JSON.stringify({action})
   });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  // A timeline fetched before this successful mutation is now stale.
+  if (selectedChannel) timelineMutationVersion++;
   if (action === "dismiss") {
     if (selectedChannel) {
       loadedTimelineItems = loadedTimelineItems.filter(item =>
@@ -893,6 +895,17 @@ async function updateInboxState(notification, action) {
     });
   } else if (action === "read" || action === "unread") {
     notification.unread = action === "unread";
+    if (selectedChannel) {
+      // Update the rendered state before refreshing. Mutating the backing
+      // object alone can make the no-change refresh check skip a needed render.
+      loadedTimelineItems = loadedTimelineItems.flatMap(item => {
+        if (item.kind !== "notification" || item.notification?.id !== notification.id) return [item];
+        if (action === "read" && readFilter.value === "1") return [];
+        return [{...item, notification: {...item.notification, unread: notification.unread}}];
+      });
+      renderChannelTimeline(loadedTimelineItems);
+      if (keepTimelineAtBottom) anchorTimelineToBottom();
+    }
     await loadNotifications(false, false, keepTimelineAtBottom);
     showInboxToast(action === "read" ? "Marked as read" : "Marked as unread");
   }
@@ -1497,6 +1510,7 @@ let timelineArrivalChannel = "";
 let timelineSeenItems = new Set();
 let timelineArrivalsPrimed = false;
 let timelineNewestArrival = 0;
+let timelineMutationVersion = 0;
 
 function resetTimelineArrivals(scope = "") {
   timelineArrivalScope = scope;
@@ -1642,10 +1656,12 @@ async function loadChannelTimeline(append = false, pinToBottom = false) {
   if (append && timelineNextCursor) parameters.set("before", timelineNextCursor);
   const suffix = parameters.size ? `?${parameters}` : "";
   const initialLoad = !append && loadedTimelineItems.length === 0;
+  const mutationVersion = timelineMutationVersion;
   const response = await fetch(`/api/v1/channels/${encodeURIComponent(channel.id)}/timeline${suffix}`);
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   const data = await response.json();
-  if (selectedChannel !== channel.name || timelineArrivalScope !== arrivalScope) return;
+  if (selectedChannel !== channel.name || timelineArrivalScope !== arrivalScope ||
+      mutationVersion !== timelineMutationVersion) return;
   timelineNextCursor = data.next_cursor || "";
   const responseItems = data.items || [];
   if (!append && readFilter.value === "1") {

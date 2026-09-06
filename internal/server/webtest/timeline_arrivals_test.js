@@ -106,3 +106,83 @@ test("mobile bottom detection uses the viewport instead of the unbounded list", 
   s.context.anchorTimelineToBottom();
   assert.equal(s.context.isTimelineNearBottom(), true);
 });
+
+function setupInboxMutation() {
+  const s = setup();
+  const c = s.context;
+  c.loadChannels = async () => {};
+  c.loadNotifications = (append, announce, pin) => c.loadChannelTimeline(append, pin);
+  c.showInboxToast = () => {};
+  s.renders = [];
+  c.renderChannelTimeline = items => { s.renders.push(JSON.parse(JSON.stringify(items))); };
+  vm.runInContext(source.slice(source.indexOf('async function updateInboxState('), source.indexOf('function inboxButtons(')), c);
+  return s;
+}
+
+function notificationItem(id) {
+  return {...item(id, 100, "notification"), notification: {id, unread: true}};
+}
+
+function deferred() {
+  let resolve;
+  const promise = new Promise(done => { resolve = done; });
+  return {promise, resolve};
+}
+
+test("a successful read removes the unread timeline card before the refresh returns", async () => {
+  const s = setupInboxMutation();
+  await s.refresh([notificationItem("read-me"), notificationItem("keep-me")]);
+  const refresh = deferred();
+  let refreshStarted;
+  const started = new Promise(resolve => { refreshStarted = resolve; });
+  s.context.fetch = async (url, options) => {
+    if (options?.method === "POST") return {ok: true};
+    refreshStarted();
+    return refresh.promise;
+  };
+  const mutation = s.context.updateInboxState(s.context.loadedTimelineItems[0].notification, "read");
+  await started;
+  const visible = s.renders.at(-1).map(entry => entry.id);
+  refresh.resolve({ok: true, json: async () => ({items: [notificationItem("keep-me")]})});
+  await mutation;
+  assert.deepEqual(visible, ["keep-me"]);
+});
+
+test("an older timeline response cannot restore a card after marking it read", async () => {
+  const s = setupInboxMutation();
+  await s.refresh([notificationItem("read-me")]);
+  const old = deferred();
+  let reads = 0;
+  s.context.fetch = async (url, options) => {
+    if (options?.method === "POST") return {ok: true};
+    if (++reads === 1) return old.promise;
+    return {ok: true, json: async () => ({items: []})};
+  };
+  const poll = s.context.loadChannelTimeline();
+  await s.context.updateInboxState(s.context.loadedTimelineItems[0].notification, "read");
+  old.resolve({ok: true, json: async () => ({items: [notificationItem("read-me")]})});
+  await poll;
+  assert.deepEqual(s.renders.at(-1), []);
+  assert.equal(s.context.loadedTimelineItems.length, 0);
+});
+
+test("mark read in history keeps the card and updates its rendered unread state", async () => {
+  const s = setupInboxMutation();
+  s.context.readFilter.value = "";
+  await s.refresh([notificationItem("read-me")]);
+  s.context.fetch = async (url, options) => options?.method === "POST" ? {ok: true} : {
+    ok: true, json: async () => ({items: [{...notificationItem("read-me"), notification: {id: "read-me", unread: false}}]})
+  };
+  await s.context.updateInboxState(s.context.loadedTimelineItems[0].notification, "read");
+  assert.equal(s.renders.at(-1).length, 1);
+  assert.equal(s.renders.at(-1)[0].notification.unread, false);
+});
+
+test("a failed read keeps the unread card available for retry", async () => {
+  const s = setupInboxMutation();
+  await s.refresh([notificationItem("read-me")]);
+  s.context.fetch = async () => ({ok: false, status: 500});
+  await assert.rejects(s.context.updateInboxState(s.context.loadedTimelineItems[0].notification, "read"), /HTTP 500/);
+  assert.equal(s.renders.at(-1)[0].notification.unread, true);
+  assert.equal(s.context.loadedTimelineItems[0].notification.unread, true);
+});
