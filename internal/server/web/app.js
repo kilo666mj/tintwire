@@ -1828,7 +1828,7 @@ function channelButton(channel) {
   button.type = "button";
   button.dataset.channel = channel.name;
   button.title = `${channel.display_name}: ${channel.total_count} notifications, ${channel.unread_count} unread, ${channel.firing_count} firing`;
-  if (channel.name === selectedChannel) {
+  if (!selectedChannels.length && channel.name === selectedChannel) {
     button.classList.add("active");
     button.setAttribute("aria-current", "page");
   }
@@ -1898,6 +1898,7 @@ function renderChannelNavigation(channels) {
   feedTitle.textContent = activeView ? activeView.name : selected.display_name;
   const unread = all.unread_count ? ` · ${all.unread_count} unread` : "";
   mobileChannelToggle.textContent = `${selected.name ? selected.display_name : "Channels"}${unread}`;
+  renderSavedViews();
 }
 
 function applyChannelSort(unreadFirst) {
@@ -1941,9 +1942,9 @@ function showPrimaryFeed(unreadOnly) {
   severityFilter.value = "";
   readFilter.value = unreadOnly ? "1" : "";
   timelineNextCursor = "";
+  writeFilterURL("pushState");
   renderChannelNavigation(channelCache);
   setViewForChannel("");
-  writeFilterURL("pushState");
   loadNotifications(false);
   scrollInboxIntoViewOnMobile();
 }
@@ -1959,9 +1960,9 @@ function selectChannel(name) {
   timelineNextCursor = "";
   loadedTimelineItems = [];
   channelFilter.value = name;
+  writeFilterURL("pushState");
   renderChannelNavigation(channelCache);
   setViewForChannel(name);
-  writeFilterURL("pushState");
   loadNotifications(false);
   if (channelDialog.open) channelDialog.close();
   scrollInboxIntoViewOnMobile();
@@ -1969,6 +1970,7 @@ function selectChannel(name) {
 
 function openFiringView(name) {
   selectedChannel = name;
+  selectedChannels = [];
   inboxSearch.value = "";
   channelFilter.value = name;
   stateFilter.value = "firing";
@@ -1976,9 +1978,9 @@ function openFiringView(name) {
   readFilter.value = "";
   timelineNextCursor = "";
   loadedTimelineItems = [];
+  writeFilterURL("pushState");
   renderChannelNavigation(channelCache);
   setViewForChannel(name);
-  writeFilterURL("pushState");
   loadNotifications(false);
   if (channelDialog.open) channelDialog.close();
   scrollInboxIntoViewOnMobile();
@@ -2043,7 +2045,7 @@ function applySavedView(view) {
   parameters.set("view", view.id);
   for (const [key, value] of [...parameters]) if (!value) parameters.delete(key);
   history.pushState(null, "", `?${parameters}`);
-  renderSavedViews();
+  renderChannelNavigation(channelCache);
   loadNotifications(false);
 }
 
@@ -2055,6 +2057,7 @@ function renderSavedViews() {
     const button = element("button", `channel-item${view.id === activeID ? " active" : ""}`, view.name);
     button.type = "button";
     button.title = view.channels.join(", ");
+    if (view.id === activeID) button.setAttribute("aria-current", "page");
     button.addEventListener("click", () => applySavedView(view));
     const edit = element("button", "channel-mute-button", "⚙");
     edit.type = "button";
@@ -2286,8 +2289,8 @@ function filtersChanged() {
     selectedChannel = channelFilter.value;
     const activeViewID = new URLSearchParams(location.search).get("view");
     if (selectedChannel || !activeViewID) selectedChannels = [];
-    renderChannelNavigation(channelCache);
     writeFilterURL("replaceState");
+    renderChannelNavigation(channelCache);
     loadNotifications(false);
   }, 180);
 }
