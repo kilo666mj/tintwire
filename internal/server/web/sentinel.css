@@ -63,3 +63,13 @@ button,input,select,a,.card{transition:color .18s ease,border-color .18s ease,ba
 @media(min-width:701px) and (max-width:1100px){body.sidebar-expanded .command-sidebar{padding-inline:16px}body.sidebar-expanded .command-brand{padding:0 8px 25px}body.sidebar-expanded .command-brand-copy,body.sidebar-expanded .command-nav-label,body.sidebar-expanded .command-nav a span:not(.command-nav-icon),body.sidebar-expanded .channel-name,body.sidebar-expanded .channel-count,body.sidebar-expanded .channel-firing,body.sidebar-expanded .alert-status{display:block}body.sidebar-expanded .command-nav a{justify-content:flex-start}body.sidebar-expanded .channel-section-header{justify-content:space-between;padding-right:2px}body.sidebar-expanded .channel-section-actions{justify-content:flex-end}body.sidebar-expanded .channel-section-actions button{height:auto;width:auto;font-size:inherit;padding:5px 8px}body.sidebar-expanded .channel-section-actions button::before{content:none}body.sidebar-expanded .channel-create-button{padding:5px 10px}body.sidebar-expanded .channel-item{display:grid;justify-content:normal;padding:8px}body.sidebar-expanded .channel-unread{font-size:8px;height:auto;padding:2px 5px;width:auto}body.sidebar-expanded .sidebar-controls{padding-inline:8px}body.sidebar-expanded .session-identity{font-size:11px;padding:0 2px;text-align:left}body.sidebar-expanded .session-identity::before{content:"Signed in as "}body.sidebar-expanded .command-control{font-size:12px;text-align:left}}
 @media(max-width:700px){.sidebar-resizer{display:none}}
 @media(min-width:701px) and (max-width:1100px){.app-shell{grid-template-columns:var(--sidebar-width) minmax(0,1fr)}}
+
+.mobile-sidebar-toggles{display:none}
+@media(max-width:700px){
+  .mobile-sidebar-toggles{grid-column:1/-1;display:flex;gap:8px}
+  .mobile-sidebar-toggle{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:44px;flex:1;min-width:0;padding:8px 12px;border:1px solid var(--line);border-radius:10px;background:rgba(8,15,28,.72);color:var(--text);font:600 11px system-ui,sans-serif;cursor:pointer;text-align:left}
+  .mobile-sidebar-toggle::after{content:"+";color:var(--cyan)}
+  .mobile-sidebar-toggle[aria-expanded="true"]::after{content:"−"}
+  .mobile-sidebar-toggle:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+  .command-sidebar>[data-mobile-collapsed="true"]{display:none}
+}

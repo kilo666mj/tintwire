@@ -46,11 +46,15 @@
       </div>
       <div id="channel-list" class="channel-list"><span class="channel-loading">Loading…</span></div>
     </section>
-    <section class="channel-section saved-view-section" aria-labelledby="saved-view-label">
+    <div class="mobile-sidebar-toggles" role="group" aria-label="Sidebar sections">
+      <button type="button" class="mobile-sidebar-toggle" aria-expanded="false" aria-controls="saved-view-section">Views</button>
+      <button type="button" class="mobile-sidebar-toggle" aria-expanded="false" aria-controls="sidebar-controls">Account &amp; settings</button>
+    </div>
+    <section id="saved-view-section" class="channel-section saved-view-section" aria-labelledby="saved-view-label" data-mobile-collapsed="true">
       <div class="channel-section-header"><div id="saved-view-label" class="command-nav-label">Views</div><button id="saved-view-add" class="channel-create-button" type="button">Add</button></div>
       <div id="saved-view-list" class="channel-list"><span class="channel-loading">Loading…</span></div>
     </section>
-    <div class="sidebar-controls">
+    <div id="sidebar-controls" class="sidebar-controls" data-mobile-collapsed="true">
       <div id="session-identity" class="session-identity" hidden></div>
       <button id="automation-open" class="command-control" type="button" aria-haspopup="dialog" hidden>Integrations</button>
       <button id="users-open" class="command-control" type="button" aria-haspopup="dialog" hidden>Users</button>

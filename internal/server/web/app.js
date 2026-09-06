@@ -2778,6 +2778,27 @@ if (matchMedia("(max-width: 700px)").matches && ![inboxSearch.value, stateFilter
   filterConsole.open = false;
 }
 
+// Collapse secondary navigation on mobile without hiding the desktop sidebar.
+function initializeMobileSidebarSections() {
+  for (const button of document.querySelectorAll(".mobile-sidebar-toggle")) {
+    const section = document.getElementById(button.getAttribute("aria-controls"));
+    const storageKey = `tintwire-mobile-${section.id}-expanded`;
+    const apply = expanded => {
+      button.setAttribute("aria-expanded", String(expanded));
+      section.dataset.mobileCollapsed = String(!expanded);
+    };
+    let expanded = false;
+    try { expanded = localStorage.getItem(storageKey) === "true"; } catch {}
+    apply(expanded);
+    button.addEventListener("click", () => {
+      expanded = !expanded;
+      apply(expanded);
+      try { localStorage.setItem(storageKey, String(expanded)); } catch {}
+    });
+  }
+}
+initializeMobileSidebarSections();
+
 // Compact view trades card padding and type scale for more cards on screen, and
 // at very wide viewports splits the feed into two columns. It is a stored
 // preference rather than a viewport rule so a large display can still show the
