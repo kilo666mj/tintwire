@@ -58,6 +58,7 @@ func run() error {
 	controlRaftPeers := flag.String("control-raft-peers", os.Getenv("TINTWIRE_CONTROL_RAFT_PEERS"), "comma-separated node=host:port control voters")
 	controlRaftBootstrap := flag.Bool("control-raft-bootstrap", envBool("TINTWIRE_CONTROL_RAFT_BOOTSTRAP"), "bootstrap a new control Raft cluster if no state exists")
 	controlProxyPort := flag.String("control-proxy-port", envOr("TINTWIRE_CONTROL_PROXY_PORT", "18088"), "internal HTTP port used to forward control writes to the Raft leader")
+	imageProxySources := flag.String("image-proxy-sources", os.Getenv("TINTWIRE_IMAGE_PROXY_SOURCES"), "JSON array of trusted image source mappings (requires reader authentication)")
 	flag.Parse()
 	controlLease, err := time.ParseDuration(*controlLeaseRaw)
 	if err != nil {
@@ -115,7 +116,7 @@ func run() error {
 	if consensus != nil {
 		serverConsensus = consensus
 	}
-	handler, err := server.NewWithOptions(db, server.Options{VAPIDContact: *vapidContact, AuthRequired: authRequired, ActionKey: *actionKey, PublicURL: *publicURL, OAuthIssuer: *oauthIssuer, OAuthResource: *oauthResource, OAuthScope: *oauthScope, OIDCClientID: *oidcClientID, OIDCRedirectURL: *oidcRedirectURL, Consensus: serverConsensus, ControlProxyPort: *controlProxyPort})
+	handler, err := server.NewWithOptions(db, server.Options{ImageProxySources: *imageProxySources, VAPIDContact: *vapidContact, AuthRequired: authRequired, ActionKey: *actionKey, PublicURL: *publicURL, OAuthIssuer: *oauthIssuer, OAuthResource: *oauthResource, OAuthScope: *oauthScope, OIDCClientID: *oidcClientID, OIDCRedirectURL: *oidcRedirectURL, Consensus: serverConsensus, ControlProxyPort: *controlProxyPort})
 	if err != nil {
 		return fmt.Errorf("initialize HTTP server: %w", err)
 	}

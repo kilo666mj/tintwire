@@ -44,6 +44,8 @@ var webAssetVersion = func() string {
 }()
 
 type Server struct {
+	imageProxy *imageProxy
+
 	store            *store.Store
 	consensus        ControlConsensus
 	controlProxyPort string
@@ -63,6 +65,8 @@ type Server struct {
 }
 
 type Options struct {
+	ImageProxySources string
+
 	VAPIDContact     string
 	AuthRequired     bool
 	ActionKey        string
@@ -224,6 +228,10 @@ func New(store *store.Store) http.Handler {
 }
 
 func NewWithOptions(data *store.Store, options Options) (http.Handler, error) {
+	images, err := newImageProxy(options.ImageProxySources, options.AuthRequired)
+	if err != nil {
+		return nil, err
+	}
 	push, pushErr := newPushService(data, options.VAPIDContact, options.AuthRequired)
 	actions, actionErr := newActionService(data, options.ActionKey)
 	if actionErr != nil {
@@ -258,7 +266,7 @@ func NewWithOptions(data *store.Store, options Options) (http.Handler, error) {
 			return nil, errors.New("control proxy port must be a valid TCP port")
 		}
 	}
-	s := &Server{store: data, consensus: options.Consensus, controlProxyPort: options.ControlProxyPort, push: push, actions: actions, limiter: newToolLimiter(), publicURL: publicURL, oauth: oauthVerifier, oidc: oidcLogin, startedAt: time.Now(), subscribers: make(map[chan liveUpdate]struct{}), authRequired: options.AuthRequired}
+	s := &Server{imageProxy: images, store: data, consensus: options.Consensus, controlProxyPort: options.ControlProxyPort, push: push, actions: actions, limiter: newToolLimiter(), publicURL: publicURL, oauth: oauthVerifier, oidc: oidcLogin, startedAt: time.Now(), subscribers: make(map[chan liveUpdate]struct{}), authRequired: options.AuthRequired}
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /hooks/{id}", s.receiveWebhook)
 	mux.HandleFunc("POST /api/v1/notifications", s.receiveNativeCard)
@@ -269,6 +277,7 @@ func NewWithOptions(data *store.Store, options Options) (http.Handler, error) {
 	mux.HandleFunc("GET /api/v1/auth/oidc/start", s.requireControlAuthority(s.oidcStart))
 	mux.HandleFunc("GET /api/v1/auth/oidc/callback", s.requireControlAuthority(s.oidcCallback))
 	mux.HandleFunc("POST /api/v1/auth/desktop/session", s.requireControlAuthority(s.desktopSession))
+	mux.HandleFunc("GET /api/v1/notifications/{id}/images/{index}", s.requireReader(s.notificationImage))
 	mux.HandleFunc("GET /api/v1/notifications", s.requireReader(s.listNotifications))
 	mux.HandleFunc("GET /api/v1/channels", s.requireReader(s.listChannels))
 	mux.HandleFunc("GET /api/v1/saved-views", s.requireReader(s.listSavedViews))
@@ -894,6 +903,7 @@ func (s *Server) listNotifications(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sanitizeNotificationCards(notifications)
+	s.proxyNotificationImages(notifications)
 	sanitizeMattermostActions(notifications, actionResults)
 	unreadCount, err := s.store.UnreadCount(r.Context(), user)
 	if err != nil {

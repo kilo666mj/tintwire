@@ -102,3 +102,25 @@ left to the operator.
 ## License
 
 MIT. See [LICENSE](LICENSE).
+
+### Private notification images
+
+Native card images can use an authenticated server-side proxy. Configure
+`TINTWIRE_IMAGE_PROXY_SOURCES` (or `-image-proxy-sources`) as a JSON array:
+
+```json
+[{"origin":"https://camera.example","upstream":"http://192.168.1.10","path_prefix":"/thumb-"}]
+```
+
+Reader authentication must be enabled. Matching inbox image URLs become
+`/api/v1/notifications/{id}/images/{index}` without changing stored cards, so
+existing notifications also work. Other image origins keep their existing
+behavior. Each proxy request checks notification visibility before fetching.
+The configured upstream receives the original source Host header, but no
+browser credentials. Only a single raster filename after the path prefix is
+accepted; query strings, escaped paths, traversal, and redirects are rejected.
+The proxy bypasses environment HTTP proxies and limits responses to 8 MiB,
+10 seconds, and eight concurrent fetches per node. Responses are sniffed for
+WebP/PNG/JPEG/GIF and served with `private, no-store`; no persistent image copy
+is retained. Deleted upstream thumbnails therefore return 404. Restrict the
+upstream to the application nodes using your network or origin access rules.
