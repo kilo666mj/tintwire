@@ -2065,15 +2065,29 @@ function applySavedView(view) {
   loadNotifications(false);
 }
 
+function savedViewCounts(view) {
+  const channels = new Set(view.channels || []);
+  return channelCache.filter(channel => channels.has(channel.name)).reduce((counts, channel) => ({
+    total: counts.total + Number(channel.total_count || 0),
+    unread: counts.unread + Number(channel.unread_count || 0),
+    firing: counts.firing + Number(channel.firing_count || 0),
+  }), {total: 0, unread: 0, firing: 0});
+}
+
 function renderSavedViews() {
   const activeID = new URLSearchParams(location.search).get("view") || "";
   if (!savedViewCache.length) { savedViewList.replaceChildren(element("span", "channel-loading", "No saved views")); return; }
   savedViewList.replaceChildren(...savedViewCache.map(view => {
     const row = element("div", "channel-row");
-    const button = element("button", `channel-item${view.id === activeID ? " active" : ""}`, view.name);
+    const counts = savedViewCounts(view);
+    const button = element("button", `channel-item${view.id === activeID ? " active" : ""}`);
     button.type = "button";
-    button.title = view.channels.join(", ");
+    button.dataset.view = view.id;
+    button.title = `${view.channels.join(", ")}: ${counts.total} notifications, ${counts.unread} unread, ${counts.firing} firing`;
     if (view.id === activeID) button.setAttribute("aria-current", "page");
+    button.append(element("span", "channel-name", view.name));
+    const countBadge = element("span", counts.unread ? "channel-unread" : "channel-count", counts.unread ? `${counts.unread} unread` : `${counts.total} total`);
+    button.append(countBadge);
     button.addEventListener("click", () => applySavedView(view));
     const edit = element("button", "channel-mute-button", "⚙");
     edit.type = "button";

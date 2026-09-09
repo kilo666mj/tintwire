@@ -29,8 +29,12 @@ function setup() {
   const context = {
     URLSearchParams, element, location: {search: "", pathname: "/"},
     selectedChannel: "", selectedChannels: [],
-    channelCache: [{name: "logw", display_name: "logw", unread_count: 53}],
-    savedViewCache: [{id: "news", name: "News", channels: ["social"], unread: true}],
+    channelCache: [
+      {name: "logw", display_name: "logw", total_count: 80, unread_count: 53, firing_count: 2},
+      {name: "social", display_name: "Social", total_count: 20, unread_count: 4, firing_count: 1},
+      {name: "feeds", display_name: "Feeds", total_count: 12, unread_count: 3, firing_count: 0},
+    ],
+    savedViewCache: [{id: "news", name: "News", channels: ["social", "feeds", "missing"], unread: true}],
     unreadChannelsFirst: false, inboxStateEnabled: false, isAdmin: false,
     channelList: element(), mobileChannelList: element(), savedViewList: element(),
     channelEditButton: {}, mobileChannelEditButton: {}, feedTitle: {}, mobileChannelToggle: {},
@@ -57,7 +61,7 @@ function assertSelection(c, expected, title) {
     .filter(button => button.classList.contains("active"))
     .map(button => {
       assert.equal(button.attributes["aria-current"], "page");
-      return button.dataset.channel ?? button.textContent;
+      return button.dataset.channel ?? button.children[0]?.textContent ?? button.textContent;
     });
   assert.deepEqual([...current(c.channelList), ...current(c.savedViewList)], [expected]);
   assert.deepEqual(current(c.mobileChannelList), current(c.channelList));
@@ -73,6 +77,22 @@ test("switching between saved views and channels clears the previous selection i
   c.selectChannel("logw");
   assertSelection(c, "logw", "logw");
   assert.equal(new URLSearchParams(c.location.search).has("view"), false);
+});
+
+test("saved views roll up their member channel counts", () => {
+  const c = setup();
+  const button = c.savedViewList.children[0].children[0];
+  assert.equal(button.title, "social, feeds, missing: 32 notifications, 7 unread, 1 firing");
+  assert.equal(button.children[0].textContent, "News");
+  assert.equal(button.children[1].textContent, "7 unread");
+  assert.equal(button.children[1].classList.contains("channel-unread"), true);
+
+  c.channelCache[1].unread_count = 0;
+  c.channelCache[2].unread_count = 0;
+  c.renderSavedViews();
+  const total = c.savedViewList.children[0].children[0].children[1];
+  assert.equal(total.textContent, "32 total");
+  assert.equal(total.classList.contains("channel-count"), true);
 });
 
 test("leaving a saved view for the primary or firing feed clears its scope and highlight", () => {
