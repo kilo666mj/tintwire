@@ -2442,24 +2442,12 @@ window.addEventListener("focus", refreshInboxState);
 document.addEventListener("visibilitychange", refreshInboxState);
 setInterval(refreshInboxState, 15000);
 
-let pushRegistration;
+let pushClient;
 let pushConfig;
 let deferredInstallPrompt;
 
-function isAppleMobile() {
-  return /iPhone|iPad|iPod/i.test(navigator.userAgent) ||
-    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-}
-
-function isStandaloneApp() {
-  return matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
-}
-
-function base64URLBytes(value) {
-  const padding = "=".repeat((4 - value.length % 4) % 4);
-  const raw = atob((value + padding).replace(/-/g, "+").replace(/_/g, "/"));
-  return Uint8Array.from(raw, (character) => character.charCodeAt(0));
-}
+const isAppleMobile = PWAKit.isAppleMobile;
+const isStandaloneApp = PWAKit.isStandalone;
 
 async function saveSubscription(subscription) {
   const response = await fetch("/api/v1/push/subscriptions", {
@@ -2477,15 +2465,6 @@ async function removeSubscription(subscription) {
     body: JSON.stringify({endpoint: subscription.endpoint})
   });
   if (!response.ok) throw new Error(`unsubscribe rejected (HTTP ${response.status})`);
-}
-
-async function createPushSubscription() {
-  const subscription = await pushRegistration.pushManager.subscribe({
-    userVisibleOnly: true,
-    applicationServerKey: base64URLBytes(pushConfig.public_key)
-  });
-  await saveSubscription(subscription);
-  return subscription;
 }
 
 function showPushState(enabled, status) {
@@ -2522,62 +2501,25 @@ function updateInstallUI() {
 }
 
 async function initializePush() {
+  pushClient?.destroy();
   try {
-    const response = await fetch("/api/v1/push/config");
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    pushConfig = await response.json();
-    if (!pushConfig.enabled) {
-      showPushUnavailable(
-        "Server setup is required before devices can subscribe.",
-        "Set TINTWIRE_VAPID_CONTACT on the Tintwire server, then restart it."
-      );
-      updateInstallUI();
-      return;
-    }
-    if (isAppleMobile() && !isStandaloneApp()) {
-      updateInstallUI();
-      return;
-    }
-    if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) {
-      showPushUnavailable(
-        "This browser does not support Web Push.",
-        "Install Tintwire or open it in a current browser with notification support."
-      );
-      updateInstallUI();
-      return;
-    }
-    const workerURL = webAssetVersion ? `/sw.js?v=${encodeURIComponent(webAssetVersion)}` : "/sw.js";
-    pushRegistration = await navigator.serviceWorker.register(workerURL);
-    let subscription = await pushRegistration.pushManager.getSubscription();
-    let renewed = false;
-    if (!subscription && Notification.permission === "granted") {
-      try {
-        subscription = await createPushSubscription();
-        renewed = true;
-      } catch (error) {
-        alertSetupCopy.textContent = "Tintwire could not renew this device's expired alert subscription automatically. Try enabling alerts again.";
-        showPushState(false, `Alerts need renewal: ${error.message}`);
+    const response=await fetch("/api/v1/push/config");
+    if(!response.ok)throw new Error(`HTTP ${response.status}`);
+    pushConfig=await response.json();
+    if(!pushConfig.enabled){showPushUnavailable("Server setup is required before devices can subscribe.","Notifications are not configured on this server.");return}
+    pushClient=PWAKit.createPushClient({
+      workerURL: webAssetVersion ? `/sw.js?v=${encodeURIComponent(webAssetVersion)}` : "/sw.js",
+      getPublicKey:()=>pushConfig.public_key,
+      save:saveSubscription,remove:removeSubscription,renewMissing:true,
+      onState:state=>{
+        if(["checking","enabling","disabling"].includes(state.status)){alertSetupButton.disabled=true;alertSetupStatus.textContent=state.message;return}
+        if(["install","unsupported","blocked","signedOut"].includes(state.status)){showPushUnavailable(state.message,state.message)}
+        else {showPushState(state.status==="on",state.message);alertSetupCopy.textContent=state.status==="on"?"This device will receive background alerts and open the matching Tintwire channel when tapped.":"Receive firing and resolved alerts even while Tintwire is closed."}
         updateInstallUI();
-        return;
       }
-    }
-    if (subscription) {
-      if (!renewed) await saveSubscription(subscription);
-      alertSetupCopy.textContent = "This device will receive background alerts and open the matching Tintwire channel when tapped.";
-      showPushState(true, "Alerts are enabled on this device.");
-    } else if (Notification.permission === "denied") {
-      showPushUnavailable(
-        "Notifications are blocked in browser settings.",
-        "Allow notifications for Tintwire in this device's settings, then return here."
-      );
-    } else {
-      alertSetupCopy.textContent = "Receive firing and resolved alerts even while Tintwire is closed. Tapping one opens the matching alert.";
-      showPushState(false, "Alerts are ready to enable on this device.");
-    }
-    updateInstallUI();
-  } catch (error) {
-    showPushUnavailable(`Alerts unavailable: ${error.message}`, "Tintwire could not initialize notifications on this device.");
-  }
+    });
+    await pushClient.refresh();
+  }catch(error){showPushUnavailable(`Alerts unavailable: ${error.message}`,"Tintwire could not initialize notifications on this device.")}
 }
 
 async function loadChannelNotificationPreference() {
@@ -2622,36 +2564,10 @@ async function setChannelNotificationLevel(channelID, level, refreshNotification
   if (refreshNotifications) await loadNotifications(false);
 }
 
-async function togglePush() {
-  alertSetupButton.disabled = true;
-  try {
-    if (!pushRegistration || !pushConfig?.enabled) {
-      showPushUnavailable("Alerts are not ready on this device.", "Close this setup and try again after Tintwire finishes loading.");
-      return;
-    }
-    const current = await pushRegistration.pushManager.getSubscription();
-    if (current && alertButton.dataset.enabled === "true") {
-      await removeSubscription(current);
-      await current.unsubscribe();
-      alertSetupCopy.textContent = "Receive firing and resolved alerts even while Tintwire is closed. Tapping one opens the matching alert.";
-      showPushState(false, "Alerts are disabled on this device.");
-      return;
-    }
-    const permission = await Notification.requestPermission();
-    if (permission !== "granted") {
-      showPushUnavailable(
-        "Notification permission was not granted.",
-        "Allow notifications for Tintwire in this device's settings, then return here."
-      );
-      return;
-    }
-    if (current) await saveSubscription(current);
-    else await createPushSubscription();
-    alertSetupCopy.textContent = "This device will receive background alerts and open the matching Tintwire channel when tapped.";
-    showPushState(true, "Alerts are enabled on this device.");
-  } catch (error) {
-    showPushState(false, `Unable to change alerts: ${error.message}`);
-  }
+function togglePush() {
+  if(!pushClient){showPushUnavailable("Alerts are not ready on this device.","Try again after Tintwire finishes loading.");return}
+  // Enable is called directly from the click, before asynchronous work.
+  return pushClient.state.status==="on" ? pushClient.disable() : pushClient.enable();
 }
 
 window.addEventListener("beforeinstallprompt", event => {

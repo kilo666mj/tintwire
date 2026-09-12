@@ -15,6 +15,7 @@ import (
 	"unicode/utf8"
 
 	webpush "github.com/SherClockHolmes/webpush-go"
+	pwakit "github.com/kilo666mj/pwa-kit"
 
 	"github.com/kilo666mj/tintwire/internal/store"
 )
@@ -31,15 +32,6 @@ type pushService struct {
 	client       *http.Client
 }
 
-type pushSubscriptionRequest struct {
-	Endpoint       string `json:"endpoint"`
-	ExpirationTime *int64 `json:"expirationTime"`
-	Keys           struct {
-		P256DH string `json:"p256dh"`
-		Auth   string `json:"auth"`
-	} `json:"keys"`
-}
-
 type pushPayload struct {
 	Title     string `json:"title"`
 	Body      string `json:"body,omitempty"`
@@ -54,9 +46,9 @@ func newPushService(data *store.Store, contact string, authRequired bool) (*push
 	if contact == "" {
 		return nil, nil
 	}
-	normalizedContact, ok := normalizeVAPIDContact(contact)
-	if !ok {
-		return nil, errors.New("VAPID contact must be an email address, mailto: address, or HTTPS URL")
+	normalizedContact, err := pwakit.NormalizeContact(contact)
+	if err != nil {
+		return nil, err
 	}
 	contact = normalizedContact
 
@@ -81,29 +73,15 @@ func newPushService(data *store.Store, contact string, authRequired bool) (*push
 			return nil, err
 		}
 	}
+	if err := (pwakit.Config{PublicKey: publicKey, PrivateKey: privateKey, Contact: contact}).Validate(); err != nil {
+		return nil, err
+	}
 	client := actionHTTPClient(false)
 	client.Timeout = 20 * time.Second
 	return &pushService{
 		store: data, authRequired: authRequired, publicKey: publicKey, privateKey: privateKey, contact: contact,
 		client: client,
 	}, nil
-}
-
-func normalizeVAPIDContact(value string) (string, bool) {
-	parsed, err := url.Parse(value)
-	if err != nil {
-		return "", false
-	}
-	if parsed.Scheme == "mailto" {
-		return parsed.Opaque, strings.Contains(parsed.Opaque, "@")
-	}
-	if parsed.Scheme == "https" && parsed.Host != "" {
-		return value, true
-	}
-	if parsed.Scheme == "" && strings.Contains(value, "@") && !strings.ContainsAny(value, " /\t\r\n") {
-		return value, true
-	}
-	return "", false
 }
 
 func (s *Server) pushConfig(w http.ResponseWriter, _ *http.Request) {
@@ -125,32 +103,24 @@ func (s *Server) savePushSubscription(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "cross-origin request rejected", http.StatusForbidden)
 		return
 	}
-	var request pushSubscriptionRequest
-	if err := decodePushRequest(w, r, &request); err != nil {
+	request, err := pwakit.DecodeSubscription(r.Body)
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	endpoint, err := url.Parse(request.Endpoint)
-	if err != nil || endpoint.Scheme != "https" || endpoint.Host == "" ||
-		request.Keys.P256DH == "" || request.Keys.Auth == "" {
-		http.Error(w, "a valid HTTPS endpoint and both subscription keys are required", http.StatusBadRequest)
-		return
-	}
+
 	if err := validateActionTargetURL(request.Endpoint, false); err != nil {
 		http.Error(w, "push endpoint must be a public HTTPS URL", http.StatusBadRequest)
 		return
 	}
-	if len(request.Endpoint) > 4096 || len(request.Keys.P256DH) > 512 || len(request.Keys.Auth) > 512 {
-		http.Error(w, "subscription is too large", http.StatusBadRequest)
-		return
-	}
+
 	userID := ""
 	if user, ok := r.Context().Value(userContextKey{}).(store.User); ok {
 		userID = user.ID
 	}
 	_, err = s.mutateControl(r.Context(), func(data *store.Store) (any, error) {
 		return nil, data.SavePushSubscription(r.Context(), store.PushSubscription{
-			UserID: userID, Endpoint: request.Endpoint, P256DH: request.Keys.P256DH, Auth: request.Keys.Auth,
+			UserID: userID, Endpoint: request.Endpoint, P256DH: request.Keys.P256dh, Auth: request.Keys.Auth,
 		})
 	})
 	if err != nil {
@@ -316,33 +286,19 @@ func (p *pushService) deliverSubscriptions(ctx context.Context, payload []byte, 
 }
 
 func (p *pushService) send(ctx context.Context, payload []byte, state string, subscription store.PushSubscription) {
-	urgency := webpush.UrgencyNormal
+	urgency := "normal"
 	if state == "firing" {
-		urgency = webpush.UrgencyHigh
+		urgency = "high"
 	}
-	response, err := webpush.SendNotificationWithContext(ctx, payload, &webpush.Subscription{
-		Endpoint: subscription.Endpoint,
-		Keys:     webpush.Keys{P256dh: subscription.P256DH, Auth: subscription.Auth},
-	}, &webpush.Options{
-		HTTPClient: p.client, VAPIDPublicKey: p.publicKey, VAPIDPrivateKey: p.privateKey,
-		Subscriber: p.contact, TTL: 86400, Urgency: urgency,
-	})
-	if err != nil {
-		// Push endpoints are secret capabilities and can be embedded in transport
-		// errors, so delivery failures deliberately omit the error text.
-		slog.Warn("web push delivery failed")
-		return
-	}
-	defer func() { _ = response.Body.Close() }()
-	_, _ = io.Copy(io.Discard, io.LimitReader(response.Body, 1024))
-	if response.StatusCode == http.StatusGone || response.StatusCode == http.StatusNotFound {
+	result, err := pwakit.Send(ctx, pwakit.Config{PublicKey: p.publicKey, PrivateKey: p.privateKey, Contact: p.contact}, pwakit.Subscription{Endpoint: subscription.Endpoint, Keys: pwakit.Keys{P256dh: subscription.P256DH, Auth: subscription.Auth}}, payload, pwakit.Options{HTTPClient: p.client, TTL: 86400, Urgency: urgency})
+	if result.Expired() {
 		if err := p.store.RemoveUserPushSubscription(ctx, subscription.UserID, subscription.Endpoint); err != nil && !errors.Is(err, store.ErrInvalidCredentials) {
 			slog.Warn("remove expired push subscription", "error", err)
 		}
 		return
 	}
-	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		slog.Warn("web push service rejected notification", "status", response.StatusCode)
+	if err != nil {
+		slog.Warn("web push delivery failed", "error", err)
 	}
 }
 
