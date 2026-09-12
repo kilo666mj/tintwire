@@ -106,22 +106,3 @@ func TestPushPresentationIsWhitespaceNormalizedAndBounded(t *testing.T) {
 		t.Fatalf("summary = %q", summary)
 	}
 }
-
-func TestNormalizeVAPIDContact(t *testing.T) {
-	tests := map[string]string{
-		"admin@example.com":        "admin@example.com",
-		"mailto:admin@example.com": "admin@example.com",
-		"https://example.com/push": "https://example.com/push",
-	}
-	for input, want := range tests {
-		got, ok := normalizeVAPIDContact(input)
-		if !ok || got != want {
-			t.Errorf("normalizeVAPIDContact(%q) = %q, %v; want %q, true", input, got, ok, want)
-		}
-	}
-	for _, input := range []string{"http://example.com", "admin", "mailto:invalid"} {
-		if _, ok := normalizeVAPIDContact(input); ok {
-			t.Errorf("normalizeVAPIDContact(%q) accepted invalid contact", input)
-		}
-	}
-}

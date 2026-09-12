@@ -21,6 +21,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	pwakit "github.com/kilo666mj/pwa-kit"
 	"github.com/kilo666mj/tintwire/internal/store"
 )
 
@@ -34,6 +35,7 @@ var webFiles embed.FS
 
 var webAssetVersion = func() string {
 	digest := sha256.New()
+	digest.Write([]byte(pwakit.AssetVersion))
 	for _, name := range []string{"web/emoji.js", "web/markdown.js", "web/app.js", "web/sentinel.css", "web/sw.js"} {
 		data, err := webFiles.ReadFile(name)
 		if err == nil {
@@ -344,6 +346,7 @@ func NewWithOptions(data *store.Store, options Options) (http.Handler, error) {
 	mux.HandleFunc("GET /metrics", s.metrics)
 	mux.HandleFunc("GET /assets/{name}", serveAsset)
 	mux.HandleFunc("GET /manifest.webmanifest", serveManifest)
+	mux.Handle("GET /pwa-kit/", pwakit.Handler())
 	mux.HandleFunc("GET /sw.js", serveServiceWorker)
 	mux.HandleFunc("GET /", serveWeb)
 	return securityHeaders(s.observe(mux)), pushErr
@@ -1780,7 +1783,7 @@ func serveWeb(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	document := string(data)
-	for _, asset := range []string{"/manifest.webmanifest", "/assets/sentinel.css", "/assets/emoji.js", "/assets/markdown.js", "/assets/app.js"} {
+	for _, asset := range []string{"/pwa-kit/browser.js", "/manifest.webmanifest", "/assets/sentinel.css", "/assets/emoji.js", "/assets/markdown.js", "/assets/app.js"} {
 		document = strings.ReplaceAll(document, `"`+asset+`"`, `"`+asset+`?v=`+webAssetVersion+`"`)
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")

@@ -1,6 +1,6 @@
 module github.com/kilo666mj/tintwire
 
-go 1.26
+go 1.26.5
 
 require (
 	github.com/SherClockHolmes/webpush-go v1.4.0
@@ -29,6 +29,7 @@ require (
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
+	github.com/kilo666mj/pwa-kit v0.1.0
 	github.com/mattn/go-colorable v0.1.12 // indirect
 	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/ncruces/go-strftime v1.0.0 // indirect

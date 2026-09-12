@@ -124,3 +124,14 @@ The proxy bypasses environment HTTP proxies and limits responses to 8 MiB,
 WebP/PNG/JPEG/GIF and served with `private, no-store`; no persistent image copy
 is retained. Deleted upstream thumbnails therefore return 404. Restrict the
 upstream to the application nodes using your network or origin access rules.
+
+## Shared PWA implementation
+
+Notification transport, subscription lifecycle and service-worker notification
+handling use [pwa-kit](https://github.com/kilo666mj/pwa-kit). Its browser scripts
+are embedded through the pinned Go module and served at `/pwa-kit/`. Upgrade the
+module to receive shared fixes; do not copy its implementation into this app.
+
+Keep authentication, subscription ownership/storage, notification policy and
+worker caching in this app. Follow pwa-kit's adoption checklist when changing
+these adapters, including real-device verification for iPhone delivery.
