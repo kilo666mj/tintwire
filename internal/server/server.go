@@ -35,7 +35,7 @@ var webFiles embed.FS
 
 var webAssetVersion = func() string {
 	digest := sha256.New()
-	digest.Write([]byte(pwakit.AssetVersion))
+	_, _ = digest.Write([]byte(pwakit.AssetVersion))
 	for _, name := range []string{"web/emoji.js", "web/markdown.js", "web/app.js", "web/sentinel.css", "web/sw.js"} {
 		data, err := webFiles.ReadFile(name)
 		if err == nil {

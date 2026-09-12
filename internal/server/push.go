@@ -32,8 +32,6 @@ type pushService struct {
 	client       *http.Client
 }
 
-type pushSubscriptionRequest = pwakit.Subscription
-
 type pushPayload struct {
 	Title     string `json:"title"`
 	Body      string `json:"body,omitempty"`
@@ -115,10 +113,7 @@ func (s *Server) savePushSubscription(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "push endpoint must be a public HTTPS URL", http.StatusBadRequest)
 		return
 	}
-	if len(request.Endpoint) > 4096 || len(request.Keys.P256dh) > 512 || len(request.Keys.Auth) > 512 {
-		http.Error(w, "subscription is too large", http.StatusBadRequest)
-		return
-	}
+
 	userID := ""
 	if user, ok := r.Context().Value(userContextKey{}).(store.User); ok {
 		userID = user.ID
