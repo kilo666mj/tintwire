@@ -41,6 +41,7 @@ func run() error {
 	oauthIssuer := flag.String("oauth-issuer", os.Getenv("TINTWIRE_OAUTH_ISSUER"), "Pocket ID issuer for MCP OAuth access tokens")
 	oauthResource := flag.String("oauth-resource", os.Getenv("TINTWIRE_OAUTH_RESOURCE"), "required OAuth audience; defaults to TINTWIRE_PUBLIC_URL/mcp")
 	oauthScope := flag.String("oauth-scope", envOr("TINTWIRE_OAUTH_SCOPE", "tintwire:mcp"), "required Pocket ID API permission for MCP")
+	switchboardOAuthSubject := flag.String("switchboard-oauth-subject", os.Getenv("TINTWIRE_SWITCHBOARD_OAUTH_SUBJECT"), "OAuth subject of the Switchboard service client trusted to delegate existing agent subjects")
 	oidcClientID := flag.String("oidc-client-id", os.Getenv("TINTWIRE_OIDC_CLIENT_ID"), "Pocket ID client ID for interactive browser sign-in")
 	oidcRedirectURL := flag.String("oidc-redirect-url", os.Getenv("TINTWIRE_OIDC_REDIRECT_URL"), "Pocket ID callback URL; defaults to TINTWIRE_PUBLIC_URL/api/v1/auth/oidc/callback")
 	clusterID := flag.String("cluster-id", os.Getenv("TINTWIRE_CLUSTER_ID"), "replication cluster identity; requires node-id")
@@ -116,7 +117,7 @@ func run() error {
 	if consensus != nil {
 		serverConsensus = consensus
 	}
-	handler, err := server.NewWithOptions(db, server.Options{ImageProxySources: *imageProxySources, VAPIDContact: *vapidContact, AuthRequired: authRequired, ActionKey: *actionKey, PublicURL: *publicURL, OAuthIssuer: *oauthIssuer, OAuthResource: *oauthResource, OAuthScope: *oauthScope, OIDCClientID: *oidcClientID, OIDCRedirectURL: *oidcRedirectURL, Consensus: serverConsensus, ControlProxyPort: *controlProxyPort})
+	handler, err := server.NewWithOptions(db, server.Options{ImageProxySources: *imageProxySources, VAPIDContact: *vapidContact, AuthRequired: authRequired, ActionKey: *actionKey, PublicURL: *publicURL, OAuthIssuer: *oauthIssuer, OAuthResource: *oauthResource, OAuthScope: *oauthScope, SwitchboardOAuthSubject: *switchboardOAuthSubject, OIDCClientID: *oidcClientID, OIDCRedirectURL: *oidcRedirectURL, Consensus: serverConsensus, ControlProxyPort: *controlProxyPort})
 	if err != nil {
 		return fmt.Errorf("initialize HTTP server: %w", err)
 	}
