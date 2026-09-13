@@ -111,6 +111,15 @@ authenticates—the mapped agent principal still supplies all channel membership
 operator, and administrator authorization. ID tokens are never accepted at
 `/mcp`.
 
+For a Switchboard gateway that authenticates users at its own MCP resource,
+set `TINTWIRE_SWITCHBOARD_OAUTH_SUBJECT` to the exact subject of Switchboard's
+Tintwire-audience client-credentials token. Tintwire will then accept
+`X-Switchboard-OAuth-Subject` only with that service token and resolve the
+header to an existing enabled agent. Unknown subjects fail closed. Agent tokens
+and other OAuth subjects cannot delegate, and the gateway receives no authority
+to register agents or change channel grants. Restrict the upstream route to the
+gateway network as an additional boundary.
+
 The verifier uses `coreos/go-oidc` for discovery, signature verification, and
 key rotation. Tintwire's MCP endpoint is a resource server and validates access
 token audience and permissions.
@@ -119,4 +128,3 @@ For interactive browser sign-in, create a separate public PKCE client with
 `https://tintwire.example.com/api/v1/auth/oidc/callback` as its callback and
 `https://tintwire.example.com/` as its launch URL. Set
 `TINTWIRE_OIDC_CLIENT_ID` to that client's ID; no client secret is used.
-

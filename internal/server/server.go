@@ -64,6 +64,9 @@ type Server struct {
 	requests         atomic.Uint64
 	errors           atomic.Uint64
 	unknownWebhooks  atomic.Uint64
+
+	switchboardOAuthSubject string
+	verifyOAuthSubject      func(context.Context, string) (string, error)
 }
 
 type Options struct {
@@ -80,6 +83,8 @@ type Options struct {
 	OIDCRedirectURL  string
 	Consensus        ControlConsensus
 	ControlProxyPort string
+
+	SwitchboardOAuthSubject string
 }
 
 type liveUpdate struct {
@@ -268,7 +273,7 @@ func NewWithOptions(data *store.Store, options Options) (http.Handler, error) {
 			return nil, errors.New("control proxy port must be a valid TCP port")
 		}
 	}
-	s := &Server{imageProxy: images, store: data, consensus: options.Consensus, controlProxyPort: options.ControlProxyPort, push: push, actions: actions, limiter: newToolLimiter(), publicURL: publicURL, oauth: oauthVerifier, oidc: oidcLogin, startedAt: time.Now(), subscribers: make(map[chan liveUpdate]struct{}), authRequired: options.AuthRequired}
+	s := &Server{imageProxy: images, store: data, consensus: options.Consensus, controlProxyPort: options.ControlProxyPort, push: push, actions: actions, limiter: newToolLimiter(), publicURL: publicURL, oauth: oauthVerifier, switchboardOAuthSubject: strings.TrimSpace(options.SwitchboardOAuthSubject), oidc: oidcLogin, startedAt: time.Now(), subscribers: make(map[chan liveUpdate]struct{}), authRequired: options.AuthRequired}
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /hooks/{id}", s.receiveWebhook)
 	mux.HandleFunc("POST /api/v1/notifications", s.receiveNativeCard)

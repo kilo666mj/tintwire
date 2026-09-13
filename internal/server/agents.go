@@ -15,6 +15,8 @@ import (
 
 type agentContextKey struct{}
 
+const switchboardOAuthSubjectHeader = "X-Switchboard-OAuth-Subject"
+
 type createAgentRequest struct {
 	Name         string `json:"name"`
 	DisplayName  string `json:"display_name"`
@@ -167,11 +169,32 @@ func (s *Server) requireAgent(next http.HandlerFunc) http.HandlerFunc {
 			http.Error(w, "agent access token is required", http.StatusUnauthorized)
 			return
 		}
+		delegatedSubject, delegated, delegationErr := requestedSwitchboardOAuthSubject(r)
+		if delegationErr != nil {
+			w.Header().Set("WWW-Authenticate", s.agentAuthenticateChallenge("invalid_token"))
+			http.Error(w, "invalid agent access token", http.StatusUnauthorized)
+			return
+		}
 		agent, user, err := s.store.AgentForToken(r.Context(), token)
-		if err != nil && s.oauth != nil {
-			subject, verifyErr := s.oauth.verify(r.Context(), token)
+		staticAuthenticated := err == nil
+		if staticAuthenticated && delegated {
+			err = store.ErrInvalidCredentials
+		}
+		if !staticAuthenticated && err != nil && (s.oauth != nil || s.verifyOAuthSubject != nil) {
+			verify := s.verifyOAuthSubject
+			if verify == nil {
+				verify = s.oauth.verify
+			}
+			subject, verifyErr := verify(r.Context(), token)
 			if verifyErr == nil {
-				agent, user, err = s.store.AgentForOAuthSubject(r.Context(), subject)
+				if !delegated || s.switchboardOAuthSubject != "" && subject == s.switchboardOAuthSubject {
+					if delegated {
+						subject = delegatedSubject
+					}
+					agent, user, err = s.store.AgentForOAuthSubject(r.Context(), subject)
+				} else {
+					err = store.ErrInvalidCredentials
+				}
 			}
 		}
 		if err != nil {
@@ -183,6 +206,21 @@ func (s *Server) requireAgent(next http.HandlerFunc) http.HandlerFunc {
 		ctx = context.WithValue(ctx, userContextKey{}, user)
 		next(w, r.WithContext(ctx))
 	}
+}
+
+func requestedSwitchboardOAuthSubject(r *http.Request) (string, bool, error) {
+	values := r.Header.Values(switchboardOAuthSubjectHeader)
+	if len(values) == 0 {
+		return "", false, nil
+	}
+	if len(values) != 1 {
+		return "", false, errors.New("ambiguous Switchboard OAuth subject")
+	}
+	subject := values[0]
+	if subject == "" || subject != strings.TrimSpace(subject) || len(subject) > 255 || strings.ContainsAny(subject, "\r\n") {
+		return "", false, errors.New("invalid Switchboard OAuth subject")
+	}
+	return subject, true, nil
 }
 
 func (s *Server) agentAuthenticateChallenge(authenticationError string) string {
