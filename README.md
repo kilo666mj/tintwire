@@ -79,6 +79,7 @@ boundary; production authentication also requires the exact browser origin in
 - [Getting started and administration](docs/GETTING_STARTED.md)
 - [Mattermost compatibility](docs/MATTERMOST_COMPATIBILITY.md)
 - [Agents and MCP](docs/AGENTS_AND_MCP.md)
+- [Agent conversations and remote control](docs/AGENT_CONVERSATIONS.md)
 - [Client behavior](docs/CLIENTS.md)
 - [Client validation checklist](docs/CLIENT_VALIDATION.md)
 - [Desktop release policy](docs/DESKTOP_RELEASES.md)
