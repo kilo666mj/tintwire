@@ -1,0 +1,16 @@
+[Unit]
+Description=Tintwire Codex conversation bridge
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+LoadCredentialEncrypted=tintwire-codex-bridge-config:%h/.config/credentials/tintwire-codex-bridge-config.cred
+LoadCredentialEncrypted=tintwire-agent-token:%h/.config/credentials/tintwire-codex-bridge-token.cred
+ExecStart=%h/code/tintwire/scripts/run-tintwire-codex-bridge
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=15s
+
+[Install]
+WantedBy=default.target

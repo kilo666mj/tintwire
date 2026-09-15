@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+credential_directory="${CREDENTIALS_DIRECTORY:?systemd credentials are required}"
+config_path="${credential_directory}/tintwire-codex-bridge-config"
+credential_path="${credential_directory}/tintwire-agent-token"
+
+if [[ ! -r "${config_path}" || ! -r "${credential_path}" ]]; then
+  echo "Tintwire bridge credentials are unavailable" >&2
+  exit 1
+fi
+
+set -a
+# This file is an encrypted systemd credential controlled by the local user.
+# shellcheck disable=SC1090
+source "${config_path}"
+set +a
+
+: "${TINTWIRE_URL:?TINTWIRE_URL is required}"
+: "${TINTWIRE_CHANNEL:?TINTWIRE_CHANNEL is required}"
+: "${CODEX_THREAD_ID:?CODEX_THREAD_ID is required}"
+: "${TINTWIRE_SSH_TARGET:?TINTWIRE_SSH_TARGET is required}"
+
+bridge_binary="${TINTWIRE_CODEX_BRIDGE_BIN:-${HOME}/.local/bin/tintwire-codex-bridge}"
+state_path="${TINTWIRE_CODEX_BRIDGE_STATE:-${HOME}/.local/state/tintwire/codex-bridge.json}"
+local_forward="${TINTWIRE_SSH_FORWARD:-127.0.0.1:18092:127.0.0.1:18089}"
+
+if [[ ! -x "${bridge_binary}" ]]; then
+  echo "Tintwire Codex bridge binary is not executable: ${bridge_binary}" >&2
+  exit 1
+fi
+install -d -m 0700 "$(dirname "${state_path}")"
+
+ssh -o BatchMode=yes -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 \
+  -o ServerAliveCountMax=3 -N -L "${local_forward}" "${TINTWIRE_SSH_TARGET}" &
+tunnel_pid=$!
+
+cleanup() {
+  kill "${tunnel_pid}" 2>/dev/null || true
+  wait "${tunnel_pid}" 2>/dev/null || true
+}
+trap cleanup EXIT INT TERM
+
+for _ in $(seq 1 30); do
+  if curl -fsS --max-time 2 "${TINTWIRE_URL}/healthz" >/dev/null; then
+    break
+  fi
+  if ! kill -0 "${tunnel_pid}" 2>/dev/null; then
+    echo "Tintwire SSH tunnel stopped before becoming ready" >&2
+    exit 1
+  fi
+  sleep 1
+done
+
+if ! curl -fsS --max-time 2 "${TINTWIRE_URL}/healthz" >/dev/null; then
+  echo "Tintwire SSH tunnel did not become ready" >&2
+  exit 1
+fi
+
+export TINTWIRE_AGENT_TOKEN
+TINTWIRE_AGENT_TOKEN="$(<"${credential_path}")"
+
+"${bridge_binary}" -state "${state_path}"

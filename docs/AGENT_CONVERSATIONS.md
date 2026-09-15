@@ -86,6 +86,31 @@ The token is accepted only through the environment so it does not appear in the
 process argument list. Non-loopback HTTP URLs are rejected; use HTTPS in normal
 operation.
 
+### Persistent private deployment
+
+The repository includes a user service and launcher for deployments where the
+Tintwire MCP endpoint is deliberately reachable only on the server's loopback
+interface. The launcher maintains an SSH local forward, waits for Tintwire's
+health endpoint, loads the agent token from a systemd encrypted credential, and
+then starts the bridge:
+
+- `systemd/tintwire-codex-bridge.service`
+- `scripts/run-tintwire-codex-bridge`
+
+Install the bridge binary in `~/.local/bin`, then use `systemd-creds encrypt
+--user` to create the two encrypted credentials referenced by the unit. The
+agent-token credential contains only the token. The configuration credential
+is a shell environment file defining `TINTWIRE_URL`, `TINTWIRE_CHANNEL`,
+`CODEX_THREAD_ID`, and `TINTWIRE_SSH_TARGET`; it may also override the
+local-forward specification, binary path, or state path. Encrypting the
+configuration protects the Codex thread reference, which is an opaque runtime
+handle even though it is not an authentication credential.
+
+The public reverse proxy can continue denying `/mcp`: the default live setup
+uses `http://127.0.0.1:18092` and forwards it to the application's loopback
+listener on the Tintwire host. The service requires non-interactive SSH access
+and a user manager with lingering enabled.
+
 ## Proposed architecture
 
 ```text
