@@ -59,11 +59,17 @@ curl -H "Authorization: Bearer $TINTWIRE_AGENT_TOKEN" \
   https://tintwire.example.com/mcp
 ```
 
-Tool names are versioned: `channels.list.v1`, `notifications.search.v1`,
+Tool names are versioned: `channels.list.v1`, `messages.list.v1`,
+`messages.get.v1`, `messages.publish.v1`, `notifications.search.v1`,
 `notifications.get.v1`, `notifications.publish.v1`,
-`notifications.set_state.v1`, `notifications.invoke_action.v1`, `runs.start.v1`, `runs.record.v1`,
-`runs.finish.v1`, and, for installation-administrator agents only,
-`channels.create.v1`. Every mutating tool requires a stable `idempotency_key`:
+`notifications.set_state.v1`, `notifications.invoke_action.v1`,
+`runs.start.v1`, `runs.record.v1`, `runs.finish.v1`, and, for
+installation-administrator agents only, `channels.create.v1`.
+`messages.list.v1` is a chronological, cursor-based feed of human-authored
+messages only; it excludes every agent principal and generated timeline entry
+to prevent relay feedback loops. `messages.publish.v1` creates an attributed
+ordinary message or threaded reply and requires an explicit `operator` or
+`channel_admin` grant. Every mutating tool requires a stable `idempotency_key`:
 a repeat of the same call replays the first result without repeating the effect,
 and reusing a key with different arguments is rejected as a conflict. A replayed
 `channels.create.v1` result never repeats the publishing token. Tool traffic is

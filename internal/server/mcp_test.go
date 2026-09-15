@@ -354,6 +354,96 @@ func TestMCPPublishRequiresChannelGrantAndIsIdempotent(t *testing.T) {
 	}
 }
 
+func TestMCPMessageConversationTools(t *testing.T) {
+	_, db, client, channel := mcpFixture(t, false)
+	ctx := context.Background()
+	human, err := db.CreateUser(ctx, "human", "a sufficiently long password", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	first, err := db.CreateChannelMessage(ctx, human, store.CreateMessageInput{ChannelID: channel.ID, Text: "hello agent"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	listed := client.tool("messages.list.v1", `{"channel":"operations"}`)
+	if listed.IsError {
+		t.Fatalf("messages.list = %s", listed.text())
+	}
+	var page struct {
+		Messages []struct {
+			store.ChannelMessage
+			Cursor string `json:"cursor"`
+		} `json:"messages"`
+		NextCursor string `json:"next_cursor"`
+		HasMore    bool   `json:"has_more"`
+	}
+	if err := json.Unmarshal(listed.StructuredContent, &page); err != nil {
+		t.Fatal(err)
+	}
+	if len(page.Messages) != 1 || page.Messages[0].ID != first.ID || page.Messages[0].Cursor == "" || page.NextCursor != page.Messages[0].Cursor || page.HasMore {
+		t.Fatalf("message page = %+v", page)
+	}
+
+	read := client.tool("messages.get.v1", `{"id":"`+first.ID+`"}`)
+	if read.IsError || !strings.Contains(read.text(), "hello agent") {
+		t.Fatalf("messages.get = %+v", read)
+	}
+
+	denied := client.tool("messages.publish.v1", `{"channel":"operations","text":"hello human","parent_id":"`+first.ID+`","idempotency_key":"message-0001"}`)
+	if !denied.IsError || !strings.Contains(denied.text(), "not allowed") {
+		t.Fatalf("ungranted publish = %+v", denied)
+	}
+	if err := db.SetChannelMember(ctx, channel.ID, "agent-triage", "operator"); err != nil {
+		t.Fatal(err)
+	}
+	published := client.tool("messages.publish.v1", `{"channel":"operations","text":"hello human","parent_id":"`+first.ID+`","idempotency_key":"message-0002"}`)
+	if published.IsError {
+		t.Fatalf("messages.publish = %s", published.text())
+	}
+	var result struct {
+		Message store.ChannelMessage `json:"message"`
+	}
+	if err := json.Unmarshal(published.StructuredContent, &result); err != nil {
+		t.Fatal(err)
+	}
+	if result.Message.Author != "agent-triage" || result.Message.ParentID != first.ID {
+		t.Fatalf("published message = %+v", result.Message)
+	}
+	replay := client.tool("messages.publish.v1", `{"channel":"operations","text":"hello human","parent_id":"`+first.ID+`","idempotency_key":"message-0002"}`)
+	if replay.IsError || !strings.Contains(replay.text(), result.Message.ID) {
+		t.Fatalf("replayed message = %+v", replay)
+	}
+
+	// The chronological input feed excludes agent-authored output, preventing a
+	// relay from feeding its own reply back into the runtime.
+	newMessages := client.tool("messages.list.v1", `{"channel":"operations","after":"`+page.NextCursor+`"}`)
+	if newMessages.IsError {
+		t.Fatalf("messages.list after = %s", newMessages.text())
+	}
+	var afterPage struct {
+		Messages []store.ChannelMessage `json:"messages"`
+	}
+	if err := json.Unmarshal(newMessages.StructuredContent, &afterPage); err != nil {
+		t.Fatal(err)
+	}
+	if len(afterPage.Messages) != 0 {
+		t.Fatalf("agent reply leaked into human input feed: %+v", afterPage.Messages)
+	}
+
+	second, err := db.CreateChannelMessage(ctx, human, store.CreateMessageInput{ChannelID: channel.ID, Text: "next command"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	newMessages = client.tool("messages.list.v1", `{"channel":"operations","after":"`+page.NextCursor+`"}`)
+	if err := json.Unmarshal(newMessages.StructuredContent, &afterPage); err != nil {
+		t.Fatal(err)
+	}
+	if len(afterPage.Messages) != 1 || afterPage.Messages[0].ID != second.ID {
+		t.Fatalf("new human messages = %+v", afterPage.Messages)
+	}
+}
+
 func TestMCPAdministratorToolsAndResources(t *testing.T) {
 	_, _, client, _ := mcpFixture(t, true)
 

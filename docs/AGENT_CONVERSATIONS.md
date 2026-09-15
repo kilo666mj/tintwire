@@ -22,19 +22,69 @@ Tintwire already has most of the presentation and authorization primitives:
 - a merged timeline containing messages, notifications, and command output;
 - first-class agent principals with explicit channel grants;
 - an authenticated, sessionless MCP endpoint;
-- MCP tools for listing channels and reading or publishing notifications;
+- MCP tools for listing channels, reading human messages, publishing agent
+  replies, and reading or publishing notifications;
 - durable agent runs and externally visible effect records; and
 - browser SSE events for new channel messages.
 
-The current MCP surface is notification-oriented. It cannot list or read human
-channel messages, publish a channel message or reply, or subscribe to new
-messages. A Tintwire agent run is an audit record; it is not a live model or
-runtime session.
+The MCP surface now includes cursor-based human message reads, individual
+message reads, and idempotent agent-attributed message/reply publishing. It does
+not yet subscribe to messages or expose a durable command queue. A Tintwire
+agent run is an audit record; it is not a live model or runtime session.
 
 MCP also runs in the opposite direction from inbound control: an agent calls
 Tintwire's MCP server. Tintwire cannot use that connection to inject a new turn
 into an idle or running agent. No currently available Switchboard capability
 exposes general agent-session resume or steering.
+
+## Local Codex bridge MVP
+
+`cmd/tintwire-codex-bridge` provides the first local end-to-end path. It polls a
+dedicated Tintwire channel through MCP, sends each new human-authored message to
+one configured existing Codex thread, waits for the final agent message, and
+posts that output as a threaded Tintwire reply.
+
+The bridge starts `codex app-server --stdio` itself, resumes the supplied thread
+with `thread/resume`, starts turns with `turn/start`, and reads
+`turn/completed`. This protocol was verified against the locally installed
+Codex CLI 0.154.0 and its generated JSON schema on 2026-09-15. It is an
+experimental Codex CLI surface, so upgrades should regenerate and compare the
+schema before rollout. A managed app-server daemon is not required for this
+local bridge.
+
+The relay state file records the last accepted cursor and any completed reply
+that has not yet been published. Reply publication is idempotent. A process
+crash while a model turn is in progress can still cause that turn to be retried;
+the durable server-side command queue and lease described below remain the next
+reliability milestone.
+
+The bridge never approves runtime requests and never answers interactive
+questions on the user's behalf. If Codex asks this headless client for approval
+or input, the bridge rejects the request and the resulting turn reports the
+failure in Tintwire. Commands that fit the thread's existing sandbox and
+approval policy can proceed normally.
+
+### Run it
+
+Create a dedicated channel, register a non-admin agent, and grant that agent
+`operator` membership in only that channel. Then identify the existing Codex
+thread UUID and run:
+
+```sh
+export TINTWIRE_URL=https://tintwire.example.com
+export TINTWIRE_AGENT_TOKEN='the-token-returned-at-agent-registration'
+export TINTWIRE_CHANNEL=agent-chat
+export CODEX_THREAD_ID=0199...
+
+go run ./cmd/tintwire-codex-bridge \
+  -state /var/lib/tintwire-codex-bridge/agent-chat.json
+```
+
+On first startup, existing channel messages are skipped. Pass
+`-replay-existing` only when those messages should deliberately be submitted.
+The token is accepted only through the environment so it does not appear in the
+process argument list. Non-loopback HTTP URLs are rejected; use HTTPS in normal
+operation.
 
 ## Proposed architecture
 
@@ -106,8 +156,8 @@ rather than silently create a new one.
 
 ### MCP additions
 
-The exact schemas still need review, but the minimal conversational MCP surface
-is likely:
+The first three tools are implemented; the remaining durable queue tools are
+the next step:
 
 - `messages.list.v1`: read authorized channel messages using a stable cursor;
 - `messages.get.v1`: resolve one message and its thread context;
@@ -176,10 +226,8 @@ or network access, or bypass tool safety checks.
    response interfaces.
 2. Define channel-to-agent-session bindings and their authorization policy.
 3. Add the durable command queue and lease/state transitions.
-4. Expose message publishing and command claiming/completion through MCP.
-5. Implement a Codex bridge that polls, resumes the bound session, and publishes
-   replies.
+4. Add command claiming/completion through MCP.
+5. Move local bridge configuration into an authorized channel binding.
 6. Add channel binding/status UI and explicit control commands.
-7. Test ordering, retries, reconnects, concurrent bridge claims, revocation,
+7. Test leases, reconnects, concurrent bridge claims, revocation,
    prompt-injection boundaries, and agent feedback-loop prevention.
-

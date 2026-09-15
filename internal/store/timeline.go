@@ -76,6 +76,45 @@ type CreateMessageInput struct {
 	IdempotencyKey string
 }
 
+// CreateChannelMessageFromAgent stores an agent-attributed message or reply.
+// Unlike ordinary reader messages, agent writes require an explicit operator
+// or channel administrator grant (unless the agent is an installation admin).
+// When runID is present it must identify a running run owned by this agent.
+func (s *Store) CreateChannelMessageFromAgent(ctx context.Context, agent Agent, channelName, runID string, input CreateMessageInput) (ChannelMessage, error) {
+	channelName = strings.TrimSpace(channelName)
+	var channelID string
+	if err := s.db.QueryRowContext(ctx, `SELECT id FROM channels WHERE name=?`, channelName).Scan(&channelID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ChannelMessage{}, ErrForbidden
+		}
+		return ChannelMessage{}, err
+	}
+	if !agent.IsAdmin {
+		var allowed bool
+		if err := s.db.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM channel_memberships WHERE user_id=? AND channel_id=? AND role IN ('operator','channel_admin'))`, agent.UserID, channelID).Scan(&allowed); err != nil {
+			return ChannelMessage{}, err
+		}
+		if !allowed {
+			return ChannelMessage{}, ErrForbidden
+		}
+	}
+	if runID != "" {
+		var state string
+		err := s.db.QueryRowContext(ctx, `SELECT state FROM agent_runs WHERE id=? AND agent_id=?`, runID, agent.ID).Scan(&state)
+		if errors.Is(err, sql.ErrNoRows) {
+			return ChannelMessage{}, ErrRunNotFound
+		}
+		if err != nil {
+			return ChannelMessage{}, err
+		}
+		if state != "running" {
+			return ChannelMessage{}, ErrInvalidTransition
+		}
+	}
+	input.ChannelID = channelID
+	return s.createChannelMessage(ctx, User{ID: agent.UserID, Username: agent.Username, IsAdmin: agent.IsAdmin}, input)
+}
+
 // channelReadable reports whether the user may read a channel. Administrators
 // can read every channel. Non-administrators read public channels and any
 // private channel they are explicitly a member of. An empty user (anonymous)
@@ -243,6 +282,70 @@ func (s *Store) ChannelMessageByID(ctx context.Context, actor User, id string) (
 		return ChannelMessage{}, ErrForbidden
 	}
 	return message, nil
+}
+
+// ListChannelMessagesAfter returns human-authored messages in chronological
+// order. Agent principals are excluded so a relay cannot consume its own (or
+// another agent relay's) output as a new instruction. With no cursor, the
+// newest page is returned in chronological order; with a cursor, only newer
+// messages are returned.
+func (s *Store) ListChannelMessagesAfter(ctx context.Context, actor User, channelID string, limit int, afterAt int64, afterID string) ([]ChannelMessage, bool, error) {
+	readable, err := s.channelReadable(ctx, actor, channelID)
+	if err != nil {
+		return nil, false, err
+	}
+	if !readable {
+		return nil, false, ErrForbidden
+	}
+	if limit <= 0 || limit > 100 {
+		limit = 50
+	}
+	statement := `
+SELECT m.id, m.channel_id, c.name, m.author_user_id, u.username, COALESCE(m.parent_id, ''), m.root_id, m.text, m.created_at,
+       (SELECT COUNT(*) FROM channel_messages r WHERE r.root_id = m.id AND r.id <> m.id AND r.deleted_at IS NULL)
+FROM channel_messages m
+JOIN channels c ON c.id = m.channel_id
+JOIN users u ON u.id = m.author_user_id
+WHERE m.channel_id=? AND m.deleted_at IS NULL
+  AND NOT EXISTS(SELECT 1 FROM agents a WHERE a.user_id=m.author_user_id)`
+	args := []any{channelID}
+	ascending := afterAt > 0 && afterID != ""
+	if ascending {
+		statement += ` AND (m.created_at > ? OR (m.created_at = ? AND m.id > ?))`
+		args = append(args, afterAt, afterAt, afterID)
+		statement += ` ORDER BY m.created_at ASC, m.id ASC LIMIT ?`
+	} else {
+		statement += ` ORDER BY m.created_at DESC, m.id DESC LIMIT ?`
+	}
+	args = append(args, limit+1)
+	rows, err := s.db.QueryContext(ctx, statement, args...)
+	if err != nil {
+		return nil, false, err
+	}
+	defer func() { _ = rows.Close() }()
+	messages := make([]ChannelMessage, 0, limit+1)
+	for rows.Next() {
+		var message ChannelMessage
+		var createdAt int64
+		if err := rows.Scan(&message.ID, &message.ChannelID, &message.ChannelName, &message.AuthorUserID, &message.Author, &message.ParentID, &message.RootID, &message.Text, &createdAt, &message.ReplyCount); err != nil {
+			return nil, false, err
+		}
+		message.CreatedAt = time.UnixMilli(createdAt).UTC()
+		messages = append(messages, message)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, false, err
+	}
+	hasMore := ascending && len(messages) > limit
+	if len(messages) > limit {
+		messages = messages[:limit]
+	}
+	if !ascending {
+		for left, right := 0, len(messages)-1; left < right; left, right = left+1, right-1 {
+			messages[left], messages[right] = messages[right], messages[left]
+		}
+	}
+	return messages, hasMore, nil
 }
 
 func scanChannelMessage(row *sql.Row) (ChannelMessage, error) {
