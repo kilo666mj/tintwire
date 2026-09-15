@@ -111,6 +111,19 @@ uses `http://127.0.0.1:18092` and forwards it to the application's loopback
 listener on the Tintwire host. The service requires non-interactive SSH access
 and a user manager with lingering enabled.
 
+Link and start the checked-in unit, then inspect its status and recent output:
+
+```sh
+systemctl --user link "$PWD/systemd/tintwire-codex-bridge.service"
+systemctl --user enable --now tintwire-codex-bridge.service
+systemctl --user status tintwire-codex-bridge.service
+journalctl --user-unit tintwire-codex-bridge.service -n 100
+```
+
+Stopping or disabling the bridge does not expose `/mcp`; it only disconnects
+the private relay. Re-enable it with the command above after updating the binary
+or encrypted configuration.
+
 ## Proposed architecture
 
 ```text
