@@ -77,6 +77,9 @@ boundary; production authentication also requires the exact browser origin in
 ## Documentation
 
 - [Getting started and administration](docs/GETTING_STARTED.md)
+- [Architecture and failure behavior](docs/ARCHITECTURE.md)
+- [Production operations and recovery](docs/OPERATIONS.md)
+- [Security and privacy boundaries](docs/SECURITY_AND_PRIVACY.md)
 - [Mattermost compatibility](docs/MATTERMOST_COMPATIBILITY.md)
 - [Agents and MCP](docs/AGENTS_AND_MCP.md)
 - [Agent conversations and remote control](docs/AGENT_CONVERSATIONS.md)
