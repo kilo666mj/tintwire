@@ -76,12 +76,15 @@ func newPushService(data *store.Store, contact string, authRequired bool) (*push
 	if err := (pwakit.Config{PublicKey: publicKey, PrivateKey: privateKey, Contact: contact}).Validate(); err != nil {
 		return nil, err
 	}
-	client := actionHTTPClient(false)
-	client.Timeout = 20 * time.Second
+	client := newPushHTTPClient()
 	return &pushService{
 		store: data, authRequired: authRequired, publicKey: publicKey, privateKey: privateKey, contact: contact,
 		client: client,
 	}, nil
+}
+
+func newPushHTTPClient() *http.Client {
+	return pwakit.NewPublicHTTPClient(20 * time.Second)
 }
 
 func (s *Server) pushConfig(w http.ResponseWriter, _ *http.Request) {
