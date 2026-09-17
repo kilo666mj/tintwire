@@ -2,11 +2,48 @@ package server
 
 import (
 	"encoding/json"
+	"io"
+	"net/http"
 	"strings"
 	"testing"
 
 	"github.com/kilo666mj/tintwire/internal/store"
 )
+
+type pushRoundTripperFunc func(*http.Request) (*http.Response, error)
+
+func (f pushRoundTripperFunc) RoundTrip(request *http.Request) (*http.Response, error) {
+	return f(request)
+}
+
+func TestPushHTTPClientBlocksPrivateDestinationsAndRedirects(t *testing.T) {
+	client := newPushHTTPClient()
+	response, err := client.Post("https://127.0.0.1/push", "application/octet-stream", strings.NewReader("payload"))
+	if response != nil {
+		_ = response.Body.Close()
+	}
+	if err == nil || !strings.Contains(err.Error(), "not public") {
+		t.Fatalf("private push destination error = %v", err)
+	}
+
+	requests := 0
+	client.Transport = pushRoundTripperFunc(func(request *http.Request) (*http.Response, error) {
+		requests++
+		return &http.Response{
+			StatusCode: http.StatusFound,
+			Header:     http.Header{"Location": []string{"https://127.0.0.1/internal"}},
+			Body:       io.NopCloser(strings.NewReader("")),
+			Request:    request,
+		}, nil
+	})
+	response, err = client.Post("https://push.example/device", "application/octet-stream", strings.NewReader("payload"))
+	if response != nil {
+		_ = response.Body.Close()
+	}
+	if err == nil || requests != 1 {
+		t.Fatalf("redirect error/requests = %v/%d", err, requests)
+	}
+}
 
 func TestNotificationPushPayloadUsesStableTagAndLifecycle(t *testing.T) {
 	notification := store.Notification{

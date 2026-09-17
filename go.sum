@@ -103,6 +103,8 @@ github.com/kilo666mj/oidcrp v0.2.1 h1:BgeO2XdyJ9Oi3NtYSnA0vErMKu/PYKA/H8YCuzcBA0
 github.com/kilo666mj/oidcrp v0.2.1/go.mod h1:SOrzVbfoK5x7pPRAIo8F/EPVkIP8qcPD87SCBpEEBDM=
 github.com/kilo666mj/pwa-kit v0.1.0 h1:1rNTaE8jFJSYjO0ABZF0GvF9VQbyyxfwywSjQfPAm2U=
 github.com/kilo666mj/pwa-kit v0.1.0/go.mod h1:Z+nYUczPzyR2hAFfkv9NnyxChGWhBbWpUIhQqeLT7qg=
+github.com/kilo666mj/pwa-kit v0.2.0 h1:rDruKnL4DIHNiM0mms+W6rEXQmIIoRe77LFAhghoNRY=
+github.com/kilo666mj/pwa-kit v0.2.0/go.mod h1:Z+nYUczPzyR2hAFfkv9NnyxChGWhBbWpUIhQqeLT7qg=
 github.com/konsorten/go-windows-terminal-sequences v1.0.1/go.mod h1:T0+1ngSBFLxvqU3pZ+m/2kptfBszLMUkC4ZK/EgS/cQ=
 github.com/konsorten/go-windows-terminal-sequences v1.0.3/go.mod h1:T0+1ngSBFLxvqU3pZ+m/2kptfBszLMUkC4ZK/EgS/cQ=
 github.com/kr/logfmt v0.0.0-20140226030751-b84e30acd515/go.mod h1:+0opPa2QZZtGFBFZlji/RkVcI2GknAs/DXo4wKdlNEc=
