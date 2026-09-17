@@ -103,7 +103,7 @@ func (c *CodexClient) RunTurn(ctx context.Context, threadID, messageID, text str
 		return "", fmt.Errorf("start Codex turn: %w", err)
 	}
 	if started.Turn.ID == "" {
-		return "", errors.New("Codex returned no turn id")
+		return "", errors.New("codex returned no turn id")
 	}
 	for {
 		select {
@@ -139,7 +139,7 @@ func (c *CodexClient) waitUntilIdle(ctx context.Context, threadID string) error 
 		return nil
 	}
 	if read.Thread.Status.Type != "active" {
-		return fmt.Errorf("Codex thread is %s", read.Thread.Status.Type)
+		return fmt.Errorf("codex thread is %s", read.Thread.Status.Type)
 	}
 	for {
 		select {

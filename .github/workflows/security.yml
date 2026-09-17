@@ -26,8 +26,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: taiki-e/install-action@cargo-audit
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable 2026-09-17
+      - uses: taiki-e/install-action@820511525783077eb70e0aa3e2e1ed0485f76cb4 # cargo-audit 2026-09-17
       - name: Scan desktop dependencies
         # Tauri's Linux backend currently pins GTK/glib 0.18. The advisory
         # affects only glib::VariantStrIter, which Tintwire does not use, and

@@ -133,7 +133,7 @@ func (b *Bridge) processPage(ctx context.Context, state *bridgeState, page Messa
 		}
 		reply = limitMessage(reply, 4000)
 		if message.Cursor == "" {
-			return errors.New("Tintwire message feed returned no cursor")
+			return errors.New("tintwire message feed returned no cursor")
 		}
 		state.Pending = &pendingReply{MessageID: message.ID, Cursor: message.Cursor, Text: reply}
 		if err := b.saveState(*state); err != nil {
