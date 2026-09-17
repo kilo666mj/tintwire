@@ -114,7 +114,7 @@ func (c *TintwireClient) tool(ctx context.Context, name string, arguments any, t
 		return errors.New(message)
 	}
 	if len(result.StructuredContent) == 0 {
-		return errors.New("Tintwire tool returned no structured content")
+		return errors.New("tintwire tool returned no structured content")
 	}
 	if err := json.Unmarshal(result.StructuredContent, target); err != nil {
 		return fmt.Errorf("decode Tintwire tool result: %w", err)
@@ -145,7 +145,7 @@ func (c *TintwireClient) rpc(ctx context.Context, method string, params any, tar
 		return err
 	}
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		return fmt.Errorf("Tintwire returned %s: %s", response.Status, strings.TrimSpace(string(body)))
+		return fmt.Errorf("tintwire returned %s: %s", response.Status, strings.TrimSpace(string(body)))
 	}
 	var envelope struct {
 		Result json.RawMessage `json:"result"`
@@ -158,7 +158,7 @@ func (c *TintwireClient) rpc(ctx context.Context, method string, params any, tar
 		return fmt.Errorf("decode Tintwire response: %w", err)
 	}
 	if envelope.Error != nil {
-		return fmt.Errorf("Tintwire RPC error %d: %s", envelope.Error.Code, envelope.Error.Message)
+		return fmt.Errorf("tintwire RPC error %d: %s", envelope.Error.Code, envelope.Error.Message)
 	}
 	if err := json.Unmarshal(envelope.Result, target); err != nil {
 		return fmt.Errorf("decode Tintwire result: %w", err)

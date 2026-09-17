@@ -164,7 +164,7 @@ func (c *CodexClient) waitUntilIdle(ctx context.Context, threadID string) error 
 				return nil
 			}
 			if changed.Status.Type != "active" {
-				return fmt.Errorf("Codex thread became %s", changed.Status.Type)
+				return fmt.Errorf("codex thread became %s", changed.Status.Type)
 			}
 		}
 	}
@@ -193,7 +193,7 @@ func completedReply(params json.RawMessage, threadID, turnID string) (string, bo
 		if completed.Turn.Error != nil && completed.Turn.Error.Message != "" {
 			return "", true, errors.New(completed.Turn.Error.Message)
 		}
-		return "", true, fmt.Errorf("Codex turn ended with status %s", completed.Turn.Status)
+		return "", true, fmt.Errorf("codex turn ended with status %s", completed.Turn.Status)
 	}
 	var fallback, final string
 	for _, item := range completed.Turn.Items {
@@ -209,7 +209,7 @@ func completedReply(params json.RawMessage, threadID, turnID string) (string, bo
 		return final, true, nil
 	}
 	if fallback == "" {
-		return "", true, errors.New("Codex completed without an agent message")
+		return "", true, errors.New("codex completed without an agent message")
 	}
 	return fallback, true, nil
 }
@@ -282,7 +282,7 @@ func (c *CodexClient) read(stdout io.Reader) {
 	}
 	err := scanner.Err()
 	if err == nil {
-		err = errors.New("Codex app-server stopped")
+		err = errors.New("codex app-server stopped")
 	}
 	c.mu.Lock()
 	c.readErr = err
@@ -294,7 +294,7 @@ func (c *CodexClient) readerError() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.readErr == nil {
-		return errors.New("Codex app-server stopped")
+		return errors.New("codex app-server stopped")
 	}
 	return c.readErr
 }
