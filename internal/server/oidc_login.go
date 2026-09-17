@@ -1,36 +1,36 @@
 package server
 
 import (
-	"context"
-	"crypto/rand"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"html"
 	"io"
 	"net/http"
 	"net/url"
 	"strings"
-	"sync"
 	"time"
 
-	"github.com/coreos/go-oidc/v3/oidc"
+	"github.com/kilo666mj/oidcrp"
 	"github.com/kilo666mj/tintwire/internal/store"
-	"golang.org/x/oauth2"
 )
 
 const oidcStateCookieName = "tintwire_oidc_state"
-
-const desktopOIDCStatePrefix = "desktop_"
-const desktopOIDCPollStatePrefix = "desktop_poll_"
+const oidcDesktopConfirmationCookieName = "tintwire_oidc_desktop_confirmation"
 
 type oidcLoginService struct {
-	issuer, clientID, redirectURL string
-	httpClient                    *http.Client
-	mu                            sync.Mutex
-	provider                      *oidc.Provider
+	*oidcrp.Service
 }
 
-func newOIDCLoginService(issuer, clientID, redirectURL string, publicURL *url.URL) (*oidcLoginService, error) {
+type tintwireOIDCSessions struct {
+	server *Server
+}
+
+type oidcSessionResult struct {
+	token   string
+	expires time.Time
+}
+
+func newOIDCLoginService(server *Server, issuer, clientID, redirectURL string, publicURL *url.URL) (*oidcLoginService, error) {
 	clientID = strings.TrimSpace(clientID)
 	if clientID == "" {
 		return nil, nil
@@ -42,32 +42,25 @@ func newOIDCLoginService(issuer, clientID, redirectURL string, publicURL *url.UR
 	if redirectURL == "" && publicURL != nil {
 		redirectURL = strings.TrimSuffix(publicURL.String(), "/") + "/api/v1/auth/oidc/callback"
 	}
-	u, err := url.Parse(redirectURL)
-	if err != nil || u.Scheme != "https" || u.Host == "" || u.RawQuery != "" || u.Fragment != "" {
+	redirect, err := url.Parse(redirectURL)
+	if err != nil || redirect.Scheme != "https" || redirect.Host == "" || redirect.RawQuery != "" || redirect.Fragment != "" {
 		return nil, errors.New("OIDC redirect URL must be an absolute HTTPS URL")
 	}
-	return &oidcLoginService{issuer: issuer, clientID: clientID, redirectURL: redirectURL, httpClient: &http.Client{Timeout: 15 * time.Second}}, nil
-}
-
-func (o *oidcLoginService) config(ctx context.Context) (*oauth2.Config, *oidc.IDTokenVerifier, error) {
-	o.mu.Lock()
-	defer o.mu.Unlock()
-	if o.provider == nil {
-		provider, err := oidc.NewProvider(oidc.ClientContext(ctx, o.httpClient), o.issuer)
-		if err != nil {
-			return nil, nil, err
-		}
-		o.provider = provider
-	}
-	return &oauth2.Config{ClientID: o.clientID, Endpoint: o.provider.Endpoint(), RedirectURL: o.redirectURL, Scopes: []string{oidc.ScopeOpenID, "profile", "email"}}, o.provider.Verifier(&oidc.Config{ClientID: o.clientID}), nil
-}
-
-func randomOIDCValue() (string, error) {
-	b := make([]byte, 32)
-	if _, err := rand.Read(b); err != nil {
-		return "", err
-	}
-	return base64.RawURLEncoding.EncodeToString(b), nil
+	sessions := &tintwireOIDCSessions{server: server}
+	service := oidcrp.New(oidcrp.Config{
+		Issuer:                 issuer,
+		ClientID:               clientID,
+		RedirectURL:            redirectURL,
+		StateCookieName:        oidcStateCookieName,
+		LoginPath:              "/",
+		LoginStartPath:         "/api/v1/auth/oidc/start",
+		CallbackPath:           "/api/v1/auth/oidc/callback",
+		SuccessPath:            "/",
+		DesktopHandoffParam:    "desktop",
+		DesktopSuccessPath:     "/api/v1/auth/desktop/confirm",
+		ValidateDesktopHandoff: validDesktopCode,
+	}, sessions)
+	return &oidcLoginService{Service: service}, nil
 }
 
 func validDesktopCode(value string) bool {
@@ -82,57 +75,12 @@ func validDesktopCode(value string) bool {
 	return true
 }
 
-func desktopPollCode(state string) (string, bool) {
-	value := strings.TrimPrefix(state, desktopOIDCPollStatePrefix)
-	if value == state {
-		return "", false
-	}
-	code, _, found := strings.Cut(value, "_")
-	return code, found && validDesktopCode(code)
-}
-
 func (s *Server) oidcStart(w http.ResponseWriter, r *http.Request) {
 	if s.oidc == nil {
 		http.NotFound(w, r)
 		return
 	}
-	if !s.controlLeaseValid(w, r) {
-		return
-	}
-	state, err := randomOIDCValue()
-	if err != nil {
-		http.Error(w, "unable to start sign-in", 500)
-		return
-	}
-	desktop := r.URL.Query().Get("desktop")
-	if desktop == "1" {
-		state = desktopOIDCStatePrefix + state
-	} else if desktop != "" {
-		if !validDesktopCode(desktop) {
-			http.Error(w, "valid desktop sign-in code is required", http.StatusBadRequest)
-			return
-		}
-		state = desktopOIDCPollStatePrefix + desktop + "_" + state
-	}
-	nonce, err := randomOIDCValue()
-	if err != nil {
-		http.Error(w, "unable to start sign-in", 500)
-		return
-	}
-	verifier := oauth2.GenerateVerifier()
-	if _, err = s.mutateControl(r.Context(), func(data *store.Store) (any, error) {
-		return nil, data.CreateOIDCLoginState(r.Context(), state, verifier, nonce, 10*time.Minute)
-	}); err != nil {
-		http.Error(w, "unable to start sign-in", http.StatusServiceUnavailable)
-		return
-	}
-	config, _, err := s.oidc.config(r.Context())
-	if err != nil {
-		http.Error(w, "identity provider unavailable", http.StatusBadGateway)
-		return
-	}
-	http.SetCookie(w, &http.Cookie{Name: oidcStateCookieName, Value: state, Path: "/api/v1/auth/oidc/callback", HttpOnly: true, Secure: true, SameSite: http.SameSiteLaxMode, MaxAge: 600})
-	http.Redirect(w, r, config.AuthCodeURL(state, oauth2.S256ChallengeOption(verifier), oidc.Nonce(nonce)), http.StatusFound)
+	s.oidc.LoginStart(w, r)
 }
 
 func (s *Server) oidcCallback(w http.ResponseWriter, r *http.Request) {
@@ -140,101 +88,74 @@ func (s *Server) oidcCallback(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	if providerError := r.URL.Query().Get("error"); providerError != "" {
-		http.Error(w, "Pocket ID sign-in was cancelled", http.StatusUnauthorized)
-		return
-	}
-	state := r.URL.Query().Get("state")
-	cookie, err := r.Cookie(oidcStateCookieName)
-	if err != nil || state == "" || cookie.Value != state {
-		http.Error(w, "invalid or expired sign-in state", http.StatusBadRequest)
-		return
-	}
-	loginState, err := s.store.OIDCLoginState(r.Context(), state)
+	s.oidc.Callback(w, r)
+}
+
+func (o *tintwireOIDCSessions) Valid(r *http.Request) bool {
+	cookie, err := r.Cookie(sessionCookieName)
 	if err != nil {
-		http.Error(w, "invalid or expired sign-in state", http.StatusBadRequest)
-		return
+		return false
 	}
-	config, verifier, err := s.oidc.config(r.Context())
-	if err != nil {
-		http.Error(w, "identity provider unavailable", http.StatusBadGateway)
-		return
+	_, err = o.server.store.UserForSession(r.Context(), cookie.Value)
+	return err == nil
+}
+
+func oidcIdentityUsername(identity oidcrp.Identity) string {
+	if local, _, found := strings.Cut(strings.TrimSpace(identity.Email), "@"); found && local != "" {
+		return local
 	}
-	token, err := config.Exchange(oidc.ClientContext(r.Context(), s.oidc.httpClient), r.URL.Query().Get("code"), oauth2.VerifierOption(loginState.Verifier))
-	if err != nil {
-		http.Error(w, "Pocket ID code exchange failed", http.StatusUnauthorized)
-		return
-	}
-	rawID, ok := token.Extra("id_token").(string)
-	if !ok {
-		http.Error(w, "Pocket ID did not return an ID token", http.StatusUnauthorized)
-		return
-	}
-	idToken, err := verifier.Verify(oidc.ClientContext(r.Context(), s.oidc.httpClient), rawID)
-	if err != nil {
-		http.Error(w, "Pocket ID token verification failed", http.StatusUnauthorized)
-		return
-	}
-	var claims struct {
-		Nonce             string `json:"nonce"`
-		PreferredUsername string `json:"preferred_username"`
-		Name              string `json:"name"`
-		Email             string `json:"email"`
-	}
-	if err := idToken.Claims(&claims); err != nil || claims.Nonce != loginState.Nonce || strings.TrimSpace(idToken.Subject) == "" {
-		http.Error(w, "Pocket ID token claims are invalid", http.StatusUnauthorized)
-		return
-	}
-	username := claims.PreferredUsername
-	if username == "" {
-		username = strings.Split(claims.Email, "@")[0]
-	}
-	if username == "" {
-		username = claims.Name
-	}
-	type result struct {
-		token   string
-		expires time.Time
-	}
-	desktopCode, desktopPolling := desktopPollCode(state)
-	desktop := desktopPolling || strings.HasPrefix(state, desktopOIDCStatePrefix)
-	sessionLifetime := 30 * 24 * time.Hour
-	if desktop {
-		sessionLifetime = 2 * time.Minute
-	}
-	value, err := s.mutateControl(r.Context(), func(data *store.Store) (any, error) {
-		if _, err := data.ConsumeOIDCLoginState(r.Context(), state); err != nil {
-			return nil, err
-		}
-		user, err := data.FindOrCreateOIDCUser(r.Context(), idToken.Subject, username)
+	return identity.Subject
+}
+
+func (o *tintwireOIDCSessions) Issue(w http.ResponseWriter, r *http.Request, identity oidcrp.Identity) error {
+	value, err := o.server.mutateControl(r.Context(), func(data *store.Store) (any, error) {
+		user, err := data.FindOrCreateOIDCUser(r.Context(), identity.Subject, oidcIdentityUsername(identity))
 		if err != nil {
 			return nil, err
 		}
-		if desktopPolling {
-			expires, err := data.CreateSessionWithToken(r.Context(), user.ID, desktopCode, sessionLifetime)
-			return result{desktopCode, expires}, err
-		}
-		token, expires, err := data.CreateSession(r.Context(), user.ID, sessionLifetime)
-		return result{token, expires}, err
+		token, expires, err := data.CreateSession(r.Context(), user.ID, 30*24*time.Hour)
+		return oidcSessionResult{token: token, expires: expires}, err
 	})
 	if err != nil {
-		http.Error(w, "unable to create Tintwire session", http.StatusServiceUnavailable)
-		return
+		return err
 	}
-	session := value.(result)
-	http.SetCookie(w, &http.Cookie{Name: oidcStateCookieName, Path: "/api/v1/auth/oidc/callback", HttpOnly: true, Secure: true, SameSite: http.SameSiteLaxMode, MaxAge: -1})
-	if desktopPolling {
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.WriteHeader(http.StatusOK)
-		_, _ = io.WriteString(w, "<!doctype html><html><head><meta name=\"viewport\" content=\"width=device-width\"><title>Tintwire sign-in complete</title></head><body><main><h1>Sign-in complete</h1><p>You can close this window and return to Tintwire.</p></main></body></html>")
-		return
+	session := value.(oidcSessionResult)
+	o.server.setSessionCookie(w, r, session.token, session.expires)
+	return nil
+}
+
+func (o *tintwireOIDCSessions) Clear(w http.ResponseWriter, r *http.Request) {
+	http.SetCookie(w, &http.Cookie{Name: sessionCookieName, Path: "/", HttpOnly: true, Secure: o.server.secureCookies(r), SameSite: http.SameSiteStrictMode, MaxAge: -1})
+}
+
+func (o *tintwireOIDCSessions) IssueDesktop(w http.ResponseWriter, r *http.Request, identity oidcrp.Identity, handoff string) error {
+	confirmation, err := oidcrp.NewDesktopConfirmation(handoff)
+	if err != nil {
+		return err
 	}
-	if desktop {
-		http.Redirect(w, r, "tintwire://auth?code="+url.QueryEscape(session.token), http.StatusFound)
-		return
+	if _, err := o.server.mutateControl(r.Context(), func(data *store.Store) (any, error) {
+		user, err := data.FindOrCreateOIDCUser(r.Context(), identity.Subject, oidcIdentityUsername(identity))
+		if err != nil {
+			return nil, err
+		}
+		return nil, data.CreateOIDCDesktopConfirmation(r.Context(), user.ID, handoff, confirmation.BrowserSecret, confirmation.VerificationCode, 10*time.Minute)
+	}); err != nil {
+		return err
 	}
-	http.SetCookie(w, &http.Cookie{Name: sessionCookieName, Value: session.token, Path: "/", HttpOnly: true, Secure: true, SameSite: http.SameSiteStrictMode, Expires: session.expires, MaxAge: int((30 * 24 * time.Hour).Seconds())})
-	http.Redirect(w, r, "/", http.StatusFound)
+	http.SetCookie(w, &http.Cookie{
+		Name:     oidcDesktopConfirmationCookieName,
+		Value:    confirmation.BrowserSecret,
+		Path:     "/api/v1/auth/desktop",
+		HttpOnly: true,
+		Secure:   o.server.secureCookies(r),
+		SameSite: http.SameSiteStrictMode,
+		MaxAge:   int((10 * time.Minute).Seconds()),
+	})
+	return nil
+}
+
+func (s *Server) setSessionCookie(w http.ResponseWriter, r *http.Request, token string, expires time.Time) {
+	http.SetCookie(w, &http.Cookie{Name: sessionCookieName, Value: token, Path: "/", HttpOnly: true, Secure: s.secureCookies(r), SameSite: http.SameSiteStrictMode, Expires: expires, MaxAge: int((30 * 24 * time.Hour).Seconds())})
 }
 
 func (s *Server) desktopSession(w http.ResponseWriter, r *http.Request) {
@@ -255,23 +176,102 @@ func (s *Server) desktopSession(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "valid desktop sign-in code is required", http.StatusBadRequest)
 		return
 	}
-	type result struct {
-		token   string
-		expires time.Time
-	}
 	value, err := s.mutateControl(r.Context(), func(data *store.Store) (any, error) {
-		token, expires, err := data.RotateSession(r.Context(), request.Code, 30*24*time.Hour)
-		return result{token, expires}, err
+		token, expires, err := data.ExchangeOIDCDesktopHandoff(r.Context(), request.Code, 30*24*time.Hour)
+		return oidcSessionResult{token: token, expires: expires}, err
 	})
+	if errors.Is(err, store.ErrOIDCDesktopCancelled) {
+		http.Error(w, "desktop sign-in was cancelled", http.StatusGone)
+		return
+	}
 	if errors.Is(err, store.ErrInvalidCredentials) {
-		http.Error(w, "desktop sign-in code is invalid or expired", http.StatusUnauthorized)
+		http.Error(w, "desktop sign-in is pending, invalid, or expired", http.StatusUnauthorized)
 		return
 	}
 	if err != nil {
 		http.Error(w, "unable to create desktop session", http.StatusServiceUnavailable)
 		return
 	}
-	session := value.(result)
-	http.SetCookie(w, &http.Cookie{Name: sessionCookieName, Value: session.token, Path: "/", HttpOnly: true, Secure: true, SameSite: http.SameSiteStrictMode, Expires: session.expires, MaxAge: int((30 * 24 * time.Hour).Seconds())})
+	session := value.(oidcSessionResult)
+	s.setSessionCookie(w, r, session.token, session.expires)
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) desktopConfirmation(w http.ResponseWriter, r *http.Request) {
+	if !s.controlLeaseValid(w, r) {
+		return
+	}
+	secret, err := desktopConfirmationSecret(r)
+	if err != nil {
+		http.Error(w, "desktop sign-in confirmation is invalid or expired", http.StatusGone)
+		return
+	}
+	confirmation, err := s.store.OIDCDesktopConfirmation(r.Context(), secret)
+	if err != nil || confirmation.Status != "pending" {
+		http.Error(w, "desktop sign-in confirmation is invalid or expired", http.StatusGone)
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'")
+	w.Header().Set("Referrer-Policy", "no-referrer")
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_, _ = io.WriteString(w, `<!doctype html><html><head><meta name="viewport" content="width=device-width"><title>Confirm Tintwire sign-in</title><style>body{background:#0d131b;color:#edf2f7;font:16px system-ui;margin:0;padding:2rem}main{margin:10vh auto;max-width:34rem;background:#151d28;border:1px solid #344256;border-radius:14px;padding:2rem}.code{font:700 2rem ui-monospace,monospace;letter-spacing:.12em}.actions{display:flex;gap:1rem}button{border:1px solid #7191f0;border-radius:8px;background:#4169e1;color:white;font:inherit;font-weight:700;padding:.7rem 1rem}.cancel{background:transparent;border-color:#738096}</style></head><body><main><h1>Confirm desktop sign-in</h1><p>Compare this code with the one shown in the Tintwire desktop app:</p><p class="code">`+html.EscapeString(confirmation.VerificationCode)+`</p><p>Approve only if the codes match and you started this sign-in.</p><div class="actions"><form method="post" action="/api/v1/auth/desktop/confirm"><button type="submit">Approve sign-in</button></form><form method="post" action="/api/v1/auth/desktop/cancel"><button class="cancel" type="submit">Cancel</button></form></div></main></body></html>`)
+}
+
+func (s *Server) approveDesktopConfirmation(w http.ResponseWriter, r *http.Request) {
+	s.finishDesktopConfirmation(w, r, true)
+}
+
+func (s *Server) cancelDesktopConfirmation(w http.ResponseWriter, r *http.Request) {
+	s.finishDesktopConfirmation(w, r, false)
+}
+
+func (s *Server) finishDesktopConfirmation(w http.ResponseWriter, r *http.Request, approve bool) {
+	if !s.controlLeaseValid(w, r) {
+		return
+	}
+	if !s.sameOrigin(r) {
+		http.Error(w, "cross-origin request rejected", http.StatusForbidden)
+		return
+	}
+	secret, err := desktopConfirmationSecret(r)
+	if err != nil {
+		http.Error(w, "desktop sign-in confirmation is invalid or expired", http.StatusGone)
+		return
+	}
+	_, err = s.mutateControl(r.Context(), func(data *store.Store) (any, error) {
+		if approve {
+			return nil, data.ApproveOIDCDesktopConfirmation(r.Context(), secret)
+		}
+		return nil, data.CancelOIDCDesktopConfirmation(r.Context(), secret)
+	})
+	if errors.Is(err, store.ErrInvalidCredentials) {
+		http.Error(w, "desktop sign-in confirmation is invalid or expired", http.StatusGone)
+		return
+	}
+	if err != nil {
+		http.Error(w, "unable to update desktop sign-in", http.StatusServiceUnavailable)
+		return
+	}
+	clearDesktopConfirmationCookie(w, r, s)
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'")
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	message := "Sign-in approved. You can close this window and return to Tintwire."
+	if !approve {
+		message = "Sign-in cancelled. You can close this window."
+	}
+	_, _ = io.WriteString(w, `<!doctype html><html><head><meta name="viewport" content="width=device-width"><title>Tintwire sign-in</title></head><body><main><h1>`+html.EscapeString(message)+`</h1></main></body></html>`)
+}
+
+func desktopConfirmationSecret(r *http.Request) (string, error) {
+	cookie, err := r.Cookie(oidcDesktopConfirmationCookieName)
+	if err != nil || strings.TrimSpace(cookie.Value) == "" {
+		return "", store.ErrInvalidCredentials
+	}
+	return cookie.Value, nil
+}
+
+func clearDesktopConfirmationCookie(w http.ResponseWriter, r *http.Request, s *Server) {
+	http.SetCookie(w, &http.Cookie{Name: oidcDesktopConfirmationCookieName, Path: "/api/v1/auth/desktop", HttpOnly: true, Secure: s.secureCookies(r), SameSite: http.SameSiteStrictMode, MaxAge: -1})
 }

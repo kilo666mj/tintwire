@@ -29,6 +29,7 @@ var (
 	ErrForbidden            = errors.New("forbidden")
 	ErrInvalidTransition    = errors.New("invalid state transition")
 	ErrAlreadyExists        = errors.New("record already exists")
+	ErrOIDCDesktopCancelled = errors.New("OIDC desktop sign-in cancelled")
 )
 
 func IsAlreadyExists(err error) bool {
@@ -125,6 +126,11 @@ type User struct {
 type OIDCLoginState struct {
 	Verifier string
 	Nonce    string
+}
+
+type OIDCDesktopConfirmation struct {
+	VerificationCode string
+	Status           string
 }
 
 type ChannelSummary struct {
@@ -1045,6 +1051,31 @@ PRAGMA user_version = 27;
 		}
 		version = 27
 	}
+	if version < 28 {
+		tx, err := db.Begin()
+		if err != nil {
+			return err
+		}
+		if _, err := tx.Exec(`
+CREATE TABLE oidc_desktop_confirmations (
+    handoff_hash BLOB PRIMARY KEY,
+    confirmation_hash BLOB NOT NULL UNIQUE,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    verification_code TEXT NOT NULL,
+    status TEXT NOT NULL CHECK(status IN ('pending','approved','cancelled')),
+    expires_at INTEGER NOT NULL
+);
+CREATE INDEX oidc_desktop_confirmations_expiry_idx ON oidc_desktop_confirmations(expires_at);
+PRAGMA user_version = 28;
+`); err != nil {
+			_ = tx.Rollback()
+			return err
+		}
+		if err := tx.Commit(); err != nil {
+			return err
+		}
+		version = 28
+	}
 	return nil
 }
 
@@ -1155,6 +1186,129 @@ func (s *Store) OIDCLoginState(ctx context.Context, state string) (OIDCLoginStat
 		return OIDCLoginState{}, ErrInvalidCredentials
 	}
 	return result, err
+}
+
+func (s *Store) CreateOIDCDesktopConfirmation(ctx context.Context, userID, handoff, confirmationSecret, verificationCode string, lifetime time.Duration) error {
+	if userID == "" || handoff == "" || confirmationSecret == "" || verificationCode == "" || lifetime <= 0 {
+		return errors.New("invalid OIDC desktop confirmation")
+	}
+	now := time.Now().UTC()
+	handoffHash := sha256.Sum256([]byte(handoff))
+	confirmationHash := sha256.Sum256([]byte(confirmationSecret))
+	if _, err := s.db.ExecContext(ctx, `DELETE FROM oidc_desktop_confirmations WHERE expires_at <= ?`, now.UnixMilli()); err != nil {
+		return err
+	}
+	result, err := s.db.ExecContext(ctx, `INSERT INTO oidc_desktop_confirmations(handoff_hash,confirmation_hash,user_id,verification_code,status,expires_at) SELECT ?,?,id,?,'pending',? FROM users WHERE id=? AND disabled_at IS NULL`, handoffHash[:], confirmationHash[:], verificationCode, now.Add(lifetime).UnixMilli(), userID)
+	if IsAlreadyExists(err) {
+		return ErrAlreadyExists
+	}
+	if err != nil {
+		return err
+	}
+	changed, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if changed != 1 {
+		return ErrInvalidCredentials
+	}
+	return nil
+}
+
+func (s *Store) OIDCDesktopConfirmation(ctx context.Context, confirmationSecret string) (OIDCDesktopConfirmation, error) {
+	hash := sha256.Sum256([]byte(confirmationSecret))
+	var result OIDCDesktopConfirmation
+	err := s.db.QueryRowContext(ctx, `SELECT verification_code,status FROM oidc_desktop_confirmations WHERE confirmation_hash=? AND expires_at>?`, hash[:], time.Now().UTC().UnixMilli()).Scan(&result.VerificationCode, &result.Status)
+	if errors.Is(err, sql.ErrNoRows) {
+		return OIDCDesktopConfirmation{}, ErrInvalidCredentials
+	}
+	return result, err
+}
+
+func (s *Store) ApproveOIDCDesktopConfirmation(ctx context.Context, confirmationSecret string) error {
+	hash := sha256.Sum256([]byte(confirmationSecret))
+	result, err := s.db.ExecContext(ctx, `UPDATE oidc_desktop_confirmations SET status='approved' WHERE confirmation_hash=? AND status='pending' AND expires_at>?`, hash[:], time.Now().UTC().UnixMilli())
+	if err != nil {
+		return err
+	}
+	changed, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if changed != 1 {
+		return ErrInvalidCredentials
+	}
+	return nil
+}
+
+func (s *Store) CancelOIDCDesktopConfirmation(ctx context.Context, confirmationSecret string) error {
+	hash := sha256.Sum256([]byte(confirmationSecret))
+	result, err := s.db.ExecContext(ctx, `UPDATE oidc_desktop_confirmations SET status='cancelled' WHERE confirmation_hash=? AND status='pending' AND expires_at>?`, hash[:], time.Now().UTC().UnixMilli())
+	if err != nil {
+		return err
+	}
+	changed, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if changed != 1 {
+		return ErrInvalidCredentials
+	}
+	return nil
+}
+
+func (s *Store) ExchangeOIDCDesktopHandoff(ctx context.Context, handoff string, lifetime time.Duration) (string, time.Time, error) {
+	if handoff == "" || lifetime <= 0 {
+		return "", time.Time{}, ErrInvalidCredentials
+	}
+	handoffHash := sha256.Sum256([]byte(handoff))
+	now := time.Now().UTC()
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return "", time.Time{}, err
+	}
+	defer func() { _ = tx.Rollback() }()
+	var status string
+	var expiresAt int64
+	if err := tx.QueryRowContext(ctx, `SELECT status,expires_at FROM oidc_desktop_confirmations WHERE handoff_hash=?`, handoffHash[:]).Scan(&status, &expiresAt); errors.Is(err, sql.ErrNoRows) {
+		return "", time.Time{}, ErrInvalidCredentials
+	} else if err != nil {
+		return "", time.Time{}, err
+	}
+	if status == "cancelled" {
+		return "", time.Time{}, ErrOIDCDesktopCancelled
+	}
+	if status != "approved" || expiresAt <= now.UnixMilli() {
+		return "", time.Time{}, ErrInvalidCredentials
+	}
+	var userID string
+	if err := tx.QueryRowContext(ctx, `DELETE FROM oidc_desktop_confirmations WHERE handoff_hash=? AND status='approved' AND expires_at>? RETURNING user_id`, handoffHash[:], now.UnixMilli()).Scan(&userID); errors.Is(err, sql.ErrNoRows) {
+		return "", time.Time{}, ErrInvalidCredentials
+	} else if err != nil {
+		return "", time.Time{}, err
+	}
+	var tokenBytes [32]byte
+	if _, err := rand.Read(tokenBytes[:]); err != nil {
+		return "", time.Time{}, err
+	}
+	token := hex.EncodeToString(tokenBytes[:])
+	tokenHash := sha256.Sum256([]byte(token))
+	expires := now.Add(lifetime)
+	result, err := tx.ExecContext(ctx, `INSERT INTO sessions(token_hash,user_id,created_at,expires_at) SELECT ?,id,?,? FROM users WHERE id=? AND disabled_at IS NULL`, tokenHash[:], now.UnixMilli(), expires.UnixMilli(), userID)
+	if err != nil {
+		return "", time.Time{}, err
+	}
+	changed, err := result.RowsAffected()
+	if err != nil {
+		return "", time.Time{}, err
+	}
+	if changed != 1 {
+		return "", time.Time{}, ErrInvalidCredentials
+	}
+	if err := tx.Commit(); err != nil {
+		return "", time.Time{}, err
+	}
+	return token, expires, nil
 }
 
 func (s *Store) FindOrCreateOIDCUser(ctx context.Context, subject, preferredUsername string) (User, error) {

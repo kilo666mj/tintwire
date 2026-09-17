@@ -14,7 +14,7 @@ import (
 var migrationTables = []string{
 	"app_settings", "users", "saved_views", "admin_audit_events", "channels", "agents", "agent_credentials", "agent_runs",
 	"webhooks", "notifications", "notification_events", "push_subscriptions", "sessions",
-	"oidc_login_states", "channel_read_state", "channel_memberships", "action_targets",
+	"oidc_login_states", "oidc_desktop_confirmations", "channel_read_state", "channel_memberships", "action_targets",
 	"action_executions", "mattermost_bot_tokens", "mattermost_channel_aliases",
 	"mattermost_posts", "mattermost_reactions", "slash_commands", "slash_command_executions",
 	"slash_command_responses", "notification_user_state", "agent_run_events", "channel_messages",

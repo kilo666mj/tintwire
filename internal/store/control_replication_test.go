@@ -37,6 +37,9 @@ func TestControlSnapshotReplicatesAuthenticationAndPrivateChannelState(t *testin
 	if _, _, err := authority.CreateSession(ctx, viewer.ID, time.Hour); err != nil {
 		t.Fatal(err)
 	}
+	if err := authority.CreateOIDCDesktopConfirmation(ctx, viewer.ID, "desktop-handoff", "browser-secret", "DESK-TOP1", time.Minute); err != nil {
+		t.Fatal(err)
+	}
 	if err := authority.SavePushSubscription(ctx, PushSubscription{UserID: viewer.ID, Endpoint: "https://push.example/subscription", P256DH: "key", Auth: "auth"}); err != nil {
 		t.Fatal(err)
 	}
@@ -76,6 +79,10 @@ func TestControlSnapshotReplicatesAuthenticationAndPrivateChannelState(t *testin
 	}
 	if valid, err := replica.ControlLeaseValid(ctx); err != nil || !valid {
 		t.Fatalf("control lease valid = %v, %v", valid, err)
+	}
+	confirmation, err := replica.OIDCDesktopConfirmation(ctx, "browser-secret")
+	if err != nil || confirmation.VerificationCode != "DESK-TOP1" || confirmation.Status != "pending" {
+		t.Fatalf("replicated OIDC desktop confirmation = %#v, %v", confirmation, err)
 	}
 }
 

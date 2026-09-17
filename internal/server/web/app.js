@@ -2678,6 +2678,10 @@ loginForm.addEventListener("submit", async event => {
   }
 });
 
+function desktopOIDCVerificationCode(handoff) {
+  return `${handoff.slice(0, 4)}-${handoff.slice(4, 8)}`.toUpperCase();
+}
+
 oidcLoginButton.addEventListener("click", async () => {
   loginError.textContent = "";
   if (!desktopShell) {
@@ -2687,12 +2691,14 @@ oidcLoginButton.addEventListener("click", async () => {
   oidcLoginButton.disabled = true;
   try {
     const handoff = Array.from(crypto.getRandomValues(new Uint8Array(32)), value => value.toString(16).padStart(2, "0")).join("");
+    const verificationCode = desktopOIDCVerificationCode(handoff);
+    loginError.textContent = `Confirm code ${verificationCode} in your browser.`;
     await desktopShell.beginOIDCLogin(handoff);
-    loginError.textContent = "Complete sign-in in your browser.";
     for (let attempt = 0; attempt < 600; attempt += 1) {
       await new Promise(resolve => setTimeout(resolve, 1000));
       const exchange = await fetch("/api/v1/auth/desktop/session", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({code:handoff})});
       if (exchange.status === 401) continue;
+      if (exchange.status === 410) throw new Error("Desktop sign-in was cancelled.");
       if (!exchange.ok) throw new Error(`Desktop sign-in failed (HTTP ${exchange.status}).`);
       await initializeSession(true);
       return;

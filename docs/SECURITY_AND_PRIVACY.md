@@ -9,6 +9,9 @@ integrators must preserve.
 - Loopback development without reader authentication is not a public mode.
 - Browser authentication uses a local password or OIDC. Exact public origin,
   state, nonce, PKCE, issuer, and audience checks are security controls.
+- Desktop OIDC handoffs remain pending until the authenticated system browser
+  approves them using an independent HttpOnly secret. Compare the short code in
+  the desktop app and browser; cancel any sign-in you did not initiate.
 - Private channels require explicit membership or installation-administrator
   access. The same check applies to history, activity, unread state, images,
   actions, and push recipients.

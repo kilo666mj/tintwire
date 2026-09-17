@@ -263,17 +263,18 @@ func NewWithOptions(data *store.Store, options Options) (http.Handler, error) {
 	if err != nil {
 		return nil, err
 	}
-	oidcLogin, err := newOIDCLoginService(options.OAuthIssuer, options.OIDCClientID, options.OIDCRedirectURL, publicURL)
-	if err != nil {
-		return nil, err
-	}
 	if options.ControlProxyPort != "" {
 		port, err := strconv.Atoi(options.ControlProxyPort)
 		if err != nil || port < 1 || port > 65535 {
 			return nil, errors.New("control proxy port must be a valid TCP port")
 		}
 	}
-	s := &Server{imageProxy: images, store: data, consensus: options.Consensus, controlProxyPort: options.ControlProxyPort, push: push, actions: actions, limiter: newToolLimiter(), publicURL: publicURL, oauth: oauthVerifier, switchboardOAuthSubject: strings.TrimSpace(options.SwitchboardOAuthSubject), oidc: oidcLogin, startedAt: time.Now(), subscribers: make(map[chan liveUpdate]struct{}), authRequired: options.AuthRequired}
+	s := &Server{imageProxy: images, store: data, consensus: options.Consensus, controlProxyPort: options.ControlProxyPort, push: push, actions: actions, limiter: newToolLimiter(), publicURL: publicURL, oauth: oauthVerifier, switchboardOAuthSubject: strings.TrimSpace(options.SwitchboardOAuthSubject), startedAt: time.Now(), subscribers: make(map[chan liveUpdate]struct{}), authRequired: options.AuthRequired}
+	oidcLogin, err := newOIDCLoginService(s, options.OAuthIssuer, options.OIDCClientID, options.OIDCRedirectURL, publicURL)
+	if err != nil {
+		return nil, err
+	}
+	s.oidc = oidcLogin
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /hooks/{id}", s.receiveWebhook)
 	mux.HandleFunc("POST /api/v1/notifications", s.receiveNativeCard)
@@ -284,6 +285,9 @@ func NewWithOptions(data *store.Store, options Options) (http.Handler, error) {
 	mux.HandleFunc("GET /api/v1/auth/oidc/start", s.requireControlAuthority(s.oidcStart))
 	mux.HandleFunc("GET /api/v1/auth/oidc/callback", s.requireControlAuthority(s.oidcCallback))
 	mux.HandleFunc("POST /api/v1/auth/desktop/session", s.requireControlAuthority(s.desktopSession))
+	mux.HandleFunc("GET /api/v1/auth/desktop/confirm", s.requireControlAuthority(s.desktopConfirmation))
+	mux.HandleFunc("POST /api/v1/auth/desktop/confirm", s.requireControlAuthority(s.approveDesktopConfirmation))
+	mux.HandleFunc("POST /api/v1/auth/desktop/cancel", s.requireControlAuthority(s.cancelDesktopConfirmation))
 	mux.HandleFunc("GET /api/v1/notifications/{id}/images/{index}", s.requireReader(s.notificationImage))
 	mux.HandleFunc("GET /api/v1/notifications", s.requireReader(s.listNotifications))
 	mux.HandleFunc("GET /api/v1/channels", s.requireReader(s.listChannels))

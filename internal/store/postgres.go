@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-const postgresSchemaVersion = 27
+const postgresSchemaVersion = 28
 
 func init() {
 	sql.Register("tintwire-postgres", newPostgresDriver())
@@ -65,6 +65,20 @@ UPDATE schema_version SET version=26 WHERE singleton=1`); err != nil {
 		}
 		version = 27
 	}
+	if version == 27 {
+		if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS oidc_desktop_confirmations (
+  handoff_hash BYTEA PRIMARY KEY, confirmation_hash BYTEA NOT NULL UNIQUE,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  verification_code TEXT NOT NULL, status TEXT NOT NULL CHECK(status IN ('pending','approved','cancelled')),
+  expires_at BIGINT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS oidc_desktop_confirmations_expiry_idx ON oidc_desktop_confirmations(expires_at);
+UPDATE schema_version SET version=28 WHERE singleton=1`); err != nil {
+			_ = db.Close()
+			return nil, fmt.Errorf("migrate PostgreSQL schema to version 28: %w", err)
+		}
+		version = 28
+	}
 	if version != postgresSchemaVersion {
 		_ = db.Close()
 		return nil, fmt.Errorf("unsupported PostgreSQL schema version %d", version)
@@ -79,7 +93,7 @@ CREATE TABLE IF NOT EXISTS schema_version (
     singleton SMALLINT PRIMARY KEY CHECK (singleton = 1),
     version INTEGER NOT NULL
 );
-INSERT INTO schema_version(singleton,version) VALUES(1,27)
+INSERT INTO schema_version(singleton,version) VALUES(1,28)
 ON CONFLICT(singleton) DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS app_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -152,6 +166,13 @@ CREATE TABLE IF NOT EXISTS oidc_login_states (
     state_hash BYTEA PRIMARY KEY, verifier TEXT NOT NULL, nonce TEXT NOT NULL, expires_at BIGINT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS oidc_login_states_expiry_idx ON oidc_login_states(expires_at);
+CREATE TABLE IF NOT EXISTS oidc_desktop_confirmations (
+    handoff_hash BYTEA PRIMARY KEY, confirmation_hash BYTEA NOT NULL UNIQUE,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    verification_code TEXT NOT NULL, status TEXT NOT NULL CHECK(status IN ('pending','approved','cancelled')),
+    expires_at BIGINT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS oidc_desktop_confirmations_expiry_idx ON oidc_desktop_confirmations(expires_at);
 CREATE TABLE IF NOT EXISTS channel_read_state (
     user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     channel_id TEXT NOT NULL REFERENCES channels(id) ON DELETE CASCADE, read_at BIGINT NOT NULL,

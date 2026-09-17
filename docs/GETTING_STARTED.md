@@ -102,7 +102,10 @@ Interactive Pocket ID sign-in is available when `TINTWIRE_OAUTH_ISSUER` and
 `TINTWIRE_OIDC_CLIENT_ID` are set. Register the callback
 `$TINTWIRE_PUBLIC_URL/api/v1/auth/oidc/callback` as a public client with PKCE,
 then use **Continue with Pocket ID** on the login screen. Tintwire verifies the
-authorization code, PKCE challenge, issuer, audience, nonce, and one-time state.
+authorization code, PKCE challenge, issuer, audience, nonce, and state through
+the shared `oidcrp` relying-party library. Desktop sign-in additionally shows a
+short code in both the app and browser. The browser must explicitly approve the
+matching code before the one-time desktop handoff can become a reader session.
 The first successful login provisions a non-administrator local reader keyed by
 the immutable OIDC subject; it never links an existing local account by display
 name or email. Promote or grant channel membership through the normal Tintwire

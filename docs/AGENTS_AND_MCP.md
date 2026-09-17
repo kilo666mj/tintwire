@@ -133,4 +133,7 @@ token audience and permissions.
 For interactive browser sign-in, create a separate public PKCE client with
 `https://tintwire.example.com/api/v1/auth/oidc/callback` as its callback and
 `https://tintwire.example.com/` as its launch URL. Set
-`TINTWIRE_OIDC_CLIENT_ID` to that client's ID; no client secret is used.
+`TINTWIRE_OIDC_CLIENT_ID` to that client's ID; no client secret is used. The
+interactive relying-party flow is provided by `github.com/kilo666mj/oidcrp`;
+Tintwire continues to own local account provisioning, replicated desktop
+approval state, and application sessions.

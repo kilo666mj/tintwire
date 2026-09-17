@@ -52,6 +52,10 @@ commands: update the tray count, raise a notification, and open Pocket ID login
 in the system browser. Setup-only commands for reading and changing the origin
 are not granted to remote content.
 
+Desktop Pocket ID login displays the same short verification code in the app
+and system browser. The browser must approve the matching code before the app's
+one-time handoff can be exchanged for a session.
+
 Serving Tintwire to the desktop client requires no server configuration. The
 `Content-Security-Policy` already names Tauri's IPC transport in `connect-src`,
 which browsers never resolve.

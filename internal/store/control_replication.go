@@ -38,6 +38,7 @@ var controlTableDefinitions = []controlTableDefinition{
 	{Name: "slash_commands", Columns: []string{"id", "team_name", "trigger_word", "display_name", "description", "creator", "method", "url", "token_cipher", "token_hash", "allow_private", "autocomplete", "autocomplete_hint", "autocomplete_description", "username", "icon_url", "created_at"}},
 	{Name: "sessions", Columns: []string{"token_hash", "user_id", "created_at", "expires_at"}, Replace: true},
 	{Name: "oidc_login_states", Columns: []string{"state_hash", "verifier", "nonce", "expires_at"}, Replace: true},
+	{Name: "oidc_desktop_confirmations", Columns: []string{"handoff_hash", "confirmation_hash", "user_id", "verification_code", "status", "expires_at"}, Replace: true},
 	{Name: "push_subscriptions", Columns: []string{"endpoint", "p256dh", "auth", "created_at", "user_id"}, Replace: true},
 	{Name: "channel_memberships", Columns: []string{"user_id", "channel_id", "role", "created_at"}, Replace: true},
 	{Name: "channel_read_state", Columns: []string{"user_id", "channel_id", "read_at"}, Replace: true},

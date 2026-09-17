@@ -3,7 +3,9 @@ package store
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
+	"sync"
 	"testing"
 	"time"
 )
@@ -77,6 +79,44 @@ func TestPostgresCoreLifecycle(t *testing.T) {
 	}
 	if err := data.SavePushSubscription(ctx, PushSubscription{UserID: reader.ID, Endpoint: "https://push.example/postgres-reader", P256DH: "reader-key", Auth: "reader-auth"}); err != nil {
 		t.Fatal(err)
+	}
+	oidcUser, err := data.FindOrCreateOIDCUser(ctx, "postgres-desktop-subject", "postgres-desktop")
+	if err != nil {
+		t.Fatal(err)
+	}
+	const desktopHandoff = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+	if err := data.CreateOIDCDesktopConfirmation(ctx, oidcUser.ID, desktopHandoff, "postgres-browser-secret", "0123-4567", time.Minute); err != nil {
+		t.Fatal(err)
+	}
+	if err := data.ApproveOIDCDesktopConfirmation(ctx, "postgres-browser-secret"); err != nil {
+		t.Fatal(err)
+	}
+	const exchangeAttempts = 8
+	startExchange := make(chan struct{})
+	exchangeErrors := make(chan error, exchangeAttempts)
+	var exchangeWait sync.WaitGroup
+	for range exchangeAttempts {
+		exchangeWait.Add(1)
+		go func() {
+			defer exchangeWait.Done()
+			<-startExchange
+			_, _, exchangeErr := data.ExchangeOIDCDesktopHandoff(ctx, desktopHandoff, time.Minute)
+			exchangeErrors <- exchangeErr
+		}()
+	}
+	close(startExchange)
+	exchangeWait.Wait()
+	close(exchangeErrors)
+	exchangeSuccesses := 0
+	for exchangeErr := range exchangeErrors {
+		if exchangeErr == nil {
+			exchangeSuccesses++
+		} else if !errors.Is(exchangeErr, ErrInvalidCredentials) {
+			t.Fatalf("concurrent desktop exchange error = %v", exchangeErr)
+		}
+	}
+	if exchangeSuccesses != 1 {
+		t.Fatalf("concurrent desktop exchange successes = %d, want 1", exchangeSuccesses)
 	}
 	message, err := data.CreateChannelMessage(ctx, user, CreateMessageInput{ChannelID: channels[0].ID, Text: "postgres message push"})
 	if err != nil {
