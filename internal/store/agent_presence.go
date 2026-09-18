@@ -6,8 +6,8 @@ import (
 	"time"
 )
 
-// Presence expires independently of credential use. It is shared by PostgreSQL
-// nodes; legacy SQLite replication intentionally does not replay live presence.
+// AgentPresenceTTL limits availability independently of credential use. Presence
+// is shared by PostgreSQL nodes; legacy SQLite replication does not replay it.
 const AgentPresenceTTL = 60 * time.Second
 const agentPresenceSchema = `CREATE TABLE IF NOT EXISTS agent_presence (
  agent_id TEXT NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
