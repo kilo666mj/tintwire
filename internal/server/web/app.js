@@ -143,6 +143,74 @@ const createChannelAccent = document.querySelector("#create-channel-accent");
 const createChannelVisibility = document.querySelector("#create-channel-visibility");
 const createChannelStatus = document.querySelector("#create-channel-status");
 const createChannelSubmit = document.querySelector("#create-channel-submit");
+const agentsOpen = document.querySelector("#agents-open");
+const agentsDialog = document.querySelector("#agents-dialog");
+const agentsDirectory = document.querySelector("#agents-directory");
+const agentsDirectoryStatus = document.querySelector("#agents-directory-status");
+const conversationAgents = document.querySelector("#conversation-agents");
+let agentConversations = [];
+let agentDirectoryTimer;
+let agentDirectoryLoading = false;
+let agentDirectoryError = "";
+
+function availabilityState(agent) {
+  return Date.parse(agent.expires_at) <= Date.now() ? "offline" : agent.state;
+}
+
+function availabilityLabel(agent) {
+  return {ready:"Ready · accepting messages",busy:"Busy · messages queue",offline:"Offline · not currently responding"}[availabilityState(agent)] || "Availability unknown";
+}
+
+function renderConversationAgents() {
+  const entries = selectedChannels.length ? [] : agentConversations.filter(agent => agent.channel === selectedChannel);
+  conversationAgents.hidden = !entries.length;
+  conversationAgents.replaceChildren(...entries.map(agent => element("div", `agent-availability agent-availability-${availabilityState(agent)}`, `${agent.display_name || agent.name}: ${agentDirectoryError ? "Availability unavailable" : availabilityLabel(agent)}`)));
+}
+
+function renderAgentDirectory() {
+  agentsDirectoryStatus.textContent = agentDirectoryError;
+  const order = {ready:0,busy:1,offline:2};
+  const entries = [...agentConversations].sort((a,b) => order[availabilityState(a)]-order[availabilityState(b)] || a.name.localeCompare(b.name));
+  agentsDirectory.replaceChildren(...entries.map(agent => {
+    const item = element("div", "automation-item agent-directory-item");
+    const main = element("div", "automation-item-main");
+    main.append(element("strong", "automation-item-title", agent.display_name || agent.name));
+    if (agent.description) main.append(element("p", "automation-item-meta", agent.description));
+    main.append(element("div", `agent-availability agent-availability-${availabilityState(agent)}`, agentDirectoryError ? "Availability unavailable" : availabilityLabel(agent)));
+    main.append(element("div", "automation-item-meta", `#${agent.channel} · last seen ${new Date(agent.last_seen_at).toLocaleString()}`));
+    const open = element("button", "command-control", "Open conversation");
+    open.type = "button";
+    open.addEventListener("click", () => { agentsDialog.close(); selectChannel(agent.channel); composerInput.focus(); });
+    item.append(main,open);
+    return item;
+  }));
+  if (!entries.length && !agentDirectoryError) agentsDirectory.append(element("div", "channel-loading", "No agent conversations available. A connected bridge will appear here when it reports availability for a channel you can access."));
+  renderConversationAgents();
+}
+
+async function loadAgentDirectory() {
+  if (agentDirectoryLoading || agentsOpen.hidden) return;
+  agentDirectoryLoading = true;
+  try {
+    const response = await fetch("/api/v1/agent-conversations", {cache:"no-store"});
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+    agentConversations = data.agents || [];
+    agentDirectoryError = "";
+  } catch (error) {
+    agentConversations = [];
+    agentDirectoryError = `Unable to check agent availability: ${error.message}`;
+  } finally {
+    agentDirectoryLoading = false;
+    renderAgentDirectory();
+  }
+}
+
+agentsOpen.addEventListener("click", () => { agentsDialog.showModal(); loadAgentDirectory(); });
+document.querySelector("#agents-close").addEventListener("click", () => agentsDialog.close());
+document.querySelector("#agents-refresh").addEventListener("click", loadAgentDirectory);
+agentsDialog.addEventListener("click", event => { if (event.target === agentsDialog) agentsDialog.close(); });
+
 const automationOpen = document.querySelector("#automation-open");
 const automationDialog = document.querySelector("#automation-dialog");
 const automationClose = document.querySelector("#automation-close");
@@ -1720,6 +1788,7 @@ async function loadChannelTimeline(append = false, pinToBottom = false) {
 // Toggles between the global notification feed (all channels) and the selected
 // channel's merged timeline with its composer.
 function setViewForChannel(name) {
+  renderConversationAgents();
   if (timelineArrivalChannel !== name || !name) resetTimelineArrivals();
   timelineArrivalChannel = name;
   if (name) {
@@ -2632,6 +2701,11 @@ async function initializeSession(desktopAuthExchanged = false) {
       logoutButton.hidden = true;
       sessionIdentity.hidden = true;
       channelCreateButton.hidden = true;
+      agentsOpen.hidden = true;
+      clearInterval(agentDirectoryTimer);
+      agentConversations = [];
+      renderAgentDirectory();
+      if (agentsDialog.open) agentsDialog.close();
       automationOpen.hidden = true;
       usersOpen.hidden = true;
       document.querySelector("#login-username").focus();
@@ -2639,6 +2713,10 @@ async function initializeSession(desktopAuthExchanged = false) {
     }
     loginOverlay.hidden = true;
     channelCreateButton.hidden = !(session.auth_required && isAdmin);
+    agentsOpen.hidden = false;
+    await loadAgentDirectory();
+    clearInterval(agentDirectoryTimer);
+    agentDirectoryTimer = setInterval(() => { renderAgentDirectory(); if (!document.hidden) loadAgentDirectory(); }, 10000);
     automationOpen.hidden = !isAdmin;
     usersOpen.hidden = !isAdmin;
     logoutButton.hidden = !session.auth_required;

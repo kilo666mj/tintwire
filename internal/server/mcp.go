@@ -262,6 +262,13 @@ func mcpTools(agent store.Agent) []mcpTool {
 			InputSchema: json.RawMessage(`{"type":"object","properties":{"id":{"type":"string","maxLength":80}},"required":["id"],"additionalProperties":false}`),
 			Annotations: map[string]any{"readOnlyHint": true},
 		},
+
+		{
+			Name: "agents.heartbeat.v1", Title: "Report conversation availability",
+			Description: "Report ready, busy (follow-up messages queue), or offline for this agent's dedicated conversation channel. Requires operator access. Send every 20 seconds; expires after 60 seconds. Use a new idempotency key for each heartbeat.",
+			InputSchema: json.RawMessage(`{"type":"object","properties":{"channel":{"type":"string","maxLength":64},"state":{"type":"string","enum":["ready","busy","offline"]},"idempotency_key":{"type":"string","minLength":8,"maxLength":128}},"required":["channel","state","idempotency_key"],"additionalProperties":false}`),
+			Annotations: map[string]any{"readOnlyHint": false, "destructiveHint": false, "idempotentHint": true},
+		},
 		{
 			Name: "messages.list.v1", Title: "List human messages",
 			Description: "List human-authored messages in one visible channel in chronological order. Agent messages and generated timeline content are excluded so results can be used as deliberate conversational input.",
@@ -453,6 +460,19 @@ func (s *Server) mcpToolCall(r *http.Request, agent store.Agent, rawParams json.
 		}
 		return toolSuccess(map[string]any{"notification": summary, "activity": activity}), nil
 
+	case "agents.heartbeat.v1":
+		var input struct {
+			Channel        string `json:"channel"`
+			State          string `json:"state"`
+			IdempotencyKey string `json:"idempotency_key"`
+		}
+		if err := decodeToolArguments(arguments, &input); err != nil {
+			return toolFailure(err.Error()), nil
+		}
+		return s.mcpMutate(r, agent, params.Name, input.IdempotencyKey, arguments, func() (any, string, error) {
+			err := s.store.ReportAgentPresence(r.Context(), agent, input.Channel, input.State)
+			return map[string]any{"ttl_seconds": int(store.AgentPresenceTTL.Seconds())}, "", err
+		})
 	case "messages.list.v1":
 		var input struct {
 			Channel string `json:"channel"`

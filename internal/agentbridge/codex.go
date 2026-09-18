@@ -125,21 +125,15 @@ func (c *CodexClient) RunTurn(ctx context.Context, threadID, messageID, text str
 }
 
 func (c *CodexClient) waitUntilIdle(ctx context.Context, threadID string) error {
-	var read struct {
-		Thread struct {
-			Status struct {
-				Type string `json:"type"`
-			} `json:"status"`
-		} `json:"thread"`
+	status, err := c.threadStatus(ctx, threadID)
+	if err != nil {
+		return err
 	}
-	if err := c.call(ctx, "thread/read", map[string]any{"threadId": threadID, "includeTurns": false}, &read); err != nil {
-		return fmt.Errorf("read Codex thread status: %w", err)
-	}
-	if read.Thread.Status.Type == "idle" {
+	if status == "idle" {
 		return nil
 	}
-	if read.Thread.Status.Type != "active" {
-		return fmt.Errorf("codex thread is %s", read.Thread.Status.Type)
+	if status != "active" {
+		return fmt.Errorf("codex thread is %s", status)
 	}
 	for {
 		select {
@@ -316,4 +310,18 @@ func (c *CodexClient) Close() error {
 		_ = c.command.Process.Kill()
 	}
 	return c.command.Wait()
+}
+
+func (c *CodexClient) threadStatus(ctx context.Context, threadID string) (string, error) {
+	var read struct {
+		Thread struct {
+			Status struct {
+				Type string `json:"type"`
+			} `json:"status"`
+		} `json:"thread"`
+	}
+	if err := c.call(ctx, "thread/read", map[string]any{"threadId": threadID, "includeTurns": false}, &read); err != nil {
+		return "", fmt.Errorf("read Codex thread status: %w", err)
+	}
+	return read.Thread.Status.Type, nil
 }

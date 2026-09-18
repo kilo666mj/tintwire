@@ -56,6 +56,7 @@
     </section>
     <div id="sidebar-controls" class="sidebar-controls" data-mobile-collapsed="true">
       <div id="session-identity" class="session-identity" hidden></div>
+      <button id="agents-open" class="command-control" type="button" aria-haspopup="dialog" hidden>Agents</button>
       <button id="automation-open" class="command-control" type="button" aria-haspopup="dialog" hidden>Integrations</button>
       <button id="users-open" class="command-control" type="button" aria-haspopup="dialog" hidden>Users</button>
       <button id="alert-button" class="command-control" type="button" disabled>Enable alerts</button>
@@ -85,6 +86,7 @@
           <select id="read-filter" name="unread" aria-label="Filter by read state"><option value="1">Unread only</option><option value="">Read &amp; unread</option></select>
         </form>
       </details>
+      <div id="conversation-agents" class="conversation-agents" role="status" hidden></div>
       <div id="list" class="list"><div class="empty">Loading notifications…</div></div>
       <div id="timeline-new-messages" class="timeline-new-messages" role="status" hidden>
         <button id="timeline-jump-latest" type="button">New messages ↓</button>
@@ -104,6 +106,18 @@
     </main>
   </div>
 </div>
+<dialog id="agents-dialog" class="automation-dialog" aria-labelledby="agents-dialog-title">
+  <div class="automation-card">
+    <div class="channel-dialog-heading">
+      <h2 id="agents-dialog-title">Agents</h2>
+      <button id="agents-close" class="alert-dialog-close" type="button" aria-label="Close agents">×</button>
+    </div>
+    <p class="automation-copy">Find an agent and open its conversation. Follow-up messages queue while an agent is busy.</p>
+    <button id="agents-refresh" class="command-control" type="button">Refresh</button>
+    <p id="agents-directory-status" class="automation-status" role="status"></p>
+    <div id="agents-directory" class="automation-list"></div>
+  </div>
+</dialog>
 <dialog id="automation-dialog" class="automation-dialog" aria-labelledby="automation-dialog-title">
   <div class="automation-card">
     <div class="channel-dialog-heading">

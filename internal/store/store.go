@@ -1076,6 +1076,11 @@ PRAGMA user_version = 28;
 		}
 		version = 28
 	}
+	if version < 29 {
+		if _, err := db.Exec(agentPresenceSchema + `PRAGMA user_version = 29;`); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

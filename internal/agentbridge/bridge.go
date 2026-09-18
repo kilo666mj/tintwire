@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"time"
 	"unicode/utf8"
 )
@@ -23,9 +24,12 @@ type Config struct {
 }
 
 type Bridge struct {
-	Tintwire *TintwireClient
-	Codex    *CodexClient
-	Config   Config
+	Tintwire        *TintwireClient
+	Codex           *CodexClient
+	Config          Config
+	busy            atomic.Bool
+	unavailable     atomic.Bool
+	presenceChanged chan struct{}
 }
 
 type bridgeState struct {
@@ -65,6 +69,8 @@ func (b *Bridge) Run(ctx context.Context) error {
 	if err := b.Codex.Resume(ctx, b.Config.ThreadID); err != nil {
 		return err
 	}
+	stopPresence := b.startPresence(ctx)
+	defer stopPresence()
 	state.Channel = b.Config.Channel
 	state.ThreadID = b.Config.ThreadID
 	if state.Pending != nil {
@@ -97,6 +103,8 @@ func (b *Bridge) Run(ctx context.Context) error {
 		err := b.poll(ctx, &state)
 		if err != nil {
 			slog.Error("bridge poll failed", "error", err)
+			b.unavailable.Store(true)
+			b.notifyPresence()
 		}
 		if b.Config.Once {
 			return err
@@ -115,6 +123,9 @@ func (b *Bridge) poll(ctx context.Context, state *bridgeState) error {
 		if err != nil {
 			return err
 		}
+		if b.unavailable.Swap(false) {
+			b.notifyPresence()
+		}
 		if err := b.processPage(ctx, state, page); err != nil {
 			return err
 		}
@@ -127,10 +138,14 @@ func (b *Bridge) poll(ctx context.Context, state *bridgeState) error {
 func (b *Bridge) processPage(ctx context.Context, state *bridgeState, page MessagePage) error {
 	for _, message := range page.Messages {
 		prompt := fmt.Sprintf("Tintwire message from @%s in #%s (message %s):\n\n%s", message.Author, b.Config.Channel, message.ID, message.Text)
+		b.busy.Store(true)
+		b.notifyPresence()
 		reply, err := b.Codex.RunTurn(ctx, b.Config.ThreadID, message.ID, prompt)
 		if err != nil {
 			reply = "I couldn't complete that turn: " + err.Error()
 		}
+		b.busy.Store(false)
+		b.notifyPresence()
 		reply = limitMessage(reply, 4000)
 		if message.Cursor == "" {
 			return errors.New("tintwire message feed returned no cursor")
@@ -225,4 +240,55 @@ func (b *Bridge) saveState(state bridgeState) error {
 		_ = handle.Close()
 	}
 	return nil
+}
+
+// Heartbeats run independently of model turns and polling. Runtime status is
+// checked even while idle so a dead app-server cannot remain advertised ready.
+func (b *Bridge) startPresence(ctx context.Context) func() {
+	presenceCtx, cancel := context.WithCancel(ctx)
+	b.presenceChanged = make(chan struct{}, 1)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		ticker := time.NewTicker(20 * time.Second)
+		defer ticker.Stop()
+		for {
+			reportCtx, stop := context.WithTimeout(presenceCtx, 5*time.Second)
+			state := "offline"
+			status, err := b.Codex.threadStatus(reportCtx, b.Config.ThreadID)
+			if err == nil && !b.unavailable.Load() && (status == "idle" || status == "active") {
+				if status == "active" || b.busy.Load() {
+					state = "busy"
+				} else if status == "idle" {
+					state = "ready"
+				}
+			}
+			if err := b.Tintwire.ReportPresence(reportCtx, b.Config.Channel, state); err != nil && presenceCtx.Err() == nil {
+				slog.Warn("report agent availability", "error", err)
+			}
+			stop()
+			select {
+			case <-presenceCtx.Done():
+				return
+			case <-ticker.C:
+			case <-b.presenceChanged:
+			}
+		}
+	}()
+	return func() {
+		cancel()
+		<-done
+		offlineCtx, stop := context.WithTimeout(context.Background(), 3*time.Second)
+		defer stop()
+		if err := b.Tintwire.ReportPresence(offlineCtx, b.Config.Channel, "offline"); err != nil {
+			slog.Warn("report bridge offline", "error", err)
+		}
+	}
+}
+
+func (b *Bridge) notifyPresence() {
+	select {
+	case b.presenceChanged <- struct{}{}:
+	default:
+	}
 }

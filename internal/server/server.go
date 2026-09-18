@@ -304,6 +304,7 @@ func NewWithOptions(data *store.Store, options Options) (http.Handler, error) {
 	mux.HandleFunc("PUT /api/v1/admin/users/{id}", s.requireReader(s.requireControlAuthority(s.updateManagedUser)))
 	mux.HandleFunc("DELETE /api/v1/admin/users/{id}/sessions", s.requireReader(s.requireControlAuthority(s.revokeManagedUserSessions)))
 	mux.HandleFunc("PUT /api/v1/admin/users/{id}/memberships/{channel}", s.requireReader(s.requireControlAuthority(s.updateManagedUserMembership)))
+	mux.HandleFunc("GET /api/v1/agent-conversations", s.requireReader(s.listAgentConversations))
 	mux.HandleFunc("GET /api/v1/agents", s.requireReader(s.listAgents))
 	mux.HandleFunc("POST /api/v1/agents", s.requireReader(s.requireControlAuthority(s.createAgent)))
 	mux.HandleFunc("POST /api/v1/agents/{name}/revoke", s.requireReader(s.requireControlAuthority(s.revokeAgent)))

@@ -86,6 +86,34 @@ The token is accepted only through the environment so it does not appear in the
 process argument list. Non-loopback HTTP URLs are rejected; use HTTPS in normal
 operation.
 
+### Availability and discovery
+
+The **Agents** sidebar button lists conversation channels advertised by bridges,
+filtered by the reader's current channel access. It shows each agent's description,
+availability, and last heartbeat, with **Open conversation** linking to its channel.
+The channel also shows the agent's availability:
+
+- **Ready**: the bridge can reach an idle runtime and accepts messages.
+- **Busy**: the runtime is active or a bridge turn is in progress; follow-up
+  messages remain in the channel and are processed in order.
+- **Offline**: the bridge reports unavailable, shuts down, or its heartbeat expires.
+
+The Codex bridge calls `agents.heartbeat.v1` every 20 seconds and on bridge state
+changes, after resuming the configured thread. Heartbeats expire after 60 seconds;
+the browser refreshes every 10 seconds while visible. Runtime status is checked
+independently of turn completion. A registered bot or recently used credential
+alone does not advertise availability. Older bridges do not appear until upgraded.
+
+Deploy the updated Tintwire server first (schema 29), then rebuild and restart the
+bridge. No new configuration is required. Each bridge should use a dedicated agent
+identity and conversation channel; this presence feature does not add an exclusive
+runtime lease or coordinate duplicate bridges. Runtime thread IDs stay in the bridge.
+
+Presence is stored in the shared PostgreSQL database so every application node sees
+the same state. SQLite standalone instances are supported; legacy SQLite control
+snapshots intentionally do not replicate live presence. The directory API is
+`GET /api/v1/agent-conversations`; administration stays under **Integrations → Bots**.
+
 ### Persistent private deployment
 
 The repository includes a user service and launcher for deployments where the

@@ -73,3 +73,19 @@ button,input,select,a,.card{transition:color .18s ease,border-color .18s ease,ba
   .mobile-sidebar-toggle:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
   .command-sidebar>[data-mobile-collapsed="true"]{display:none}
 }
+
+/* Agent availability is conveyed in text as well as color. */
+.conversation-agents { padding: 10px 16px; border: 1px solid var(--border, #475569); border-radius: 8px; margin-bottom: 12px; }
+.agent-availability { font-size: .875rem; line-height: 1.6; }
+.agent-availability::before { content: "●"; margin-right: .45rem; }
+.agent-availability-ready::before { color: #22c55e; }
+.agent-availability-busy::before { color: #eab308; }
+.agent-availability-offline::before { color: #94a3b8; }
+.agent-directory-item { gap: 16px; flex-wrap: wrap; }
+.agent-directory-item .automation-item-main { min-width: 0; overflow-wrap: anywhere; }
+#agents-dialog .command-control { font-size: 12px; text-align: left; }
+#agents-refresh { width: auto; }
+@media (max-width: 600px) {
+  .agent-directory-item { grid-template-columns: minmax(0, 1fr); }
+  .agent-directory-item button { width: auto; justify-self: start; }
+}

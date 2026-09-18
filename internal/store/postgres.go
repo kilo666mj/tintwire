@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-const postgresSchemaVersion = 28
+const postgresSchemaVersion = 29
 
 func init() {
 	sql.Register("tintwire-postgres", newPostgresDriver())
@@ -22,7 +22,7 @@ func OpenPostgres(dsn string) (*Store, error) {
 		_ = db.Close()
 		return nil, fmt.Errorf("connect PostgreSQL database: %w", err)
 	}
-	if _, err := db.Exec(postgresSchema); err != nil {
+	if _, err := db.Exec(postgresSchema + agentPresenceSchema); err != nil {
 		_ = db.Close()
 		return nil, fmt.Errorf("initialize PostgreSQL database: %w", err)
 	}
@@ -79,6 +79,13 @@ UPDATE schema_version SET version=28 WHERE singleton=1`); err != nil {
 		}
 		version = 28
 	}
+	if version == 28 {
+		if _, err := db.Exec(agentPresenceSchema + `UPDATE schema_version SET version=29 WHERE singleton=1;`); err != nil {
+			_ = db.Close()
+			return nil, err
+		}
+		version = 29
+	}
 	if version != postgresSchemaVersion {
 		_ = db.Close()
 		return nil, fmt.Errorf("unsupported PostgreSQL schema version %d", version)
@@ -93,7 +100,7 @@ CREATE TABLE IF NOT EXISTS schema_version (
     singleton SMALLINT PRIMARY KEY CHECK (singleton = 1),
     version INTEGER NOT NULL
 );
-INSERT INTO schema_version(singleton,version) VALUES(1,28)
+INSERT INTO schema_version(singleton,version) VALUES(1,29)
 ON CONFLICT(singleton) DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS app_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);

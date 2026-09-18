@@ -82,8 +82,8 @@ INSERT INTO notifications VALUES ('notification', 'channel', 'webhook', 'legacy'
 	if err := store.db.QueryRow(`PRAGMA user_version`).Scan(&version); err != nil {
 		t.Fatal(err)
 	}
-	if version != 28 {
-		t.Fatalf("schema version = %d, want 28", version)
+	if version != 29 {
+		t.Fatalf("schema version = %d, want 29", version)
 	}
 }
 
@@ -245,8 +245,8 @@ PRAGMA user_version = 1;
 	if err := store.db.QueryRow(`PRAGMA user_version`).Scan(&version); err != nil {
 		t.Fatal(err)
 	}
-	if version != 28 {
-		t.Fatalf("schema version = %d, want 28", version)
+	if version != 29 {
+		t.Fatalf("schema version = %d, want 29", version)
 	}
 }
 

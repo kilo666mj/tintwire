@@ -3,6 +3,8 @@ package agentbridge
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -164,4 +166,13 @@ func (c *TintwireClient) rpc(ctx context.Context, method string, params any, tar
 		return fmt.Errorf("decode Tintwire result: %w", err)
 	}
 	return nil
+}
+
+func (c *TintwireClient) ReportPresence(ctx context.Context, channel, state string) error {
+	var nonce [16]byte
+	if _, err := rand.Read(nonce[:]); err != nil {
+		return err
+	}
+	var result json.RawMessage
+	return c.tool(ctx, "agents.heartbeat.v1", map[string]any{"channel": channel, "state": state, "idempotency_key": "heartbeat-" + hex.EncodeToString(nonce[:])}, &result)
 }

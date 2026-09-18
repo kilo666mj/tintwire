@@ -233,3 +233,15 @@ func (s *Server) agentAuthenticateChallenge(authenticationError string) string {
 	}
 	return challenge
 }
+
+func (s *Server) listAgentConversations(w http.ResponseWriter, r *http.Request) {
+	user, _ := s.inboxUser(r)
+	entries, err := s.store.ListAgentConversations(r.Context(), user)
+	if err != nil {
+		slog.Error("list agent conversations", "error", err)
+		http.Error(w, "unable to list agent conversations", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	writeJSON(w, http.StatusOK, map[string]any{"agents": entries})
+}

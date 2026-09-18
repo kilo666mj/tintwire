@@ -5,7 +5,7 @@ Agent principals, permissions, and the authenticated Model Context Protocol surf
 ## Agents
 
 Agents are first-class principals rather than shared API tokens. An installation
-administrator can register, inspect, and revoke them in the **Automation**
+administrator can register, inspect, and revoke them in the **Integrations → Bots**
 panel or register one with `POST /api/v1/agents`:
 
 ```sh
@@ -59,7 +59,7 @@ curl -H "Authorization: Bearer $TINTWIRE_AGENT_TOKEN" \
   https://tintwire.example.com/mcp
 ```
 
-Tool names are versioned: `channels.list.v1`, `messages.list.v1`,
+Tool names are versioned: `agents.heartbeat.v1`, `channels.list.v1`, `messages.list.v1`,
 `messages.get.v1`, `messages.publish.v1`, `notifications.search.v1`,
 `notifications.get.v1`, `notifications.publish.v1`,
 `notifications.set_state.v1`, `notifications.invoke_action.v1`,
@@ -74,6 +74,16 @@ a repeat of the same call replays the first result without repeating the effect,
 and reusing a key with different arguments is rejected as a conflict. A replayed
 `channels.create.v1` result never repeats the publishing token. Tool traffic is
 rate limited per agent and per agent and tool.
+
+`agents.heartbeat.v1` advertises the calling agent's dedicated conversation channel.
+It takes `channel`, `state` (`ready`, `busy`, or `offline`), and `idempotency_key`.
+Only current operator/channel-admin access (or installation administration) permits
+advertising a channel. Send a new heartbeat every 20 seconds with a fresh key;
+retry the same heartbeat with its original key. An idempotent replay does not renew
+presence or overwrite a newer status. Availability expires after 60 seconds.
+Busy means follow-up messages queue; bridges that cannot accept messages should
+report offline. The reader directory returns only advertised channels the reader
+can access, excluding revoked agents and agents that lost publishing permission.
 
 Read tools return canonical IDs, state, and sanitized presentation text so
 agents do not scrape rendered markup; raw compatibility payloads and stored
