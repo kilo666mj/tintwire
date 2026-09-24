@@ -142,13 +142,18 @@ func (o *tintwireOIDCSessions) IssueDesktop(w http.ResponseWriter, r *http.Reque
 	}); err != nil {
 		return err
 	}
+	// The confirmation page is reached by an identity-provider redirect, so the
+	// browser attributes that navigation to the provider's site. A Strict cookie
+	// would be withheld there and every confirmation would fail as expired. Lax
+	// still withholds the cookie from cross-site approve and cancel POSTs, which
+	// those handlers additionally guard with an origin check.
 	http.SetCookie(w, &http.Cookie{
 		Name:     oidcDesktopConfirmationCookieName,
 		Value:    confirmation.BrowserSecret,
 		Path:     "/api/v1/auth/desktop",
 		HttpOnly: true,
 		Secure:   o.server.secureCookies(r),
-		SameSite: http.SameSiteStrictMode,
+		SameSite: http.SameSiteLaxMode,
 		MaxAge:   int((10 * time.Minute).Seconds()),
 	})
 	return nil
@@ -273,5 +278,5 @@ func desktopConfirmationSecret(r *http.Request) (string, error) {
 }
 
 func clearDesktopConfirmationCookie(w http.ResponseWriter, r *http.Request, s *Server) {
-	http.SetCookie(w, &http.Cookie{Name: oidcDesktopConfirmationCookieName, Path: "/api/v1/auth/desktop", HttpOnly: true, Secure: s.secureCookies(r), SameSite: http.SameSiteStrictMode, MaxAge: -1})
+	http.SetCookie(w, &http.Cookie{Name: oidcDesktopConfirmationCookieName, Path: "/api/v1/auth/desktop", HttpOnly: true, Secure: s.secureCookies(r), SameSite: http.SameSiteLaxMode, MaxAge: -1})
 }

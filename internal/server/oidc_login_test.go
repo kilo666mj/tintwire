@@ -47,7 +47,7 @@ func TestDesktopOIDCHandoffRequiresBrowserConfirmation(t *testing.T) {
 		t.Fatal(err)
 	}
 	confirmationCookie := responseCookie(t, callbackResult.Result(), oidcDesktopConfirmationCookieName)
-	if !confirmationCookie.HttpOnly || confirmationCookie.SameSite != http.SameSiteStrictMode || !confirmationCookie.Secure {
+	if !confirmationCookie.HttpOnly || confirmationCookie.SameSite != http.SameSiteLaxMode || !confirmationCookie.Secure {
 		t.Fatalf("confirmation cookie is not browser-only: %#v", confirmationCookie)
 	}
 
@@ -128,6 +128,47 @@ func TestDesktopOIDCHandoffCancelAndExpiry(t *testing.T) {
 	}
 	if result := exchangeDesktopHandoff(server, expiredHandoff); result.Code != http.StatusUnauthorized {
 		t.Fatalf("expired exchange status=%d, want %d", result.Code, http.StatusUnauthorized)
+	}
+}
+
+// The confirmation page is reached by a redirect from the identity provider, so
+// browsers attribute that navigation to the provider's site and withhold a
+// SameSite=Strict cookie. That made every confirmation fail as expired, which no
+// handler-level test caught because synthetic requests carry the cookie anyway.
+func TestDesktopConfirmationCookieSurvivesProviderRedirect(t *testing.T) {
+	server, _ := newOIDCTestServer(t)
+	sessions := &tintwireOIDCSessions{server: server}
+	callback := httptest.NewRequest(http.MethodGet, "https://tintwire.example/api/v1/auth/oidc/callback", nil)
+	callback.Host = "tintwire.example"
+	callbackResult := httptest.NewRecorder()
+	if err := sessions.IssueDesktop(callbackResult, callback, oidcrp.Identity{Subject: "subject-redirect", Email: "carol@example.com"}, testDesktopHandoff); err != nil {
+		t.Fatal(err)
+	}
+	confirmationCookie := responseCookie(t, callbackResult.Result(), oidcDesktopConfirmationCookieName)
+	if confirmationCookie.SameSite == http.SameSiteStrictMode {
+		t.Fatal("confirmation cookie is SameSite=Strict, so the provider redirect to the confirmation page will not carry it")
+	}
+	if confirmationCookie.SameSite != http.SameSiteLaxMode {
+		t.Fatalf("confirmation cookie SameSite = %v, want Lax", confirmationCookie.SameSite)
+	}
+	if confirmationCookie.Path != "/api/v1/auth/desktop" {
+		t.Fatalf("confirmation cookie path = %q, want /api/v1/auth/desktop", confirmationCookie.Path)
+	}
+
+	// Lax keeps the approval POST protected: a cross-site form submission never
+	// carries the cookie, and the handler rejects the origin regardless.
+	crossOrigin := httptest.NewRecorder()
+	server.approveDesktopConfirmation(crossOrigin, confirmationRequest(http.MethodPost, "https://evil.example", confirmationCookie))
+	if crossOrigin.Code != http.StatusForbidden {
+		t.Fatalf("cross-origin approval status=%d, want %d", crossOrigin.Code, http.StatusForbidden)
+	}
+
+	// Clearing must use the same attributes, or the browser keeps the cookie.
+	cleared := httptest.NewRecorder()
+	clearDesktopConfirmationCookie(cleared, callback, server)
+	clearedCookie := responseCookie(t, cleared.Result(), oidcDesktopConfirmationCookieName)
+	if clearedCookie.SameSite != confirmationCookie.SameSite || clearedCookie.Path != confirmationCookie.Path {
+		t.Fatalf("clearing cookie %#v does not match issued cookie %#v", clearedCookie, confirmationCookie)
 	}
 }
 
