@@ -239,7 +239,7 @@ func (s *Server) finishDesktopConfirmation(w http.ResponseWriter, r *http.Reques
 	if !s.controlLeaseValid(w, r) {
 		return
 	}
-	if !s.sameOrigin(r) {
+	if !s.sameOriginFormSubmission(r) {
 		http.Error(w, "cross-origin request rejected", http.StatusForbidden)
 		return
 	}
@@ -270,6 +270,25 @@ func (s *Server) finishDesktopConfirmation(w http.ResponseWriter, r *http.Reques
 		message = "Sign-in cancelled. You can close this window."
 	}
 	_, _ = io.WriteString(w, `<!doctype html><html><head><meta name="viewport" content="width=device-width"><title>Tintwire sign-in</title></head><body><main><h1>`+html.EscapeString(message)+`</h1></main></body></html>`)
+}
+
+// The confirmation page approves and cancels through plain HTML forms, because
+// it is served with a script-free policy. Firefox omits the Origin header on
+// same-origin form submissions, unlike the fetch calls every other endpoint
+// receives, so requiring Origin there rejects legitimate approvals. Fall back to
+// the Fetch Metadata site signal, which browsers send on navigations and a
+// cross-site attacker cannot forge, and fail closed when neither is present.
+func (s *Server) sameOriginFormSubmission(r *http.Request) bool {
+	if r.Header.Get("Origin") != "" {
+		return s.sameOrigin(r)
+	}
+	if !strings.EqualFold(r.Header.Get("Sec-Fetch-Site"), "same-origin") {
+		return false
+	}
+	if s.publicURL != nil {
+		return strings.EqualFold(r.Host, s.publicURL.Host)
+	}
+	return true
 }
 
 func desktopConfirmationSecret(r *http.Request) (string, error) {

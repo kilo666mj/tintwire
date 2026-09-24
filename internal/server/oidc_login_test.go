@@ -202,6 +202,45 @@ func TestDesktopConfirmationResponsesAreNeverCached(t *testing.T) {
 	}
 }
 
+// Firefox sends no Origin header when a same-origin form is submitted, so the
+// confirmation page's Approve and Cancel buttons must be accepted on the Fetch
+// Metadata signal instead, without letting a cross-site submission through.
+func TestDesktopConfirmationAcceptsOriginlessFormSubmission(t *testing.T) {
+	server, _ := newOIDCTestServer(t)
+	for _, testCase := range []struct {
+		name    string
+		headers map[string]string
+		allowed bool
+	}{
+		{"firefox same-origin form", map[string]string{"Sec-Fetch-Site": "same-origin"}, true},
+		{"chrome form with origin", map[string]string{"Origin": "https://tintwire.example", "Sec-Fetch-Site": "same-origin"}, true},
+		{"cross-site form", map[string]string{"Sec-Fetch-Site": "cross-site"}, false},
+		{"foreign origin", map[string]string{"Origin": "https://evil.example", "Sec-Fetch-Site": "same-origin"}, false},
+		{"opaque origin", map[string]string{"Origin": "null"}, false},
+		{"no signal at all", map[string]string{}, false},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			request := httptest.NewRequest(http.MethodPost, "https://tintwire.example/api/v1/auth/desktop/confirm", nil)
+			request.Host = "tintwire.example"
+			for name, value := range testCase.headers {
+				request.Header.Set(name, value)
+			}
+			if allowed := server.sameOriginFormSubmission(request); allowed != testCase.allowed {
+				t.Fatalf("sameOriginFormSubmission = %t, want %t", allowed, testCase.allowed)
+			}
+			// A rejected submission must never reach the approval itself.
+			recorder := httptest.NewRecorder()
+			server.approveDesktopConfirmation(recorder, request)
+			if !testCase.allowed && recorder.Code != http.StatusForbidden {
+				t.Fatalf("rejected submission status = %d, want %d", recorder.Code, http.StatusForbidden)
+			}
+			if testCase.allowed && recorder.Code == http.StatusForbidden {
+				t.Fatal("accepted submission was rejected as cross-origin")
+			}
+		})
+	}
+}
+
 func newOIDCTestServer(t *testing.T) (*Server, *store.Store) {
 	t.Helper()
 	data, err := store.Open(filepath.Join(t.TempDir(), "oidc.db"))
