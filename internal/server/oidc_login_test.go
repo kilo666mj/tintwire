@@ -63,6 +63,11 @@ func TestDesktopOIDCHandoffRequiresBrowserConfirmation(t *testing.T) {
 	if page.Code != http.StatusOK || !strings.Contains(page.Body.String(), "0123-4567") || !strings.Contains(page.Body.String(), "Approve only if the codes match") {
 		t.Fatalf("confirmation page status=%d body=%q", page.Code, page.Body.String())
 	}
+	// no-referrer would make Firefox submit this page's own form with an opaque
+	// origin, which the approval endpoint cannot distinguish from a foreign one.
+	if policy := page.Header().Get("Referrer-Policy"); policy == "no-referrer" {
+		t.Fatalf("confirmation page Referrer-Policy = %q, which strips its own form's Origin in Firefox", policy)
+	}
 
 	crossOrigin := confirmationRequest(http.MethodPost, "https://evil.example", confirmationCookie)
 	crossOriginResult := httptest.NewRecorder()
@@ -216,7 +221,9 @@ func TestDesktopConfirmationAcceptsOriginlessFormSubmission(t *testing.T) {
 		{"chrome form with origin", map[string]string{"Origin": "https://tintwire.example", "Sec-Fetch-Site": "same-origin"}, true},
 		{"cross-site form", map[string]string{"Sec-Fetch-Site": "cross-site"}, false},
 		{"foreign origin", map[string]string{"Origin": "https://evil.example", "Sec-Fetch-Site": "same-origin"}, false},
-		{"opaque origin", map[string]string{"Origin": "null"}, false},
+		{"opaque origin from same-origin navigation", map[string]string{"Origin": "null", "Sec-Fetch-Site": "same-origin"}, true},
+		{"opaque origin alone", map[string]string{"Origin": "null"}, false},
+		{"opaque origin from cross-site navigation", map[string]string{"Origin": "null", "Sec-Fetch-Site": "cross-site"}, false},
 		{"no signal at all", map[string]string{}, false},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {

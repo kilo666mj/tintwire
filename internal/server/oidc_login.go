@@ -221,7 +221,11 @@ func (s *Server) desktopConfirmation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'")
-	w.Header().Set("Referrer-Policy", "no-referrer")
+	// Firefox derives a form submission's Origin header from the referrer policy,
+	// so no-referrer here makes the page's own Approve button arrive with an
+	// opaque origin. same-origin still withholds the referrer from every other
+	// site while letting this page identify itself to its own endpoints.
+	w.Header().Set("Referrer-Policy", "same-origin")
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_, _ = io.WriteString(w, `<!doctype html><html><head><meta name="viewport" content="width=device-width"><title>Confirm Tintwire sign-in</title><style>body{background:#0d131b;color:#edf2f7;font:16px system-ui;margin:0;padding:2rem}main{margin:10vh auto;max-width:34rem;background:#151d28;border:1px solid #344256;border-radius:14px;padding:2rem}.code{font:700 2rem ui-monospace,monospace;letter-spacing:.12em}.actions{display:flex;gap:1rem}button{border:1px solid #7191f0;border-radius:8px;background:#4169e1;color:white;font:inherit;font-weight:700;padding:.7rem 1rem}.cancel{background:transparent;border-color:#738096}</style></head><body><main><h1>Confirm desktop sign-in</h1><p>Compare this code with the one shown in the Tintwire desktop app:</p><p class="code">`+html.EscapeString(confirmation.VerificationCode)+`</p><p>Approve only if the codes match and you started this sign-in.</p><div class="actions"><form method="post" action="/api/v1/auth/desktop/confirm"><button type="submit">Approve sign-in</button></form><form method="post" action="/api/v1/auth/desktop/cancel"><button class="cancel" type="submit">Cancel</button></form></div></main></body></html>`)
 }
@@ -279,7 +283,7 @@ func (s *Server) finishDesktopConfirmation(w http.ResponseWriter, r *http.Reques
 // the Fetch Metadata site signal, which browsers send on navigations and a
 // cross-site attacker cannot forge, and fail closed when neither is present.
 func (s *Server) sameOriginFormSubmission(r *http.Request) bool {
-	if r.Header.Get("Origin") != "" {
+	if origin := r.Header.Get("Origin"); origin != "" && !strings.EqualFold(origin, "null") {
 		return s.sameOrigin(r)
 	}
 	if !strings.EqualFold(r.Header.Get("Sec-Fetch-Site"), "same-origin") {
