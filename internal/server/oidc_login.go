@@ -203,6 +203,10 @@ func (s *Server) desktopSession(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) desktopConfirmation(w http.ResponseWriter, r *http.Request) {
+	// Every response here is per-attempt, and 404, 405 and 410 are cacheable by
+	// default. A cached failure would be replayed for later sign-ins without
+	// reaching the server at all, so refuse storage before any branch answers.
+	w.Header().Set("Cache-Control", "no-store")
 	if !s.controlLeaseValid(w, r) {
 		return
 	}
@@ -216,7 +220,6 @@ func (s *Server) desktopConfirmation(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "desktop sign-in confirmation is invalid or expired", http.StatusGone)
 		return
 	}
-	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'")
 	w.Header().Set("Referrer-Policy", "no-referrer")
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -232,6 +235,7 @@ func (s *Server) cancelDesktopConfirmation(w http.ResponseWriter, r *http.Reques
 }
 
 func (s *Server) finishDesktopConfirmation(w http.ResponseWriter, r *http.Request, approve bool) {
+	w.Header().Set("Cache-Control", "no-store")
 	if !s.controlLeaseValid(w, r) {
 		return
 	}
@@ -259,7 +263,6 @@ func (s *Server) finishDesktopConfirmation(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	clearDesktopConfirmationCookie(w, r, s)
-	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'")
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	message := "Sign-in approved. You can close this window and return to Tintwire."

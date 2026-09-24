@@ -172,6 +172,36 @@ func TestDesktopConfirmationCookieSurvivesProviderRedirect(t *testing.T) {
 	}
 }
 
+// 410 Gone is cacheable by default, so a failed confirmation that omits
+// Cache-Control is stored by the browser and replayed for every later sign-in
+// without reaching the server, which hides the real outcome indefinitely.
+func TestDesktopConfirmationResponsesAreNeverCached(t *testing.T) {
+	server, _ := newOIDCTestServer(t)
+	stale := &http.Cookie{Name: oidcDesktopConfirmationCookieName, Value: "no-such-secret"}
+	for _, testCase := range []struct {
+		name    string
+		request *http.Request
+		handler func(http.ResponseWriter, *http.Request)
+		status  int
+	}{
+		{"page without cookie", httptest.NewRequest(http.MethodGet, "https://tintwire.example/api/v1/auth/desktop/confirm", nil), server.desktopConfirmation, http.StatusGone},
+		{"page with stale cookie", confirmationRequest(http.MethodGet, "https://tintwire.example", stale), server.desktopConfirmation, http.StatusGone},
+		{"approve with stale cookie", confirmationRequest(http.MethodPost, "https://tintwire.example", stale), server.approveDesktopConfirmation, http.StatusGone},
+		{"cancel with stale cookie", confirmationRequest(http.MethodPost, "https://tintwire.example", stale), server.cancelDesktopConfirmation, http.StatusGone},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			recorder := httptest.NewRecorder()
+			testCase.handler(recorder, testCase.request)
+			if recorder.Code != testCase.status {
+				t.Fatalf("status = %d, want %d", recorder.Code, testCase.status)
+			}
+			if store := recorder.Header().Get("Cache-Control"); store != "no-store" {
+				t.Fatalf("Cache-Control = %q, want no-store; a cacheable failure is replayed from the browser cache", store)
+			}
+		})
+	}
+}
+
 func newOIDCTestServer(t *testing.T) (*Server, *store.Store) {
 	t.Helper()
 	data, err := store.Open(filepath.Join(t.TempDir(), "oidc.db"))
