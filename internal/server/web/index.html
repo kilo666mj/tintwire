@@ -189,7 +189,10 @@
       <input id="create-channel-name" aria-label="Channel name" maxlength="63" placeholder="prometheus" required>
       <input id="create-channel-display" aria-label="Display name" maxlength="100" placeholder="Prometheus feed">
       <input id="create-channel-description" aria-label="Description" maxlength="500" placeholder="Optional description">
-      <input id="create-channel-accent" aria-label="Accent color" type="color" value="#2f80ff">
+      <label class="channel-visibility">
+        <span>Accent color</span>
+        <input id="create-channel-accent" aria-label="Accent color" type="color" value="#2f80ff">
+      </label>
       <label class="channel-visibility">
         <span>Visibility</span>
         <select id="create-channel-visibility" aria-label="Channel visibility">
