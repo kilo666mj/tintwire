@@ -50,6 +50,14 @@ unknown fields, unsafe URL schemes, and unsupported component types are rejected
 so producer content remains declarative and script-free. Synthetic redacted
 contracts for a release summary, `approval-service`, and slash commands live in
 `testdata/compat`; the interactive rendering reference is in `docs/mockups`.
+
+A card can report an incident lifecycle the way Alertmanager webhooks do. Set
+`state` to `firing` or `resolved` and give related cards the same
+`lifecycle_key` (up to 200 bytes, unique per incident): later cards with that
+key replace the earlier one and append to its event history instead of adding
+a new notification, and a `firing` card after `resolved` reopens it unread.
+Keys are scoped to the publishing token and destination channel. Both fields
+are optional; without them a card is stored as `received`.
 Remote images use a no-referrer policy, but loading a producer-selected image
 URL still reveals the approximate view time and reader network address to that
 image host. Disable or proxy remote images at the deployment boundary when
