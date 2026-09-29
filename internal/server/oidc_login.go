@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kilo666mj/oidcrp"
 	"github.com/kilo666mj/tintwire/internal/store"
+	"go.michaelspost.com/oidcrp"
 )
 
 const oidcStateCookieName = "tintwire_oidc_state"

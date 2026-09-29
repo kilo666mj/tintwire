@@ -21,8 +21,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	pwakit "github.com/kilo666mj/pwa-kit"
 	"github.com/kilo666mj/tintwire/internal/store"
+	pwakit "go.michaelspost.com/pwa-kit"
 )
 
 const maxWebhookBody = 1 << 20
