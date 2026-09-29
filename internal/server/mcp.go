@@ -570,6 +570,9 @@ func (s *Server) mcpToolCall(r *http.Request, agent store.Agent, rawParams json.
 				if err := validateNativeCard(card); err != nil {
 					return nil, "", err
 				}
+				if card.State != "" || card.LifecycleKey != "" {
+					return nil, "", errors.New("card state and lifecycle_key are only accepted by the publishing API; use the state argument")
+				}
 				stored, err := s.protectNativeActionContexts(card)
 				if err != nil {
 					return nil, "", err

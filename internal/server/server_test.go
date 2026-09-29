@@ -2093,6 +2093,64 @@ func TestActionKeyCanRecoverFromReplicatedSetting(t *testing.T) {
 	}
 }
 
+func TestNativeCardLifecycleUpdatesOneNotification(t *testing.T) {
+	db, err := store.Open(filepath.Join(t.TempDir(), "tintwire.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = db.Close() }()
+	if err := db.BootstrapWebhook(context.Background(), "probe-hook", "parallaxd"); err != nil {
+		t.Fatal(err)
+	}
+	handler := server.New(db)
+	post := func(body string) int {
+		t.Helper()
+		request := httptest.NewRequest(http.MethodPost, "/api/v1/notifications", strings.NewReader(body))
+		request.Header.Set("Content-Type", "application/json")
+		request.Header.Set("Authorization", "Bearer probe-hook")
+		recorder := httptest.NewRecorder()
+		handler.ServeHTTP(recorder, request)
+		return recorder.Code
+	}
+
+	if code := post(`{"version":1,"title":"DOWN — web","summary":"3 of 3 agree","severity":"critical","source":"parallaxd","state":"firing","lifecycle_key":"check:web"}`); code != http.StatusCreated {
+		t.Fatalf("firing status = %d", code)
+	}
+	if code := post(`{"version":1,"title":"DOWN — api","summary":"2 of 3 agree","severity":"critical","source":"parallaxd","state":"firing","lifecycle_key":"check:api"}`); code != http.StatusCreated {
+		t.Fatalf("second firing status = %d", code)
+	}
+	if code := post(`{"version":1,"title":"RECOVERED — web","summary":"all up","severity":"success","source":"parallaxd","state":"resolved","lifecycle_key":"check:web"}`); code != http.StatusCreated {
+		t.Fatalf("resolved status = %d", code)
+	}
+	notifications, err := db.ListNotifications(context.Background(), 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	states := map[string]string{}
+	for _, notification := range notifications {
+		var card map[string]any
+		if err := json.Unmarshal(notification.Card, &card); err != nil {
+			t.Fatal(err)
+		}
+		if _, ok := card["lifecycle_key"]; ok {
+			t.Fatalf("stored card kept lifecycle fields: %s", notification.Card)
+		}
+		states[card["title"].(string)] = notification.State
+	}
+	if len(notifications) != 2 || states["RECOVERED — web"] != "resolved" || states["DOWN — api"] != "firing" {
+		t.Fatalf("lifecycle states = %#v", states)
+	}
+
+	for _, body := range []string{
+		`{"version":1,"title":"x","source":"parallaxd","state":"acknowledged"}`,
+		`{"version":1,"title":"x","source":"parallaxd","state":"firing","lifecycle_key":"   "}`,
+	} {
+		if code := post(body); code != http.StatusBadRequest {
+			t.Fatalf("invalid lifecycle %s status = %d", body, code)
+		}
+	}
+}
+
 func TestAlertmanagerFiringAndResolvedUpdateOneNotification(t *testing.T) {
 	db, err := store.Open(filepath.Join(t.TempDir(), "tintwire.db"))
 	if err != nil {

@@ -129,6 +129,13 @@ type nativeCard struct {
 	Links    []cardLink   `json:"links,omitempty"`
 	Rows     []cardRow    `json:"rows,omitempty"`
 	Actions  []cardAction `json:"actions,omitempty"`
+
+	// State and LifecycleKey let a producer report one incident as a single
+	// card that moves from firing to resolved, as Alertmanager webhooks do.
+	// They are delivery instructions, not presentation, and are removed before
+	// the card is stored.
+	State        string `json:"state,omitempty"`
+	LifecycleKey string `json:"lifecycle_key,omitempty"`
 }
 
 type cardMetric struct {
@@ -471,6 +478,8 @@ func (s *Server) receiveNativeCard(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	state, externalKey := nativeCardLifecycle(card)
+	card.State, card.LifecycleKey = "", ""
 	storedCard, err := s.protectNativeActionContexts(card)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusServiceUnavailable)
@@ -478,7 +487,7 @@ func (s *Server) receiveNativeCard(w http.ResponseWriter, r *http.Request) {
 	}
 	notification, err := s.store.CreateFromWebhook(r.Context(), token, store.IncomingNotification{
 		Channel: card.Channel, Text: card.Summary, Username: card.Source, Card: storedCard,
-		RawPayload: storedCard, State: "received",
+		RawPayload: storedCard, State: state, ExternalKey: externalKey,
 	})
 	if errors.Is(err, store.ErrWebhookNotFound) {
 		http.Error(w, "publishing token not found", http.StatusUnauthorized)
@@ -512,6 +521,12 @@ func validateNativeCard(card nativeCard) error {
 	}
 	if card.Severity != "" && card.Severity != "info" && card.Severity != "warning" && card.Severity != "critical" && card.Severity != "success" {
 		return errors.New("unsupported severity")
+	}
+	if card.State != "" && card.State != "received" && card.State != "firing" && card.State != "resolved" {
+		return errors.New("unsupported card state")
+	}
+	if len(card.LifecycleKey) > 200 || (card.LifecycleKey != "" && strings.TrimSpace(card.LifecycleKey) == "") {
+		return errors.New("lifecycle_key must be 1 to 200 bytes")
 	}
 	if len(card.Metrics) > 12 || len(card.Fields) > 24 || len(card.Badges) > 16 || len(card.Images) > 4 || len(card.Links) > 12 || len(card.Rows) > 2000 || len(card.Actions) > 8 {
 		return errors.New("card component limit exceeded")
@@ -808,6 +823,23 @@ func readWebhookPayload(w http.ResponseWriter, r *http.Request, mediaType string
 		return nil, errors.New("payload form field is required")
 	}
 	return []byte(payload), nil
+}
+
+// nativeCardLifecycle maps a card's lifecycle fields to a stored state and
+// external key. The key is namespaced so a producer's lifecycle key cannot
+// collide with an Alertmanager identity arriving on the same webhook, and scoped
+// to the requested channel for the same reason alertmanagerLifecycle is.
+func nativeCardLifecycle(card nativeCard) (string, string) {
+	state := card.State
+	if state == "" {
+		state = "received"
+	}
+	if card.LifecycleKey == "" {
+		return state, ""
+	}
+	channel := strings.ToLower(strings.TrimPrefix(strings.TrimSpace(card.Channel), "#"))
+	digest := sha256.Sum256([]byte(channel + "\x00" + card.LifecycleKey))
+	return state, "card:" + hex.EncodeToString(digest[:])
 }
 
 func alertmanagerLifecycle(channel string, raw json.RawMessage) (string, string) {
