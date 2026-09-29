@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kilo666mj/oidcrp"
 	"github.com/kilo666mj/tintwire/internal/store"
+	"go.michaelspost.com/oidcrp"
 )
 
 const testDesktopHandoff = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
