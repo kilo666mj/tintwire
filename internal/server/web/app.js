@@ -121,6 +121,7 @@ const severityFilter = document.querySelector("#severity-filter");
 const readFilter = document.querySelector("#read-filter");
 const loadMoreButton = document.querySelector("#load-more");
 const densityButton = document.querySelector("#density-button");
+const skinButton = document.querySelector("#skin-button");
 const loginOverlay = document.querySelector("#login-overlay");
 const loginForm = document.querySelector("#login-form");
 const loginError = document.querySelector("#login-error");
@@ -1174,6 +1175,8 @@ function notificationCardNode(value) {
   }
   const changed = value.updated_at && value.updated_at !== value.created_at;
   const timestamp = new Date(changed ? value.updated_at : value.created_at).toLocaleString();
+  const accent = channelCache.find(channel => channel.id === value.channel_id)?.accent_color || "";
+  if (/^#[0-9a-f]{6}$/i.test(accent)) card.style.setProperty("--channel-accent", accent);
   meta.append(element("span", "meta-channel", value.channel_name));
   meta.append(element("span", "meta-source", value.username));
   if (value.agent) meta.append(element("span", "state-badge agent-badge", `agent ${value.agent}`));
@@ -2854,6 +2857,22 @@ densityButton.addEventListener("click", () => {
   const compact = !document.body.classList.contains("density-compact");
   localStorage.setItem("tintwire-density", compact ? "compact" : "roomy");
   applyDensity(compact);
+});
+
+// The visual theme is a per-device preference. theme.js applies the stored
+// value before first paint; this only keeps the control in sync and switches.
+function applySkin(skin) {
+  document.documentElement.dataset.skin = skin;
+  skinButton.setAttribute("aria-pressed", String(skin === "wire"));
+  skinButton.textContent = skin === "wire" ? "Theme: Wire" : "Theme: Sentinel";
+}
+
+applySkin(document.documentElement.dataset.skin === "wire" ? "wire" : "sentinel");
+
+skinButton.addEventListener("click", () => {
+  const skin = document.documentElement.dataset.skin === "wire" ? "sentinel" : "wire";
+  try { localStorage.setItem("tintwire-skin", skin); } catch {}
+  applySkin(skin);
 });
 
 function typingTarget(target) {

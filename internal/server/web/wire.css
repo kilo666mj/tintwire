@@ -1,0 +1,160 @@
+/* Wire theme.
+ *
+ * An override layer on top of the Sentinel styles, active only while
+ * <html data-skin="wire">. theme.js sets the attribute before first paint.
+ * Every selector is prefixed so the default Sentinel theme is untouched, and
+ * the prefix's extra specificity lets these rules win without !important.
+ *
+ * Wire keeps Sentinel's layout and replaces its decoration: flat navy
+ * surfaces, one teal accent, channel colours carried by each card as a length
+ * of "wire", and characterful type. Fonts are OFL-licensed and served locally
+ * because the CSP only allows same-origin fonts.
+ */
+
+@font-face{font-family:"Bricolage Grotesque";font-style:normal;font-weight:200 800;font-display:swap;src:url("/assets/bricolage-grotesque-latin-wght.woff2") format("woff2")}
+@font-face{font-family:"Figtree";font-style:normal;font-weight:300 900;font-display:swap;src:url("/assets/figtree-latin-wght.woff2") format("woff2")}
+@font-face{font-family:"IBM Plex Mono";font-style:normal;font-weight:400;font-display:swap;src:url("/assets/ibm-plex-mono-latin-400.woff2") format("woff2")}
+@font-face{font-family:"IBM Plex Mono";font-style:normal;font-weight:500;font-display:swap;src:url("/assets/ibm-plex-mono-latin-500.woff2") format("woff2")}
+
+/* Tokens. The Sentinel names are redefined so rules that already use them
+   follow along; --wire-* names are for rules below. */
+:root[data-skin="wire"]{
+  --bg:#070b14;--panel:#0e1522;--panel-hi:#152033;
+  --line:#1c2a3d;--line-hot:#2f425b;
+  --muted:#8a9bb0;--text:#e8f3fb;
+  --accent:#2dd4bf;--cyan:#2dd4bf;--violet:#71a7ff;
+  --danger:#fb7185;--warning:#fbbf24;--good:#34d399;
+  --shadow:0 1px 0 rgba(0,0,0,.35);
+  --wire-sidebar:#050811;--wire-hover:#152033;--wire-faint:#5d6d82;
+  --wire-brand-ink:#04211d;--wire-brand-soft:#0f3437;--wire-blue:#71a7ff;
+  --wire-display:"Bricolage Grotesque",system-ui,sans-serif;
+  --wire-body:"Figtree",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --wire-mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --wire-tint:4%;
+}
+
+/* Surfaces: no gradients, grid overlay or glow. */
+:root[data-skin="wire"],:root[data-skin="wire"] body{background:var(--bg)}
+:root[data-skin="wire"] body{font-family:var(--wire-body);font-size:15px}
+:root[data-skin="wire"] body::before,:root[data-skin="wire"] body::after{content:none}
+:root[data-skin="wire"] code{font-family:var(--wire-mono);background:rgba(232,243,251,.07);border:0;border-radius:4px;color:var(--text)}
+
+/* Sidebar */
+:root[data-skin="wire"] .command-sidebar{background:var(--wire-sidebar);border-right-color:var(--line)}
+:root[data-skin="wire"] .command-mark{background:none;border:0;box-shadow:none}
+:root[data-skin="wire"] .command-signalmark,:root[data-skin="wire"] .command-signalmark::before{filter:none;box-shadow:none}
+:root[data-skin="wire"] .command-signalmark::after{opacity:.25}
+:root[data-skin="wire"] .command-brand strong{font:800 20px/1 var(--wire-display);letter-spacing:-.02em}
+:root[data-skin="wire"] .command-brand strong span{color:inherit}
+:root[data-skin="wire"] .command-brand small{display:none}
+:root[data-skin="wire"] .command-nav-label,:root[data-skin="wire"] .section-label{color:var(--muted);font:700 13px var(--wire-display);letter-spacing:0;text-transform:none}
+:root[data-skin="wire"] .channel-item{color:var(--text);font:500 13px var(--wire-body);border-radius:8px;grid-template-columns:16px minmax(0,1fr) auto}
+:root[data-skin="wire"] .channel-item:hover{background:var(--wire-hover)}
+:root[data-skin="wire"] .channel-item.active{background:var(--panel);box-shadow:0 0 0 1px var(--line);color:var(--text)}
+/* A channel is a short length of coloured wire. */
+:root[data-skin="wire"] .channel-dot{width:16px;height:4px;border-radius:4px;box-shadow:none}
+:root[data-skin="wire"] .channel-dot-idle{filter:none;opacity:.35}
+:root[data-skin="wire"] .channel-unread,:root[data-skin="wire"] .channel-firing{background:none;border-radius:0;padding:0;font:500 11px var(--wire-mono)}
+:root[data-skin="wire"] .channel-unread{color:var(--muted)}
+:root[data-skin="wire"] .channel-firing{color:var(--danger)}
+:root[data-skin="wire"] .channel-count,:root[data-skin="wire"] .channel-loading,:root[data-skin="wire"] .alert-status{color:var(--wire-faint);font-family:var(--wire-mono)}
+:root[data-skin="wire"] .channel-sort-button,:root[data-skin="wire"] .channel-create-button{background:none;border:1px solid var(--line-hot);color:var(--muted);font:600 11px var(--wire-body)}
+:root[data-skin="wire"] .channel-sort-button[aria-pressed="true"]{background:var(--wire-brand-soft);border-color:var(--accent);color:var(--accent)}
+:root[data-skin="wire"] .channel-create-button:hover,:root[data-skin="wire"] .channel-sort-button:hover{box-shadow:none;color:var(--text)}
+:root[data-skin="wire"] .channel-notification-button{font:600 10px var(--wire-body)}
+:root[data-skin="wire"] .command-control{background:none;border-color:transparent;color:var(--muted);font-family:var(--wire-body);font-size:13px;border-radius:8px}
+:root[data-skin="wire"] .command-control:hover{background:var(--wire-hover);border-color:transparent;color:var(--text)}
+:root[data-skin="wire"] .session-identity{font-family:var(--wire-body);font-size:13px}
+:root[data-skin="wire"] .sidebar-resizer:hover::after,:root[data-skin="wire"] .sidebar-resizer:focus-visible::after,:root[data-skin="wire"] body.sidebar-resizing .sidebar-resizer::after{background:var(--line-hot);box-shadow:none}
+
+/* Header. The filter panel's heading ("All notifications" or the channel
+   name) becomes the page title; Sentinel's decorative title is hidden. */
+:root[data-skin="wire"] .command-eyebrow,:root[data-skin="wire"] .command-title{display:none}
+:root[data-skin="wire"] .command-topbar{justify-content:flex-end}
+:root[data-skin="wire"] .live-indicator{background:none;border:0;color:var(--muted);font:500 13px var(--wire-body);letter-spacing:0;text-transform:none;padding:0}
+:root[data-skin="wire"] .live-indicator span{box-shadow:none;width:7px;height:7px}
+:root[data-skin="wire"] .read-button-primary{background:var(--panel);border:1px solid var(--line-hot);border-radius:8px;color:var(--text);font:600 13px var(--wire-body)}
+:root[data-skin="wire"] .read-button-primary:hover{background:var(--wire-hover);box-shadow:none}
+:root[data-skin="wire"] .console-panel{background:none;border:0;box-shadow:none;border-radius:0;padding:0}
+:root[data-skin="wire"] .panel-heading h2{font:800 32px/1.1 var(--wire-display);letter-spacing:-.025em}
+:root[data-skin="wire"] .panel-heading .section-label{display:none}
+:root[data-skin="wire"] .panel-code{color:var(--muted);border-color:var(--line-hot);font:600 11px var(--wire-body);letter-spacing:0}
+@media(min-width:701px){:root[data-skin="wire"] .filter-console>.panel-heading .panel-code{display:none}}
+:root[data-skin="wire"] .inbox-filters input,:root[data-skin="wire"] .inbox-filters select,:root[data-skin="wire"] .command-box input,:root[data-skin="wire"] .row-controls input{background-color:var(--panel);border-color:var(--line-hot);border-radius:8px;font-family:var(--wire-body)}
+:root[data-skin="wire"] .inbox-filters input:focus,:root[data-skin="wire"] .inbox-filters select:focus,:root[data-skin="wire"] .command-box input:focus,:root[data-skin="wire"] .row-controls input:focus{border-color:var(--accent);box-shadow:0 0 0 2px rgba(45,212,191,.25)}
+
+/* Feed. A thin wire runs down the left of the list; each card's left edge
+   is a length of that wire in its channel's colour. */
+:root[data-skin="wire"] .list{position:relative}
+:root[data-skin="wire"] .list:has(>.swipe-shell)::before{content:"";position:absolute;left:1px;top:0;bottom:0;width:2px;border-radius:2px;background:var(--line-hot)}
+:root[data-skin="wire"] .swipe-shell{background:var(--bg);border-radius:4px 10px 10px 4px}
+:root[data-skin="wire"] .card,:root[data-skin="wire"] .swipe-shell>.card{
+  --wire-c:var(--channel-accent,var(--wire-faint));
+  background:color-mix(in srgb,var(--wire-c) var(--wire-tint),var(--panel));
+  border:1px solid var(--line);border-left:4px solid var(--wire-c);
+  border-radius:4px 10px 10px 4px;box-shadow:var(--shadow)}
+:root[data-skin="wire"] .card:hover{border-color:var(--line-hot);border-left-color:var(--wire-c);transform:none}
+:root[data-skin="wire"] .card-unread{border-color:var(--line-hot);border-left-color:var(--wire-c);box-shadow:var(--shadow)}
+:root[data-skin="wire"] .card:not(.card-unread){background:var(--panel)}
+:root[data-skin="wire"] .card-resolved{opacity:1;background:transparent;border-style:dashed;border-left-style:solid;box-shadow:none}
+:root[data-skin="wire"] .card-resolved .native-title{color:var(--muted);text-decoration:line-through;text-decoration-color:rgba(138,155,176,.5)}
+:root[data-skin="wire"] .card-selected{border-color:var(--accent);border-left-color:var(--wire-c);box-shadow:0 0 0 1px var(--accent)}
+:root[data-skin="wire"] .card-deep-linked,:root[data-skin="wire"] .card-target{border-color:var(--wire-blue);border-left-color:var(--wire-c);box-shadow:0 0 0 1px var(--wire-blue)}
+:root[data-skin="wire"] .density-compact .card{border-radius:4px 8px 8px 4px}
+
+:root[data-skin="wire"] .meta{font:500 13px var(--wire-body);letter-spacing:0;color:var(--muted)}
+:root[data-skin="wire"] .meta-channel{color:color-mix(in srgb,var(--wire-c) 70%,var(--text));font-weight:700}
+:root[data-skin="wire"] .meta-time{font:12px var(--wire-mono)}
+:root[data-skin="wire"] .unread-dot{background:var(--accent);box-shadow:none}
+:root[data-skin="wire"] .card-collapse{background:none;border-color:transparent;color:var(--muted)}
+:root[data-skin="wire"] .card-collapse:hover{background:var(--wire-hover);border-color:var(--line-hot);color:var(--text)}
+
+/* Badges: sentence case, no monospace pills. */
+:root[data-skin="wire"] .state-badge,:root[data-skin="wire"] .card-badge{background:none;border:1px solid var(--line-hot);color:var(--muted);font:500 12px/18px var(--wire-body);letter-spacing:0;text-transform:none;padding:0 8px}
+:root[data-skin="wire"] .state-badge::first-letter{text-transform:uppercase}
+:root[data-skin="wire"] .state-firing{border-color:rgba(251,113,133,.45);color:var(--danger)}
+:root[data-skin="wire"] .state-resolved{border-color:rgba(52,211,153,.35);color:var(--good)}
+:root[data-skin="wire"] .severity-badge{display:inline-flex;align-items:center;gap:6px;background:none;border:0;padding:0;color:var(--wire-blue);font:700 13px var(--wire-body);letter-spacing:0;text-transform:capitalize}
+:root[data-skin="wire"] .severity-badge::before{content:"";width:8px;height:8px;border-radius:2px;background:currentColor}
+:root[data-skin="wire"] .severity-critical .severity-badge{background:none;color:var(--danger)}
+:root[data-skin="wire"] .severity-warning .severity-badge{background:none;color:var(--warning)}
+:root[data-skin="wire"] .severity-success .severity-badge{background:none;color:var(--good)}
+:root[data-skin="wire"] .agent-badge{border-color:var(--line-hot)}
+
+/* Card content */
+:root[data-skin="wire"] .native-card,:root[data-skin="wire"] .native-card.severity-critical,:root[data-skin="wire"] .native-card.severity-warning,:root[data-skin="wire"] .native-card.severity-success{background:none;border-left:0;padding-left:0}
+:root[data-skin="wire"] .native-title{font:700 20px/1.25 var(--wire-display);letter-spacing:-.01em;color:var(--text)}
+:root[data-skin="wire"] .native-summary,:root[data-skin="wire"] .formatted-text{color:var(--text)}
+:root[data-skin="wire"] .metric-grid{display:flex;flex-wrap:wrap;gap:8px 32px}
+:root[data-skin="wire"] .metric{display:flex;flex-direction:column-reverse;background:none;border:0;padding:0}
+:root[data-skin="wire"] .metric-value{color:var(--text);font:800 26px/1.15 var(--wire-display);letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+:root[data-skin="wire"] .metric-label,:root[data-skin="wire"] .row-count{color:var(--muted);font:500 12px var(--wire-body)}
+:root[data-skin="wire"] .native-rows,:root[data-skin="wire"] .attachment{background:var(--bg);border-color:var(--line)}
+:root[data-skin="wire"] .row-tag{background:rgba(232,243,251,.06);border:0;color:var(--muted);font:500 12px var(--wire-mono)}
+:root[data-skin="wire"] .native-action,:root[data-skin="wire"] .operation-button,:root[data-skin="wire"] .row-filter,:root[data-skin="wire"] .card-link{background:var(--panel);border:1px solid var(--line-hot);border-radius:8px;color:var(--text);font:600 14px var(--wire-body)}
+:root[data-skin="wire"] .native-action:hover,:root[data-skin="wire"] .operation-button:hover,:root[data-skin="wire"] .row-filter:hover,:root[data-skin="wire"] .card-link:hover{background:var(--wire-hover);border-color:var(--line-hot);color:var(--text)}
+:root[data-skin="wire"] .row-filter.active{background:var(--wire-brand-soft);border-color:var(--accent);color:var(--accent)}
+:root[data-skin="wire"] .native-action:first-child,:root[data-skin="wire"] .operation-button:first-of-type{background:var(--accent);border-color:var(--accent);color:var(--wire-brand-ink)}
+:root[data-skin="wire"] .native-action:first-child:hover,:root[data-skin="wire"] .operation-button:first-of-type:hover{filter:brightness(1.08);color:var(--wire-brand-ink)}
+:root[data-skin="wire"] .incident-state-actions{font:600 13px var(--wire-body)}
+:root[data-skin="wire"] .card-inbox-actions{border-top-color:var(--line)}
+:root[data-skin="wire"] .card-inbox-actions+.card-inbox-actions{border-top:0;margin-top:0;padding-top:2px}
+:root[data-skin="wire"] .card-inbox-button{background:none;border-color:transparent;color:var(--muted);font:500 13px var(--wire-body)}
+:root[data-skin="wire"] .card-inbox-button:hover{background:none;border-color:transparent;color:var(--text);text-decoration:underline}
+
+/* Dialogs, login and toasts: flat panels. */
+:root[data-skin="wire"] .alert-dialog-card,:root[data-skin="wire"] .channel-dialog-card,:root[data-skin="wire"] .automation-card,:root[data-skin="wire"] .login-card{background:var(--panel);border:1px solid var(--line-hot);border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.55);backdrop-filter:none;-webkit-backdrop-filter:none}
+:root[data-skin="wire"] .channel-dialog-heading h2,:root[data-skin="wire"] .alert-dialog-heading h2,:root[data-skin="wire"] .login-card h2{font:800 22px/1.2 var(--wire-display);letter-spacing:-.015em}
+:root[data-skin="wire"] .login-card button{background:var(--accent);border-color:var(--accent);color:var(--wire-brand-ink)}
+:root[data-skin="wire"] .login-card input{background:var(--bg);border-color:var(--line-hot)}
+:root[data-skin="wire"] .inbox-toast{background:var(--panel);border-color:var(--line-hot);box-shadow:0 12px 40px rgba(0,0,0,.5)}
+:root[data-skin="wire"] .inbox-toast button{font:700 13px var(--wire-body);text-transform:none;color:var(--accent)}
+
+@media(max-width:700px){
+  :root[data-skin="wire"] .panel-heading h2{font-size:24px}
+  :root[data-skin="wire"] .native-title{font-size:17px}
+  :root[data-skin="wire"] .metric-value{font-size:21px}
+  :root[data-skin="wire"] .meta{font-size:12px}
+  :root[data-skin="wire"] .console-panel{border:1px solid var(--line);border-radius:10px;background:var(--panel)}
+}
+@media(prefers-reduced-motion:reduce){:root[data-skin="wire"] .card{transition:none}}

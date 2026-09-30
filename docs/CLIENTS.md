@@ -15,6 +15,11 @@ Compact view is a stored preference rather than a viewport rule: it tightens car
 padding and type, and on displays wider than 1500 pixels arranges the feed in two
 columns. Roomy view stays available on the same display.
 
+The theme control under the account settings switches between **Sentinel**, the
+original console look, and **Wire**, a flatter dark theme where each card's left
+edge carries its channel colour. The choice is stored per device, like compact
+view, and is applied before the page first paints.
+
 The Channels header also has a stored **Unread first** preference. It keeps **All
 notifications** pinned at the top, then orders channels by unread count, firing
 count, and their normal order. The same control is available in the mobile

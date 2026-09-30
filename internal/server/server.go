@@ -36,7 +36,7 @@ var webFiles embed.FS
 var webAssetVersion = func() string {
 	digest := sha256.New()
 	_, _ = digest.Write([]byte(pwakit.AssetVersion))
-	for _, name := range []string{"web/emoji.js", "web/markdown.js", "web/app.js", "web/workflows.js", "web/desktop-alerts.js", "web/sentinel.css", "web/sw.js"} {
+	for _, name := range []string{"web/emoji.js", "web/markdown.js", "web/app.js", "web/workflows.js", "web/desktop-alerts.js", "web/theme.js", "web/sentinel.css", "web/wire.css", "web/sw.js"} {
 		data, err := webFiles.ReadFile(name)
 		if err == nil {
 			_, _ = digest.Write(data)
@@ -1835,7 +1835,7 @@ func serveWeb(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	document := string(data)
-	for _, asset := range []string{"/pwa-kit/browser.js", "/manifest.webmanifest", "/assets/sentinel.css", "/assets/emoji.js", "/assets/markdown.js", "/assets/app.js", "/assets/workflows.js", "/assets/desktop-alerts.js"} {
+	for _, asset := range []string{"/pwa-kit/browser.js", "/manifest.webmanifest", "/assets/theme.js", "/assets/sentinel.css", "/assets/wire.css", "/assets/emoji.js", "/assets/markdown.js", "/assets/app.js", "/assets/workflows.js", "/assets/desktop-alerts.js"} {
 		document = strings.ReplaceAll(document, `"`+asset+`"`, `"`+asset+`?v=`+webAssetVersion+`"`)
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -1847,8 +1847,10 @@ func serveAsset(w http.ResponseWriter, r *http.Request) {
 	name := r.PathValue("name")
 	contentTypes := map[string]string{
 		"workflows.js": "text/javascript; charset=utf-8", "desktop-alerts.js": "text/javascript; charset=utf-8", "app.js": "text/javascript; charset=utf-8", "emoji.js": "text/javascript; charset=utf-8", "markdown.js": "text/javascript; charset=utf-8",
-		"sentinel.css": "text/css; charset=utf-8",
-		"icon.svg":     "image/svg+xml", "icon-192.png": "image/png", "icon-512.png": "image/png",
+		"sentinel.css": "text/css; charset=utf-8", "wire.css": "text/css; charset=utf-8", "theme.js": "text/javascript; charset=utf-8",
+		"bricolage-grotesque-latin-wght.woff2": "font/woff2", "figtree-latin-wght.woff2": "font/woff2",
+		"ibm-plex-mono-latin-400.woff2": "font/woff2", "ibm-plex-mono-latin-500.woff2": "font/woff2",
+		"icon.svg": "image/svg+xml", "icon-192.png": "image/png", "icon-512.png": "image/png",
 		"apple-touch-icon.png": "image/png",
 	}
 	contentType, allowed := contentTypes[name]
@@ -1862,7 +1864,12 @@ func serveAsset(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", contentType)
-	w.Header().Set("Cache-Control", "no-cache")
+	if contentType == "font/woff2" {
+		// Font files are never edited in place; a changed font gets a new name.
+		w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+	} else {
+		w.Header().Set("Cache-Control", "no-cache")
+	}
 	_, _ = w.Write(data)
 }
 
