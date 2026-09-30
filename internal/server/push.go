@@ -205,19 +205,43 @@ func (s *Server) secureCookies(r *http.Request) bool {
 func (p *pushService) deliver(notification store.Notification) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	subscriptions, err := p.store.ListPushSubscriptionsForNotification(ctx, notification.ID, !p.authRequired)
+	users, err := p.store.SubscribedUsers(ctx, notification)
 	if err != nil {
-		slog.Error("load push subscriptions", "error", err)
+		slog.Error("load push recipients", "error", err)
 		return
 	}
-	if len(subscriptions) == 0 {
-		return
+	jobs := make(chan store.User)
+	var workers sync.WaitGroup
+	for range min(maxConcurrentPushDeliveries, len(users)) {
+		workers.Add(1)
+		go func() {
+			defer workers.Done()
+			for user := range jobs {
+				p.deliverToUser(ctx, notification, user)
+			}
+		}()
 	}
-	payload, err := json.Marshal(notificationPushPayload(notification))
-	if err != nil {
-		return
+	for _, user := range users {
+		jobs <- user
 	}
-	p.deliverSubscriptions(ctx, payload, notification.State, subscriptions)
+	close(jobs)
+	workers.Wait()
+	if !p.authRequired {
+		subscriptions, err := p.store.ListPushSubscriptionsForNotification(ctx, notification.ID, true)
+		if err != nil {
+			return
+		}
+		payload, err := json.Marshal(notificationPushPayload(notification))
+		if err != nil {
+			return
+		}
+		for _, sub := range subscriptions {
+			if sub.UserID == "" {
+				p.sendRecorded(ctx, payload, notification.State, sub, notification.ID)
+			}
+		}
+	}
+
 }
 
 func (p *pushService) deliverMessage(message store.ChannelMessage) {
@@ -288,20 +312,151 @@ func (p *pushService) deliverSubscriptions(ctx context.Context, payload []byte, 
 	workers.Wait()
 }
 
+func (p *pushService) deliverToUser(ctx context.Context, n store.Notification, user store.User) {
+	reason, err := p.store.DeliveryReason(ctx, user, n, time.Now())
+	if err != nil {
+		return
+	}
+	if reason != "eligible" {
+		p.recordDelivery(ctx, n.ID, user.ID, "", reason, 0)
+		return
+	}
+	subs, err := p.store.UserSubscriptions(ctx, user.ID)
+	if err != nil {
+		return
+	}
+	payload, err := json.Marshal(notificationPushPayload(n))
+	if err != nil {
+		return
+	}
+	for _, sub := range subs {
+		p.sendRecorded(ctx, payload, n.State, sub, n.ID)
+	}
+}
+
+func (p *pushService) recordDelivery(ctx context.Context, id, userID, endpoint, outcome string, attempt int) {
+	if id == "" {
+		return
+	}
+	if err := p.store.RecordDelivery(ctx, id, userID, endpoint, outcome, attempt); err != nil {
+		slog.Warn("record push outcome", "error", err)
+	}
+}
+
 func (p *pushService) send(ctx context.Context, payload []byte, state string, subscription store.PushSubscription) {
+	p.sendRecorded(ctx, payload, state, subscription, "")
+}
+
+func (p *pushService) sendRecorded(ctx context.Context, payload []byte, state string, subscription store.PushSubscription, id string) {
 	urgency := "normal"
 	if state == "firing" {
 		urgency = "high"
 	}
-	result, err := pwakit.Send(ctx, pwakit.Config{PublicKey: p.publicKey, PrivateKey: p.privateKey, Contact: p.contact}, pwakit.Subscription{Endpoint: subscription.Endpoint, Keys: pwakit.Keys{P256dh: subscription.P256DH, Auth: subscription.Auth}}, payload, pwakit.Options{HTTPClient: p.client, TTL: 86400, Urgency: urgency})
-	if result.Expired() {
-		if err := p.store.RemoveUserPushSubscription(ctx, subscription.UserID, subscription.Endpoint); err != nil && !errors.Is(err, store.ErrInvalidCredentials) {
-			slog.Warn("remove expired push subscription", "error", err)
+	for attempt := 1; attempt <= 3; attempt++ {
+		// Recheck current authority and preferences before every attempt.
+		if subscription.UserID != "" {
+
+			active, err := p.store.UserSubscriptions(ctx, subscription.UserID)
+			if err != nil {
+				return
+			}
+			found := false
+			for _, candidate := range active {
+				if candidate.Endpoint == subscription.Endpoint {
+					subscription = candidate
+					found = true
+					break
+				}
+			}
+			if !found {
+				return
+			}
+			user, err := p.store.WorkflowUser(ctx, subscription.UserID)
+			if err != nil {
+				return
+			}
+			prefs, err := p.store.AttentionPreferences(ctx, user.ID)
+			if err != nil {
+				return
+			}
+			if id != "" {
+				values, err := p.store.QueryNotifications(ctx, store.NotificationQuery{ID: id, UserID: user.ID, UserAdmin: user.IsAdmin, ShowDismissed: true})
+				if err != nil || len(values) != 1 {
+					return
+				}
+				reason, err := p.store.DeliveryReason(ctx, user, values[0], time.Now())
+				if err != nil {
+					return
+				}
+				if reason != "eligible" {
+					p.recordDelivery(ctx, id, user.ID, subscription.Endpoint, reason, attempt)
+					return
+				}
+			} else {
+				if prefs.Quiet(time.Now(), false) {
+					return
+				}
+				var envelope pushPayload
+				if err := json.Unmarshal(payload, &envelope); err != nil {
+					return
+				}
+				var allowed []store.PushSubscription
+				var err error
+				switch state {
+				case "message":
+					allowed, err = p.store.ListPushSubscriptionsForChannelMessage(ctx, strings.TrimPrefix(envelope.Tag, "tintwire-"))
+				case "command":
+					allowed, err = p.store.ListPushSubscriptionsForCommandResponse(ctx, strings.TrimPrefix(envelope.Tag, "tintwire-"))
+				default:
+					allowed = active
+				}
+				if err != nil {
+					return
+				}
+				found = false
+				for _, candidate := range allowed {
+					if candidate.Endpoint == subscription.Endpoint && candidate.UserID == user.ID {
+						found = true
+						break
+					}
+				}
+				if !found {
+					return
+				}
+			}
 		}
-		return
-	}
-	if err != nil {
-		slog.Warn("web push delivery failed", "error", err)
+		result, err := pwakit.Send(ctx, pwakit.Config{PublicKey: p.publicKey, PrivateKey: p.privateKey, Contact: p.contact}, pwakit.Subscription{Endpoint: subscription.Endpoint, Keys: pwakit.Keys{P256dh: subscription.P256DH, Auth: subscription.Auth}}, payload, pwakit.Options{HTTPClient: p.client, TTL: 86400, Urgency: urgency})
+		outcome := "provider_accepted"
+		if err != nil {
+			outcome = "provider_rejected"
+			if result.StatusCode == 0 {
+				outcome = "transport_error"
+			}
+		}
+		if result.Expired() {
+			outcome = "subscription_expired"
+		}
+		p.recordDelivery(ctx, id, subscription.UserID, subscription.Endpoint, outcome, attempt)
+		if result.Expired() {
+			if err := p.store.RemoveUserPushSubscription(ctx, subscription.UserID, subscription.Endpoint); err != nil && !errors.Is(err, store.ErrInvalidCredentials) {
+				slog.Warn("remove expired push subscription", "error", err)
+			}
+			return
+		}
+		if err == nil {
+			return
+		}
+		if attempt == 3 || (!result.Retryable() && result.StatusCode != 0) {
+			slog.Warn("web push delivery failed", "error", err)
+			return
+		}
+		timer := time.NewTimer(time.Duration(attempt) * time.Second)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return
+		case <-timer.C:
+		}
 	}
 }
 

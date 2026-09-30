@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-const postgresSchemaVersion = 29
+const postgresSchemaVersion = 30
 
 func init() {
 	sql.Register("tintwire-postgres", newPostgresDriver())
@@ -85,6 +85,13 @@ UPDATE schema_version SET version=28 WHERE singleton=1`); err != nil {
 			return nil, err
 		}
 		version = 29
+	}
+	if version == 29 {
+		if _, err := db.Exec(workflowSchema + incidentSchema + `UPDATE schema_version SET version=30 WHERE singleton=1;`); err != nil {
+			_ = db.Close()
+			return nil, err
+		}
+		version = 30
 	}
 	if version != postgresSchemaVersion {
 		_ = db.Close()

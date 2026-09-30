@@ -51,6 +51,10 @@ jobs:
         env:
           TINTWIRE_TEST_POSTGRES_DSN: postgres://postgres:tintwire-ci@127.0.0.1:5432/tintwire_migrate?sslmode=disable
         run: go test ./internal/store -run '^TestMigrateSQLiteToPostgres$' -count=1
+      - name: Test PostgreSQL workflows
+        env:
+          TINTWIRE_TEST_WORKFLOW_POSTGRES_DSN: postgres://postgres:tintwire-ci@127.0.0.1:5432/postgres?sslmode=disable
+        run: go test ./internal/store -run '^Test(AttentionTimezone|ScheduleClaims|IncidentGrouping|ProducerMonitor|DurableAgentQueue|QueueCancellation)' -count=1
       - name: Race test
         run: go test -race ./...
       - name: Vet

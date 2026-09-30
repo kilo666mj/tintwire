@@ -59,6 +59,7 @@
       <button id="agents-open" class="command-control" type="button" aria-haspopup="dialog" hidden>Agents</button>
       <button id="automation-open" class="command-control" type="button" aria-haspopup="dialog" hidden>Integrations</button>
       <button id="users-open" class="command-control" type="button" aria-haspopup="dialog" hidden>Users</button>
+      <button id="workflow-open" class="command-control" type="button" aria-haspopup="dialog">Notification tools</button>
       <button id="alert-button" class="command-control" type="button" disabled>Enable alerts</button>
       <span id="alert-status" class="alert-status">Checking notification support…</span>
       <button id="density-button" class="command-control" type="button" aria-pressed="false">Compact view</button>
@@ -261,6 +262,17 @@
 <script src="/assets/emoji.js"></script>
 <script src="/assets/markdown.js"></script>
 <script src="/pwa-kit/browser.js"></script>
+<dialog id="workflow-dialog" class="automation-dialog" aria-labelledby="workflow-title">
+ <div class="automation-card">
+  <div class="channel-dialog-heading"><h2 id="workflow-title">Notification tools</h2><button id="workflow-close" class="alert-dialog-close" type="button" aria-label="Close notification tools">×</button></div>
+  <nav class="workflow-tabs" aria-label="Notification tools">
+   <button id="workflow-schedules" type="button">Schedules</button><button id="workflow-incidents" type="button">Incidents</button><button id="workflow-queue" type="button">Agent queue</button><button id="workflow-monitors" type="button">Monitors</button><button id="workflow-playground" type="button">Playground</button>
+  </nav>
+  <p id="workflow-status" role="status" aria-live="polite"></p><div id="workflow-content"></div>
+ </div>
+</dialog>
 <script src="/assets/app.js"></script>
+<script src="/assets/desktop-alerts.js"></script>
+<script src="/assets/workflows.js"></script>
 </body>
 </html>

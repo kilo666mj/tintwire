@@ -1209,6 +1209,7 @@ function notificationCardNode(value) {
   if (value.can_approve) body.append(approvalButtons(value));
   if (value.event_count > 1) body.append(activityHistory(value));
   if (inboxStateEnabled) body.append(inboxButtons(value));
+  if (inboxStateEnabled && window.TintwireWorkflows) body.append(window.TintwireWorkflows.cardButtons(value));
   setCollapsed(collapsedNotificationIDs.has(value.id));
   return mailboxEnabled(inDismissedMode) ? swipeCard(card, value) : card;
 }
@@ -1341,7 +1342,7 @@ async function loadNotifications(append = false, announce = false, pinTimelineTo
     const response = await fetch(`/api/v1/notifications?${parameters}`);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
-    if (desktopShell && !append) {
+    if (desktopShell && !append && !window.TintwireWorkflows) {
       if (announce) announceDesktopAlerts(data.notifications || []);
       else syncDesktopAlertVersions(data.notifications || []);
     }
@@ -2485,9 +2486,13 @@ async function handleChannelMessageEvent(event) {
 function connectEvents() {
   if (events) events.close();
   events = new EventSource("/api/v1/events");
-  events.addEventListener("notification", () => refreshInboxState(true));
+  events.addEventListener("notification", () => {
+    window.TintwireWorkflows?.pollDesktop?.();
+    refreshInboxState(true);
+  });
   events.addEventListener("channel-message", event => {
-    handleChannelMessageEvent(event).catch(() => {});
+    if (window.TintwireWorkflows?.pollDesktop) { window.TintwireWorkflows.pollDesktop(); refreshInboxState(); }
+    else handleChannelMessageEvent(event).catch(() => {});
   });
 }
 
@@ -2725,6 +2730,7 @@ async function initializeSession(desktopAuthExchanged = false) {
     await loadSavedViews();
     await loadNotifications(false);
     connectEvents();
+    window.TintwireWorkflows?.pollDesktop?.();
     // The desktop shell delivers native alerts from its resident window, so the
     // Web Push enrollment path is not offered there.
     if (desktopShell) {

@@ -102,3 +102,12 @@ applies channel visibility and membership checks. Each reader can additionally
 choose all alerts, critical native-card alerts only, or muted delivery for each
 visible channel from the Mobile alerts dialog; the preference applies to all of
 that reader's subscribed devices.
+
+## Notification tools
+
+[Notification workflows](NOTIFICATION_WORKFLOWS.md) documents quiet hours,
+snoozed reminders, daily saved-view digests, incident groups, delivery inspection,
+producer monitors, and the integration playground. Desktop notifications now
+use a separate database-backed cursor feed, so inbox navigation and multi-node
+event-stream placement do not suppress alerts. Use **Notification tools →
+Schedules → Test desktop notification** to check the operating system path.

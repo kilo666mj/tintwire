@@ -36,7 +36,7 @@ var webFiles embed.FS
 var webAssetVersion = func() string {
 	digest := sha256.New()
 	_, _ = digest.Write([]byte(pwakit.AssetVersion))
-	for _, name := range []string{"web/emoji.js", "web/markdown.js", "web/app.js", "web/sentinel.css", "web/sw.js"} {
+	for _, name := range []string{"web/emoji.js", "web/markdown.js", "web/app.js", "web/workflows.js", "web/desktop-alerts.js", "web/sentinel.css", "web/sw.js"} {
 		data, err := webFiles.ReadFile(name)
 		if err == nil {
 			_, _ = digest.Write(data)
@@ -70,6 +70,8 @@ type Server struct {
 }
 
 type Options struct {
+	BackgroundContext context.Context
+
 	ImageProxySources string
 
 	VAPIDContact     string
@@ -116,19 +118,20 @@ type incomingWebhook struct {
 }
 
 type nativeCard struct {
-	Version  int          `json:"version"`
-	Channel  string       `json:"channel,omitempty"`
-	Title    string       `json:"title"`
-	Summary  string       `json:"summary"`
-	Severity string       `json:"severity"`
-	Source   string       `json:"source"`
-	Metrics  []cardMetric `json:"metrics,omitempty"`
-	Fields   []cardField  `json:"fields,omitempty"`
-	Badges   []cardBadge  `json:"badges,omitempty"`
-	Images   []cardImage  `json:"images,omitempty"`
-	Links    []cardLink   `json:"links,omitempty"`
-	Rows     []cardRow    `json:"rows,omitempty"`
-	Actions  []cardAction `json:"actions,omitempty"`
+	IncidentKey string       `json:"incident_key,omitempty"`
+	Version     int          `json:"version"`
+	Channel     string       `json:"channel,omitempty"`
+	Title       string       `json:"title"`
+	Summary     string       `json:"summary"`
+	Severity    string       `json:"severity"`
+	Source      string       `json:"source"`
+	Metrics     []cardMetric `json:"metrics,omitempty"`
+	Fields      []cardField  `json:"fields,omitempty"`
+	Badges      []cardBadge  `json:"badges,omitempty"`
+	Images      []cardImage  `json:"images,omitempty"`
+	Links       []cardLink   `json:"links,omitempty"`
+	Rows        []cardRow    `json:"rows,omitempty"`
+	Actions     []cardAction `json:"actions,omitempty"`
 
 	// State and LifecycleKey let a producer report one incident as a single
 	// card that moves from firing to resolved, as Alertmanager webhooks do.
@@ -283,6 +286,10 @@ func NewWithOptions(data *store.Store, options Options) (http.Handler, error) {
 	}
 	s.oidc = oidcLogin
 	mux := http.NewServeMux()
+	s.workflowRoutes(mux)
+	if options.BackgroundContext != nil && s.consensus == nil {
+		go s.runWorkflows(options.BackgroundContext)
+	}
 	mux.HandleFunc("POST /hooks/{id}", s.receiveWebhook)
 	mux.HandleFunc("POST /api/v1/notifications", s.receiveNativeCard)
 	mux.HandleFunc("POST /api/v1/messages", s.receiveSimpleMessage)
@@ -510,6 +517,9 @@ func (s *Server) receiveNativeCard(w http.ResponseWriter, r *http.Request) {
 }
 
 func validateNativeCard(card nativeCard) error {
+	if len(card.IncidentKey) > 200 {
+		return errors.New("incident_key must be at most 200 bytes")
+	}
 	if card.Version != 1 {
 		return errors.New("version must be 1")
 	}
@@ -1825,7 +1835,7 @@ func serveWeb(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	document := string(data)
-	for _, asset := range []string{"/pwa-kit/browser.js", "/manifest.webmanifest", "/assets/sentinel.css", "/assets/emoji.js", "/assets/markdown.js", "/assets/app.js"} {
+	for _, asset := range []string{"/pwa-kit/browser.js", "/manifest.webmanifest", "/assets/sentinel.css", "/assets/emoji.js", "/assets/markdown.js", "/assets/app.js", "/assets/workflows.js", "/assets/desktop-alerts.js"} {
 		document = strings.ReplaceAll(document, `"`+asset+`"`, `"`+asset+`?v=`+webAssetVersion+`"`)
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -1836,7 +1846,7 @@ func serveWeb(w http.ResponseWriter, r *http.Request) {
 func serveAsset(w http.ResponseWriter, r *http.Request) {
 	name := r.PathValue("name")
 	contentTypes := map[string]string{
-		"app.js": "text/javascript; charset=utf-8", "emoji.js": "text/javascript; charset=utf-8", "markdown.js": "text/javascript; charset=utf-8",
+		"workflows.js": "text/javascript; charset=utf-8", "desktop-alerts.js": "text/javascript; charset=utf-8", "app.js": "text/javascript; charset=utf-8", "emoji.js": "text/javascript; charset=utf-8", "markdown.js": "text/javascript; charset=utf-8",
 		"sentinel.css": "text/css; charset=utf-8",
 		"icon.svg":     "image/svg+xml", "icon-192.png": "image/png", "icon-512.png": "image/png",
 		"apple-touch-icon.png": "image/png",

@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"strings"
 	"sync"
+	"time"
 )
 
 type rpcEnvelope struct {
@@ -86,6 +87,10 @@ func (c *CodexClient) Resume(ctx context.Context, threadID string) error {
 }
 
 func (c *CodexClient) RunTurn(ctx context.Context, threadID, messageID, text string) (string, error) {
+	return c.runTurn(ctx, threadID, messageID, text, nil)
+}
+
+func (c *CodexClient) runTurn(ctx context.Context, threadID, messageID, text string, onStarted func(string) error) (string, error) {
 	if err := c.waitUntilIdle(ctx, threadID); err != nil {
 		return "", err
 	}
@@ -100,17 +105,28 @@ func (c *CodexClient) RunTurn(ctx context.Context, threadID, messageID, text str
 		"clientUserMessageId": "tintwire:" + messageID,
 		"turnTrigger":         "tintwire",
 	}, &started); err != nil {
-		return "", fmt.Errorf("start Codex turn: %w", err)
+		return "", fmt.Errorf("%w: start Codex turn: %v", errTurnUnknown, err)
 	}
 	if started.Turn.ID == "" {
-		return "", errors.New("codex returned no turn id")
+		return "", fmt.Errorf("%w: codex returned no turn id", errTurnUnknown)
+	}
+	if onStarted != nil {
+		if err := onStarted(started.Turn.ID); err != nil {
+			interruptCtx, stop := context.WithTimeout(context.Background(), 5*time.Second)
+			defer stop()
+			_ = c.interrupt(interruptCtx, threadID, started.Turn.ID)
+			return "", fmt.Errorf("%w: record runtime turn: %v", errTurnUnknown, err)
+		}
 	}
 	for {
 		select {
 		case <-ctx.Done():
+			interruptCtx, stop := context.WithTimeout(context.Background(), 5*time.Second)
+			_ = c.interrupt(interruptCtx, threadID, started.Turn.ID)
+			stop()
 			return "", ctx.Err()
 		case <-c.done:
-			return "", c.readerError()
+			return "", fmt.Errorf("%w: %v", errTurnUnknown, c.readerError())
 		case event := <-c.events:
 			if event.Method != "turn/completed" {
 				continue
@@ -209,6 +225,9 @@ func completedReply(params json.RawMessage, threadID, turnID string) (string, bo
 }
 
 func (c *CodexClient) call(ctx context.Context, method string, params any, target any) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	c.mu.Lock()
 	c.nextID++
 	id := c.nextID

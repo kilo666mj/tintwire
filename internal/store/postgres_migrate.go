@@ -21,6 +21,7 @@ var migrationTables = []string{
 	"agent_tool_invocations", "channel_notification_preferences", "replication_operations",
 	"replication_cursors", "replication_quarantine", "replication_peer_status",
 	"replication_snapshot_status", "agent_presence",
+	"attention_alerts", "attention_preferences", "notification_snoozes", "workflow_schedules", "delivery_events", "digest_history", "producer_monitors", "agent_bindings", "agent_commands", "notification_incidents",
 }
 
 // MigrateSQLiteToPostgres copies a complete SQLite store into a new PostgreSQL

@@ -89,3 +89,19 @@ button,input,select,a,.card{transition:color .18s ease,border-color .18s ease,ba
   .agent-directory-item { grid-template-columns: minmax(0, 1fr); }
   .agent-directory-item button { width: auto; justify-self: start; }
 }
+
+/* Notification tools reuse the console's dialog and surface tokens. */
+.workflow-tabs { display:flex; flex-wrap:wrap; gap:8px; margin:16px 0; }
+.workflow-tabs button, .workflow-section button { padding:8px 12px; cursor:pointer; }
+.workflow-section { border:1px solid rgba(120,160,190,.22); border-radius:10px; padding:16px; margin:12px 0; overflow-wrap:anywhere; }
+.workflow-section h3 { margin:0 0 10px; }
+.workflow-field { display:flex; flex-direction:column; gap:6px; margin:12px 0; font-size:13px; }
+.workflow-field input, .workflow-field select, .workflow-payload { color:inherit; background:#111a27; border:1px solid #415169; border-radius:6px; padding:9px; max-width:100%; box-sizing:border-box; }
+.workflow-field input[type=checkbox] { align-self:flex-start; }
+.workflow-payload { width:100%; font-family:monospace; resize:vertical; }
+.workflow-section button { margin:4px; }
+.workflow-row { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:10px 0; }
+.workflow-preview { margin-top:16px; }
+.workflow-incident-card { border-top:1px solid #415169; margin-top:12px; padding-top:12px; }
+#workflow-status { color:#80d6df; overflow-wrap:anywhere; }
+@media(max-width:700px) { .workflow-row { align-items:stretch; flex-direction:column; } .workflow-section { padding:12px; } }

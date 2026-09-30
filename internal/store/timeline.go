@@ -231,14 +231,26 @@ func (s *Store) createChannelMessage(ctx context.Context, actor User, input Crea
 			rootID = parent.ID
 		}
 	}
-	_, err = s.db.ExecContext(ctx, `
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return ChannelMessage{}, err
+	}
+	defer func() { _ = tx.Rollback() }()
+	_, err = tx.ExecContext(ctx, `
 INSERT INTO channel_messages(id, channel_id, author_user_id, parent_id, root_id, text, idempotency_key, created_at, updated_at)
 VALUES (?, ?, ?, NULLIF(?, ''), ?, ?, ?, ?, ?)`,
 		id, input.ChannelID, actor.ID, input.ParentID, rootID, text, input.IdempotencyKey, now.UnixMilli(), now.UnixMilli())
 	if err != nil {
 		if input.IdempotencyKey != "" && IsAlreadyExists(err) {
+			_ = tx.Rollback()
 			return s.messageByIdempotencyKey(ctx, actor.ID, input.ChannelID, input.IdempotencyKey)
 		}
+		return ChannelMessage{}, err
+	}
+	if err := enqueueCommand(ctx, tx, id); err != nil {
+		return ChannelMessage{}, err
+	}
+	if err := tx.Commit(); err != nil {
 		return ChannelMessage{}, err
 	}
 	return s.messageByID(ctx, id)

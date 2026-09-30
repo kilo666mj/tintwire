@@ -117,7 +117,9 @@ func run() error {
 	if consensus != nil {
 		serverConsensus = consensus
 	}
-	handler, err := server.NewWithOptions(db, server.Options{ImageProxySources: *imageProxySources, VAPIDContact: *vapidContact, AuthRequired: authRequired, ActionKey: *actionKey, PublicURL: *publicURL, OAuthIssuer: *oauthIssuer, OAuthResource: *oauthResource, OAuthScope: *oauthScope, SwitchboardOAuthSubject: *switchboardOAuthSubject, OIDCClientID: *oidcClientID, OIDCRedirectURL: *oidcRedirectURL, Consensus: serverConsensus, ControlProxyPort: *controlProxyPort})
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	handler, err := server.NewWithOptions(db, server.Options{BackgroundContext: ctx, ImageProxySources: *imageProxySources, VAPIDContact: *vapidContact, AuthRequired: authRequired, ActionKey: *actionKey, PublicURL: *publicURL, OAuthIssuer: *oauthIssuer, OAuthResource: *oauthResource, OAuthScope: *oauthScope, SwitchboardOAuthSubject: *switchboardOAuthSubject, OIDCClientID: *oidcClientID, OIDCRedirectURL: *oidcRedirectURL, Consensus: serverConsensus, ControlProxyPort: *controlProxyPort})
 	if err != nil {
 		return fmt.Errorf("initialize HTTP server: %w", err)
 	}
@@ -140,8 +142,6 @@ func run() error {
 		IdleTimeout:  60 * time.Second,
 	}
 
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
 	var replicationServer *http.Server
 	if *replicationListen != "" || *replicationCert != "" || *replicationKey != "" || *replicationCA != "" || *replicationPeers != "" {
 		if *replicationListen == "" || *replicationCert == "" || *replicationKey == "" || *replicationCA == "" {

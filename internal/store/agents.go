@@ -549,6 +549,12 @@ INSERT INTO notifications(
 	if err := insertNotificationEvent(ctx, tx, id, input.State, input.RawPayload, now); err != nil {
 		return Notification{}, err
 	}
+	if err := saveIncidentKey(ctx, tx, id, input); err != nil {
+		return Notification{}, err
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE producer_monitors SET last_seen=? WHERE channel_id=? AND source=?`, now.UnixMilli(), channelID, username); err != nil {
+		return Notification{}, err
+	}
 	if err := tx.Commit(); err != nil {
 		return Notification{}, err
 	}

@@ -15,6 +15,7 @@ import (
 )
 
 type Config struct {
+	DurableQueue   bool
 	Channel        string
 	ThreadID       string
 	StatePath      string
@@ -71,6 +72,9 @@ func (b *Bridge) Run(ctx context.Context) error {
 	}
 	stopPresence := b.startPresence(ctx)
 	defer stopPresence()
+	if b.Config.DurableQueue {
+		return b.runQueue(ctx)
+	}
 	state.Channel = b.Config.Channel
 	state.ThreadID = b.Config.ThreadID
 	if state.Pending != nil {

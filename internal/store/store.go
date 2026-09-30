@@ -1081,6 +1081,11 @@ PRAGMA user_version = 28;
 			return err
 		}
 	}
+	if version < 30 {
+		if _, err := db.Exec(workflowSchema + incidentSchema + `PRAGMA user_version = 30;`); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -2222,6 +2227,12 @@ WHERE id = ?`, channelID, input.Text, username, input.IconURL, []byte(input.Atta
 			}, now); err != nil {
 				return Notification{}, err
 			}
+			if _, err := tx.ExecContext(ctx, `UPDATE producer_monitors SET last_seen=? WHERE channel_id=? AND source=?`, now.UnixMilli(), channelID, username); err != nil {
+				return Notification{}, err
+			}
+			if err := saveIncidentKey(ctx, tx, existingID, input); err != nil {
+				return Notification{}, err
+			}
 			if err := tx.Commit(); err != nil {
 				return Notification{}, err
 			}
@@ -2268,6 +2279,12 @@ INSERT INTO notifications(
 		"external_key": input.ExternalKey, "channel_name": channelName,
 		"created_at": now.UnixMilli(), "updated_at": now.UnixMilli(),
 	}, now); err != nil {
+		return Notification{}, err
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE producer_monitors SET last_seen=? WHERE channel_id=? AND source=?`, now.UnixMilli(), channelID, username); err != nil {
+		return Notification{}, err
+	}
+	if err := saveIncidentKey(ctx, tx, id, input); err != nil {
 		return Notification{}, err
 	}
 	if err := tx.Commit(); err != nil {

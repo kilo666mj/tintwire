@@ -29,6 +29,7 @@ func run() error {
 	codexBinary := flag.String("codex", "codex", "Codex CLI binary")
 	poll := flag.Duration("poll", 2*time.Second, "Tintwire polling interval")
 	replayExisting := flag.Bool("replay-existing", false, "send the newest existing messages on first startup")
+	durableQueue := flag.Bool("durable-queue", true, "use the server queue; requires an administrator-created channel binding")
 	once := flag.Bool("once", false, "poll once and exit")
 	flag.Parse()
 
@@ -50,6 +51,6 @@ func run() error {
 	slog.Info("starting Tintwire Codex bridge", "channel", *channel, "thread", *threadID)
 	return (&agentbridge.Bridge{Tintwire: tintwire, Codex: codex, Config: agentbridge.Config{
 		Channel: *channel, ThreadID: *threadID, StatePath: *statePath, PollInterval: *poll,
-		ReplayExisting: *replayExisting, Once: *once,
+		ReplayExisting: *replayExisting, Once: *once, DurableQueue: *durableQueue,
 	}}).Run(ctx)
 }

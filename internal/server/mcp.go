@@ -374,7 +374,7 @@ func mcpTools(agent store.Agent) []mcpTool {
 			Annotations: map[string]any{"readOnlyHint": false},
 		})
 	}
-	return tools
+	return append(tools, queueTools()...)
 }
 
 type toolCallParams struct {
@@ -415,6 +415,8 @@ func (s *Server) mcpToolCall(r *http.Request, agent store.Agent, rawParams json.
 	user := store.User{ID: agent.UserID, Username: agent.Username, IsAdmin: agent.IsAdmin}
 
 	switch params.Name {
+	case "commands.pending.v1", "commands.claim.v1", "commands.renew.v1", "commands.complete.v1":
+		return s.queueTool(r, agent, params.Name, arguments)
 	case "channels.list.v1":
 		channels, err := s.store.ListChannels(r.Context(), user)
 		if err != nil {

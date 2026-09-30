@@ -84,6 +84,7 @@ boundary; production authentication also requires the exact browser origin in
 - [Agents and MCP](docs/AGENTS_AND_MCP.md)
 - [Agent conversations and remote control](docs/AGENT_CONVERSATIONS.md)
 - [Client behavior](docs/CLIENTS.md)
+- [Notification workflows](docs/NOTIFICATION_WORKFLOWS.md)
 - [Client validation checklist](docs/CLIENT_VALIDATION.md)
 - [Desktop release policy](docs/DESKTOP_RELEASES.md)
 - [Mattermost channel parity](docs/MATTERMOST_CHANNEL_PARITY.md)
@@ -98,7 +99,10 @@ card reference lives in `docs/mockups`.
 Tintwire includes channels and scoped publishing tokens, structured cards,
 history, search, filters, unread state, realtime delivery, Web Push, Mattermost
 and Slack compatibility, bot and command bridges, notification lifecycle,
-authenticated actions, agents, MCP, and a Tauri desktop client.
+authenticated actions, agents, MCP, and a Tauri desktop client. Notification
+workflows add snoozing, quiet hours, saved-view digests, incident groups,
+delivery history, producer deadline monitors, an integration playground, and
+durable agent command queues.
 
 Deployment topology, ingress, backups, and database failover are intentionally
 left to the operator.

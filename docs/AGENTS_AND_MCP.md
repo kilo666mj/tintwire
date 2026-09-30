@@ -147,3 +147,10 @@ For interactive browser sign-in, create a separate public PKCE client with
 interactive relying-party flow is provided by `go.michaelspost.com/oidcrp`;
 Tintwire continues to own local account provisioning, replicated desktop
 approval state, and application sessions.
+
+## Durable inbound commands
+
+See [Agent conversations](AGENT_CONVERSATIONS.md#durable-queue-schema-30) for
+channel bindings, `commands.pending.v1`, `commands.claim.v1`, `commands.renew.v1`, and
+`commands.complete.v1`, lease ownership, cancellation, and runtime reconciliation.
+The bridge uses durable queues by default; establish a binding before upgrading it.
