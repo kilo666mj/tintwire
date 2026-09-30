@@ -2265,7 +2265,7 @@ func TestEmbeddedWebAssets(t *testing.T) {
 	defer func() { _ = db.Close() }()
 	handler := server.New(db)
 
-	for _, path := range []string{"/", "/assets/emoji.js", "/assets/markdown.js", "/assets/app.js", "/assets/icon.svg", "/assets/icon-192.png", "/assets/icon-512.png", "/assets/apple-touch-icon.png", "/manifest.webmanifest", "/sw.js"} {
+	for _, path := range []string{"/", "/assets/emoji.js", "/assets/markdown.js", "/assets/app.js", "/assets/icon.svg", "/assets/icon-192.png", "/assets/icon-512.png", "/assets/apple-touch-icon.png", "/assets/theme.js", "/assets/wire.css", "/assets/figtree-latin-wght.woff2", "/manifest.webmanifest", "/sw.js"} {
 		t.Run(path, func(t *testing.T) {
 			request := httptest.NewRequest(http.MethodGet, path, nil)
 			recorder := httptest.NewRecorder()
@@ -2277,6 +2277,9 @@ func TestEmbeddedWebAssets(t *testing.T) {
 			}
 			if path == "/manifest.webmanifest" && response.Header.Get("Content-Type") != "application/manifest+json" {
 				t.Fatalf("manifest content type = %q", response.Header.Get("Content-Type"))
+			}
+			if path == "/assets/figtree-latin-wght.woff2" && (response.Header.Get("Content-Type") != "font/woff2" || !strings.Contains(response.Header.Get("Cache-Control"), "immutable")) {
+				t.Fatalf("font content type = %q, cache control = %q", response.Header.Get("Content-Type"), response.Header.Get("Cache-Control"))
 			}
 			if path == "/" && response.Header.Get("Cache-Control") != "no-cache" {
 				t.Fatalf("inbox cache control = %q", response.Header.Get("Cache-Control"))
@@ -2335,7 +2338,7 @@ func TestEmbeddedWebAssets(t *testing.T) {
 					!strings.Contains(string(body), `.channel-timeline-view .list{align-content:safe end;flex:1 1 auto;`) {
 					t.Fatal("desktop channel timeline must fit its header, list, and composer within the viewport")
 				}
-				for _, asset := range []string{"/manifest.webmanifest", "/assets/sentinel.css", "/assets/emoji.js", "/assets/markdown.js", "/assets/app.js"} {
+				for _, asset := range []string{"/manifest.webmanifest", "/assets/theme.js", "/assets/sentinel.css", "/assets/wire.css", "/assets/emoji.js", "/assets/markdown.js", "/assets/app.js"} {
 					if !strings.Contains(string(body), asset+"?v=") {
 						t.Fatalf("inbox HTML does not fingerprint %s", asset)
 					}
