@@ -65,6 +65,9 @@ Tool names are versioned: `agents.heartbeat.v1`, `channels.list.v1`, `messages.l
 `notifications.set_state.v1`, `notifications.invoke_action.v1`,
 `runs.start.v1`, `runs.record.v1`, `runs.finish.v1`, and, for
 installation-administrator agents only, `channels.create.v1`.
+`notifications.search.v1` returns `has_more` and `next_cursor`; pass the latter
+as `before` with the same filters to read the next page. Pages use descending
+creation time and ID, so repeated lifecycle updates do not reorder the feed.
 `messages.list.v1` is a chronological, cursor-based feed of human-authored
 messages only; it excludes every agent principal and generated timeline entry
 to prevent relay feedback loops. `messages.publish.v1` creates an attributed

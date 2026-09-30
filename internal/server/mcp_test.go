@@ -180,6 +180,46 @@ func TestMCPRequiresAgentCredential(t *testing.T) {
 	}
 }
 
+func TestMCPNotificationSearchPagination(t *testing.T) {
+	_, _, client, _ := mcpFixture(t, true)
+	for _, key := range []string{"page-test-one", "page-test-two", "page-test-three"} {
+		result := client.tool("notifications.publish.v1", `{"channel":"operations","state":"firing","text":"alert","idempotency_key":"`+key+`"}`)
+		if result.IsError {
+			t.Fatal(result.text())
+		}
+	}
+	seen := map[string]bool{}
+	cursor := ""
+	for page := 0; page < 3; page++ {
+		args, err := json.Marshal(map[string]any{"channel": "operations", "state": "firing", "limit": 1, "before": cursor})
+		if err != nil {
+			t.Fatal(err)
+		}
+		result := client.tool("notifications.search.v1", string(args))
+		var value struct {
+			Notifications []struct{ ID string } `json:"notifications"`
+			HasMore       bool                  `json:"has_more"`
+			NextCursor    string                `json:"next_cursor"`
+		}
+		if result.IsError || json.Unmarshal(result.StructuredContent, &value) != nil || len(value.Notifications) != 1 {
+			t.Fatalf("page %d: %s", page, result.text())
+		}
+		id := value.Notifications[0].ID
+		if seen[id] || value.HasMore != (page < 2) || (value.NextCursor != "") != value.HasMore {
+			t.Fatalf("unexpected page %d: %+v", page, value)
+		}
+		seen[id] = true
+		cursor = value.NextCursor
+	}
+	if result := client.tool("notifications.search.v1", `{"before":"not-a-cursor"}`); !result.IsError {
+		t.Fatal("invalid cursor accepted")
+	}
+	result := client.tool("notifications.search.v1", `{"state":"resolved","limit":1}`)
+	if result.IsError || !strings.Contains(result.text(), `"notifications":[]`) {
+		t.Fatalf("state filter ignored: %s", result.text())
+	}
+}
+
 func TestMCPInvokesRegisteredActionThroughSharedPath(t *testing.T) {
 	var calls atomic.Int32
 	callback := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
