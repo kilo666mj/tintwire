@@ -2739,6 +2739,7 @@ async function initializeSession(desktopAuthExchanged = false) {
     }
     inboxStateEnabled = Boolean(session.authenticated);
     isAdmin = Boolean(session.is_admin);
+    if (currentUserID !== (session.user_id || "") || !session.authenticated) nativeActionDrafts.clear();
     currentUserID = session.user_id || "";
     sessionIdentity.textContent = session.username || "";
     sessionIdentity.hidden = !session.authenticated || !session.username;
