@@ -253,6 +253,7 @@ func mcpTools(agent store.Agent) []mcpTool {
 "channel":{"type":"string","maxLength":64},
 "state":{"type":"string","enum":["received","firing","acknowledged","resolved"]},
 "severity":{"type":"string","enum":["info","warning","critical","success"]},
+"before":{"type":"string","maxLength":256},
 "limit":{"type":"integer","minimum":1,"maximum":50}},"additionalProperties":false}`),
 			Annotations: map[string]any{"readOnlyHint": true},
 		},
@@ -431,6 +432,7 @@ func (s *Server) mcpToolCall(r *http.Request, agent store.Agent, rawParams json.
 			Channel  string `json:"channel"`
 			State    string `json:"state"`
 			Severity string `json:"severity"`
+			Before   string `json:"before"`
 			Limit    int    `json:"limit"`
 		}
 		if err := decodeToolArguments(arguments, &input); err != nil {
@@ -439,15 +441,32 @@ func (s *Server) mcpToolCall(r *http.Request, agent store.Agent, rawParams json.
 		if input.Limit <= 0 || input.Limit > 50 {
 			input.Limit = 20
 		}
-		notifications, err := s.store.QueryNotifications(r.Context(), store.NotificationQuery{
+		query := store.NotificationQuery{
 			Search: input.Query, Channel: input.Channel, State: input.State, Severity: input.Severity,
-			Limit: input.Limit, UserID: user.ID, UserAdmin: user.IsAdmin,
-		})
+			Limit: input.Limit + 1, UserID: user.ID, UserAdmin: user.IsAdmin,
+		}
+		if input.Before != "" {
+			var ok bool
+			query.BeforeAt, query.BeforeID, ok = decodeNotificationCursor(input.Before)
+			if !ok {
+				return toolFailure("The notification cursor is invalid."), nil
+			}
+		}
+		notifications, err := s.store.QueryNotifications(r.Context(), query)
 		if err != nil {
 			slog.Error("mcp search notifications", "error", err)
 			return toolFailure("Unable to search notifications."), nil
 		}
-		return toolSuccess(map[string]any{"notifications": summarizeNotifications(notifications)}), nil
+		hasMore := len(notifications) > input.Limit
+		if hasMore {
+			notifications = notifications[:input.Limit]
+		}
+		next := ""
+		if hasMore {
+			last := notifications[len(notifications)-1]
+			next = encodeNotificationCursor(last.CreatedAt.UnixMilli(), last.ID)
+		}
+		return toolSuccess(map[string]any{"notifications": summarizeNotifications(notifications), "has_more": hasMore, "next_cursor": next}), nil
 
 	case "notifications.get.v1":
 		var input struct {
