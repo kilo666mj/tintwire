@@ -48,16 +48,21 @@
 :root[data-skin="wire"] .command-brand strong span{color:inherit}
 :root[data-skin="wire"] .command-brand small{display:none}
 :root[data-skin="wire"] .command-nav-label,:root[data-skin="wire"] .section-label{color:var(--muted);font:700 13px var(--wire-display);letter-spacing:0;text-transform:none}
-:root[data-skin="wire"] .channel-item{color:var(--text);font:500 13px var(--wire-body);border-radius:8px;grid-template-columns:16px minmax(0,1fr) auto}
-:root[data-skin="wire"] .channel-item:hover{background:var(--wire-hover)}
+:root[data-skin="wire"] .channel-item{color:var(--muted);font:500 13px var(--wire-body);border-radius:8px}
+/* Unread rows stand out: bright bold name and a teal count. Read rows recede. */
+:root[data-skin="wire"] .channel-item:has(.channel-unread){color:var(--text);font-weight:700}
+/* Only channel rows carry a wire; saved views keep Sentinel's two columns. */
+:root[data-skin="wire"] .channel-item:has(>.channel-dot){grid-template-columns:16px minmax(0,1fr) auto}
+:root[data-skin="wire"] .channel-item:hover{background:var(--wire-hover);color:var(--text)}
 :root[data-skin="wire"] .channel-item.active{background:var(--panel);box-shadow:0 0 0 1px var(--line);color:var(--text)}
 /* A channel is a short length of coloured wire. */
 :root[data-skin="wire"] .channel-dot{width:16px;height:4px;border-radius:4px;box-shadow:none}
 :root[data-skin="wire"] .channel-dot-idle{filter:none;opacity:.35}
-:root[data-skin="wire"] .channel-unread,:root[data-skin="wire"] .channel-firing{background:none;border-radius:0;padding:0;font:500 11px var(--wire-mono)}
-:root[data-skin="wire"] .channel-unread{color:var(--muted)}
+:root[data-skin="wire"] .channel-unread,:root[data-skin="wire"] .channel-firing{background:none;border-radius:0;padding:0;font:600 11px var(--wire-body);font-variant-numeric:tabular-nums;white-space:nowrap}
+:root[data-skin="wire"] .channel-unread{color:var(--accent);font-weight:700}
 :root[data-skin="wire"] .channel-firing{color:var(--danger)}
-:root[data-skin="wire"] .channel-count,:root[data-skin="wire"] .channel-loading,:root[data-skin="wire"] .alert-status{color:var(--wire-faint);font-family:var(--wire-mono)}
+:root[data-skin="wire"] .channel-count{color:var(--wire-faint);font:600 11px var(--wire-body);font-variant-numeric:tabular-nums;white-space:nowrap}
+:root[data-skin="wire"] .channel-loading,:root[data-skin="wire"] .alert-status{color:var(--wire-faint);font-family:var(--wire-mono)}
 :root[data-skin="wire"] .channel-sort-button,:root[data-skin="wire"] .channel-create-button{background:none;border:1px solid var(--line-hot);color:var(--muted);font:600 11px var(--wire-body)}
 :root[data-skin="wire"] .channel-sort-button[aria-pressed="true"]{background:var(--wire-brand-soft);border-color:var(--accent);color:var(--accent)}
 :root[data-skin="wire"] .channel-create-button:hover,:root[data-skin="wire"] .channel-sort-button:hover{box-shadow:none;color:var(--text)}
