@@ -669,6 +669,8 @@ function attachmentCard(value, notification, attachmentIndex) {
   return card;
 }
 
+const nativeActionDrafts = new Map();
+
 function nativeCard(value, notification) {
   const card = element("section", `native-card severity-${value.severity || "info"}`);
   const heading = element("div", "native-heading");
@@ -787,14 +789,52 @@ function nativeCard(value, notification) {
     const actions = element("div", "native-actions");
     value.actions.forEach((action, index) => {
       if (action.type === "http" && notification.can_operate) {
+        const group = element("div", "native-action-group");
+        const draftKey = `${notification.id}:${action.id || index}`;
+        let answer = null;
+        if (action.input) {
+          const label = element("label", "native-action-input", action.input.label);
+          answer = element("textarea", "native-action-answer");
+          answer.rows = 3; answer.maxLength = 2000;
+          answer.value = nativeActionDrafts.get(draftKey) || "";
+          answer.addEventListener("input", () => nativeActionDrafts.set(draftKey, answer.value));
+          answer.placeholder = action.input.placeholder || "";
+          answer.required = !!action.input.required;
+          label.append(answer); group.append(label);
+        }
         const button = element("button", "native-action", action.label); button.type="button";
+        const feedback = element("div", "action-feedback"); feedback.setAttribute("role", "status");
+        let operationKey = "", submittedBody = "";
         button.addEventListener("click", async () => {
+          if (answer && ((answer.required && !answer.value.trim()) || new TextEncoder().encode(answer.value).length > 2000)) {
+            feedback.textContent = "Enter an answer of up to 2000 bytes."; answer.focus(); return;
+          }
           button.disabled=true;
-          const operationKey = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-          const response = await fetch(`/api/v1/notifications/${encodeURIComponent(notification.id)}/actions/${index}`, {method:"POST",headers:{"Idempotency-Key":operationKey}});
-          if (response.ok) loadNotifications(false); else button.disabled=false;
+          const body = JSON.stringify({action_id:action.id || "", input:answer?.value || ""});
+          if (body !== submittedBody || !operationKey) {
+            operationKey = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+            submittedBody = body;
+          }
+          feedback.textContent = "Sending…";
+          try {
+            const response = await fetch(`/api/v1/notifications/${encodeURIComponent(notification.id)}/actions/${index}`, {method:"POST",headers:{"Idempotency-Key":operationKey,"Content-Type":"application/json"},body});
+            if (!response.ok) throw new Error(await response.text() || "Action could not be sent.");
+            const result = await response.json();
+            if (result.status !== "succeeded") {
+              // An explicit failure is a completed request. A new click may retry;
+              // an ambiguous network failure must keep the same idempotency key.
+              operationKey = "";
+              throw new Error(result.response || "Action failed. Please retry.");
+            }
+            feedback.textContent = result.response || "Sent.";
+            if (answer) { answer.value = ""; nativeActionDrafts.delete(draftKey); }
+            loadNotifications(false);
+          } catch (error) {
+            feedback.textContent = error.message || "Unable to reach Tintwire. Please retry.";
+            button.disabled=false;
+          }
         });
-        actions.append(button);
+        group.append(button, feedback); actions.append(group);
       } else if (action.type === "link") {
         const link = element("a", "native-action", action.label); link.href=action.url; link.target="_blank"; link.rel="noopener noreferrer"; actions.append(link);
       }
@@ -2699,6 +2739,7 @@ async function initializeSession(desktopAuthExchanged = false) {
     }
     inboxStateEnabled = Boolean(session.authenticated);
     isAdmin = Boolean(session.is_admin);
+    if (currentUserID !== (session.user_id || "") || !session.authenticated) nativeActionDrafts.clear();
     currentUserID = session.user_id || "";
     sessionIdentity.textContent = session.username || "";
     sessionIdentity.hidden = !session.authenticated || !session.username;

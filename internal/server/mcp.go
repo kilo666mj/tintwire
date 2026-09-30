@@ -328,6 +328,8 @@ func mcpTools(agent store.Agent) []mcpTool {
 			InputSchema: json.RawMessage(`{"type":"object","properties":{
 "id":{"type":"string","maxLength":80},
 "action_index":{"type":"integer","minimum":0,"maximum":7},
+"action_id":{"type":"string","maxLength":128},
+"input":{"type":"string","maxLength":2000},
 "run_id":{"type":"string","maxLength":80},
 "idempotency_key":{"type":"string","minLength":8,"maxLength":128}},
 "required":["id","action_index","idempotency_key"],"additionalProperties":false}`),
@@ -648,6 +650,8 @@ func (s *Server) mcpToolCall(r *http.Request, agent store.Agent, rawParams json.
 		var input struct {
 			ID             string `json:"id"`
 			ActionIndex    int    `json:"action_index"`
+			ActionID       string `json:"action_id"`
+			Input          string `json:"input"`
 			RunID          string `json:"run_id"`
 			IdempotencyKey string `json:"idempotency_key"`
 		}
@@ -655,7 +659,8 @@ func (s *Server) mcpToolCall(r *http.Request, agent store.Agent, rawParams json.
 			return toolFailure("A valid notification id and action_index from 0 to 7 are required."), nil
 		}
 		return s.mcpMutate(r, agent, params.Name, input.IdempotencyKey, arguments, func() (any, string, error) {
-			request := httptest.NewRequest(http.MethodPost, "/internal/action", nil).WithContext(context.WithValue(r.Context(), userContextKey{}, user))
+			body, _ := json.Marshal(map[string]string{"action_id": input.ActionID, "input": input.Input})
+			request := httptest.NewRequest(http.MethodPost, "/internal/action", strings.NewReader(string(body))).WithContext(context.WithValue(r.Context(), userContextKey{}, user))
 			request.SetPathValue("id", input.ID)
 			request.SetPathValue("index", strconv.Itoa(input.ActionIndex))
 			request.Header.Set("Idempotency-Key", input.IdempotencyKey)

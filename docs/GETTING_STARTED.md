@@ -202,6 +202,22 @@ and records an immutable success or failure event. Clients must send a unique
 `Idempotency-Key` when invoking
 `POST /api/v1/notifications/{id}/actions/{index}`.
 
+An HTTP action may include an `id` (8–128 URL-safe characters) and a text input:
+
+```json
+{"id":"question-2026-01","type":"http","label":"Send answer","target":"incident-controller","input":{"label":"Which service should be checked?","required":true},"context":{"incident":"example"}}
+```
+
+Send `{"action_id":"question-2026-01","input":"example-service"}` as the action
+request body. Inputs are limited to 2000 UTF-8 bytes; `input.label` and optional
+`input.placeholder` are each limited to 300 bytes. Text inputs require an action
+ID. Rotate the ID when a question or authorization scope changes: a stale browser
+submission receives HTTP 409 before callback dispatch. Legacy actions without an
+ID still accept an empty body. Callback payloads include `action_id` and `input`
+separately from the encrypted stored `context` and server-authenticated `actor`.
+The browser preserves an unsent answer while its card refreshes. A successful
+submission clears that draft; a failed request keeps it available for retry.
+
 Existing Mattermost hook credentials can be planned and imported through
 `POST /api/v1/admin/import/webhooks`. The strict JSON request contains
 `dry_run` and a `webhooks` array of `{id, channel, channel_locked}` mappings.

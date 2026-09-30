@@ -101,7 +101,11 @@ descriptions and client annotations are never treated as a security boundary.
 
 MCP action invocation uses the same registered-target lookup, channel-operator
 authorization, encrypted context, SSRF protection, and durable idempotency path
-as the web client. RFC 9728 protected-resource metadata is published at the
+as the web client. Identified actions require the viewed `action_id`; actions
+with a text field accept `input` (up to 2000 UTF-8 bytes). These fields are
+forwarded separately from stored callback context; an answer is not approval
+unless the receiving application explicitly defines that action as approval.
+RFC 9728 protected-resource metadata is published at the
 standard well-known location and linked from bearer challenges when
 `TINTWIRE_PUBLIC_URL` is configured. Tintwire can validate Pocket ID API access
 tokens through OIDC discovery and its rotating JWKS. Configure
