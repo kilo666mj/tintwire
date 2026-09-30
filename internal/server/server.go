@@ -170,12 +170,20 @@ type cardRow struct {
 }
 
 type cardAction struct {
-	Label         string          `json:"label"`
-	Type          string          `json:"type"`
-	URL           string          `json:"url"`
-	Target        string          `json:"target"`
-	Context       json.RawMessage `json:"context,omitempty"`
-	ContextCipher string          `json:"context_cipher,omitempty"`
+	ID            string           `json:"id,omitempty"`
+	Input         *cardActionInput `json:"input,omitempty"`
+	Label         string           `json:"label"`
+	Type          string           `json:"type"`
+	URL           string           `json:"url"`
+	Target        string           `json:"target"`
+	Context       json.RawMessage  `json:"context,omitempty"`
+	ContextCipher string           `json:"context_cipher,omitempty"`
+}
+
+type cardActionInput struct {
+	Label       string `json:"label"`
+	Placeholder string `json:"placeholder,omitempty"`
+	Required    bool   `json:"required,omitempty"`
 }
 
 type simpleMessage struct {
@@ -585,6 +593,12 @@ func validateNativeCard(card nativeCard) error {
 	for _, action := range card.Actions {
 		if strings.TrimSpace(action.Label) == "" {
 			return errors.New("action label is required")
+		}
+		if action.ID != "" && !operationKeyPattern.MatchString(action.ID) {
+			return errors.New("action id must be 8 to 128 URL-safe characters")
+		}
+		if action.Input != nil && (action.Type != "http" || action.ID == "" || strings.TrimSpace(action.Input.Label) == "" || len(action.Input.Label) > 300 || len(action.Input.Placeholder) > 300) {
+			return errors.New("text input requires an identified HTTP action and a bounded label")
 		}
 		switch action.Type {
 		case "link":

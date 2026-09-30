@@ -47,10 +47,12 @@ type actionTargetRequest struct {
 }
 
 type storedHTTPAction struct {
-	Label         string `json:"label"`
-	Type          string `json:"type"`
-	Target        string `json:"target"`
-	ContextCipher string `json:"context_cipher"`
+	ID            string           `json:"id"`
+	Input         *cardActionInput `json:"input"`
+	Label         string           `json:"label"`
+	Type          string           `json:"type"`
+	Target        string           `json:"target"`
+	ContextCipher string           `json:"context_cipher"`
 }
 type storedMattermostAction struct {
 	ID          string `json:"id"`
@@ -427,6 +429,29 @@ func (s *Server) executeHTTPAction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	action := value.Actions[index]
+	var submission struct {
+		ActionID string `json:"action_id"`
+		Input    string `json:"input"`
+	}
+	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 16<<10))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&submission); err != nil && !errors.Is(err, io.EOF) {
+		http.Error(w, "invalid action input", http.StatusBadRequest)
+		return
+	}
+	if decoder.Decode(&struct{}{}) != io.EOF {
+		http.Error(w, "invalid action input", http.StatusBadRequest)
+		return
+	}
+	if submission.ActionID != action.ID {
+		http.Error(w, "This action has changed. Refresh the card and review it again.", http.StatusConflict)
+		return
+	}
+	if len(submission.Input) > 2000 || (action.Input == nil && submission.Input != "") ||
+		(action.Input != nil && action.Input.Required && strings.TrimSpace(submission.Input) == "") {
+		http.Error(w, "Provide the requested answer (up to 2000 bytes).", http.StatusBadRequest)
+		return
+	}
 	execution, fresh, err := s.store.ReserveActionExecution(r.Context(), store.ActionExecution{Key: operationKey, NotificationID: r.PathValue("id"), ActionIndex: index, UserID: actor.ID})
 	if errors.Is(err, store.ErrImportConflict) {
 		http.Error(w, "idempotency key was used for another operation", http.StatusConflict)
@@ -464,7 +489,7 @@ func (s *Server) executeHTTPAction(w http.ResponseWriter, r *http.Request) {
 		s.finishAction(w, r, operationKey, actor, "failed", "Action context is unavailable", http.StatusServiceUnavailable)
 		return
 	}
-	payload, _ := json.Marshal(map[string]any{"notification_id": r.PathValue("id"), "action": action.Label, "actor": map[string]string{"id": actor.ID, "username": actor.Username}, "context": json.RawMessage(contextText), "operation_key": operationKey})
+	payload, _ := json.Marshal(map[string]any{"notification_id": r.PathValue("id"), "action": action.Label, "action_id": action.ID, "input": submission.Input, "actor": map[string]string{"id": actor.ID, "username": actor.Username}, "context": json.RawMessage(contextText), "operation_key": operationKey})
 	callback, err := http.NewRequestWithContext(r.Context(), http.MethodPost, target.URL, strings.NewReader(string(payload)))
 	if err != nil {
 		s.finishAction(w, r, operationKey, actor, "failed", "Action request could not be created", http.StatusBadGateway)
