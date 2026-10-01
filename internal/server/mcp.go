@@ -881,16 +881,17 @@ func decodeToolArguments(arguments json.RawMessage, target any) error {
 }
 
 type notificationSummary struct {
-	ID        string    `json:"id"`
-	Channel   string    `json:"channel"`
-	State     string    `json:"state"`
-	Title     string    `json:"title,omitempty"`
-	Summary   string    `json:"summary,omitempty"`
-	Severity  string    `json:"severity,omitempty"`
-	Source    string    `json:"source,omitempty"`
-	Agent     string    `json:"agent,omitempty"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	IncidentKey string    `json:"incident_key,omitempty"`
+	ID          string    `json:"id"`
+	Channel     string    `json:"channel"`
+	State       string    `json:"state"`
+	Title       string    `json:"title,omitempty"`
+	Summary     string    `json:"summary,omitempty"`
+	Severity    string    `json:"severity,omitempty"`
+	Source      string    `json:"source,omitempty"`
+	Agent       string    `json:"agent,omitempty"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
 }
 
 type messageFeedItem struct {
@@ -906,7 +907,8 @@ func summarizeNotifications(notifications []store.Notification) []notificationSu
 	for _, notification := range notifications {
 		summary := notificationSummary{
 			ID: notification.ID, Channel: notification.ChannelName, State: notification.State,
-			Summary: notification.Text, Agent: notification.Agent,
+			IncidentKey: notification.IncidentKey,
+			Summary:     notification.Text, Agent: notification.Agent,
 			CreatedAt: notification.CreatedAt, UpdatedAt: notification.UpdatedAt,
 		}
 		var card struct {
