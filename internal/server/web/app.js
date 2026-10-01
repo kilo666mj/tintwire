@@ -671,8 +671,42 @@ function attachmentCard(value, notification, attachmentIndex) {
 
 const nativeActionDrafts = new Map();
 
+// Scheduler rows carry semantic tags; keep the exact proposal text separate
+// from observations and the audit trail, including on already-published cards.
+function investigationRows(card, rows) {
+  const buckets = {proposal: [], investigation: [], result: [], verification: [], question: [], incidental: [], history: [], other: []};
+  for (const row of rows) {
+    const kind = Object.keys(buckets).find(key => (row.tags || []).includes(key)) || "other";
+    buckets[kind].push(row);
+  }
+  const section = (label, entries, className = "", collapsed = false) => {
+    if (!entries.length) return;
+    const node = element(collapsed ? "details" : "section", `investigation-section ${className}${collapsed ? " investigation-details" : ""}`);
+    node.append(element(collapsed ? "summary" : "h3", "investigation-label", collapsed ? `${label} (${entries.length})` : label));
+    for (const row of entries) {
+      const body = element("div", "investigation-prose");
+      // Paragraph boundaries improve legacy one-paragraph proposals without
+      // summarizing, dropping, or rewriting the action being approved.
+      const text = row.primary.replace(/^Proposed fix:\s*/, "");
+      const paragraphs = className === "investigation-proposal" && !text.includes("\n")
+        ? text.split(/(?<=[.!?])\s+(?=[A-Z])/u) : [text];
+      for (const paragraph of paragraphs) body.append(richContent("investigation-paragraph", paragraph));
+      node.append(body);
+    }
+    card.append(node);
+  };
+  section("What was found", buckets.investigation.slice(0, 1));
+  section("Proposed fix", buckets.proposal, "investigation-proposal");
+  section("Result", buckets.result);
+  section("Question for you", buckets.question);
+  section("Supporting evidence", [...buckets.investigation.slice(1), ...buckets.verification], "", true);
+  section("Other findings", [...buckets.incidental, ...buckets.other], "", true);
+  section("History", buckets.history, "", true);
+}
+
 function nativeCard(value, notification) {
-  const card = element("section", `native-card severity-${value.severity || "info"}`);
+  const investigation = value.source === "agent-scheduler" && (value.rows || []).some(row => (row.tags || []).includes("investigation"));
+  const card = element("section", `native-card severity-${value.severity || "info"}${investigation ? " investigation-card" : ""}`);
   const heading = element("div", "native-heading");
   heading.append(element("h2", "native-title", value.title));
   if (value.severity) heading.append(element("span", "severity-badge", value.severity));
@@ -704,7 +738,9 @@ function nativeCard(value, notification) {
     }
     card.append(metrics);
   }
-  if (Array.isArray(value.rows) && value.rows.length) {
+  if (investigation) {
+    investigationRows(card, value.rows);
+  } else if (Array.isArray(value.rows) && value.rows.length) {
     const filterPanel = element("div", "row-filter-panel");
     const controls = element("div", "row-controls");
     const search = document.createElement("input");
@@ -787,6 +823,10 @@ function nativeCard(value, notification) {
   }
   if (Array.isArray(value.actions) && value.actions.length) {
     const actions = element("div", "native-actions");
+    const pause = element("details", "investigation-pause");
+    pause.append(element("summary", "", "Pause automatic investigation"));
+    const pauseActions = element("div", "native-actions");
+    pause.append(pauseActions);
     value.actions.forEach((action, index) => {
       if (action.type === "http" && notification.can_operate) {
         const group = element("div", "native-action-group");
@@ -834,12 +874,19 @@ function nativeCard(value, notification) {
             button.disabled=false;
           }
         });
-        group.append(button, feedback); actions.append(group);
+        if (investigation && action.label !== "Approve fix") button.classList.add("investigation-secondary-action");
+        group.append(button, feedback);
+        const target = investigation && action.label.startsWith("Stand down") ? pauseActions : actions;
+        target.append(group);
       } else if (action.type === "link") {
         const link = element("a", "native-action", action.label); link.href=action.url; link.target="_blank"; link.rel="noopener noreferrer"; actions.append(link);
       }
     });
-    card.append(actions);
+    if (investigation) {
+      const evidence = card.querySelector(".investigation-details");
+      card.insertBefore(actions, evidence);
+      if (pauseActions.children.length) card.append(pause);
+    } else card.append(actions);
   }
   return card;
 }

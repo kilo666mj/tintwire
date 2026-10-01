@@ -163,3 +163,6 @@
   :root[data-skin="wire"] .console-panel{border:1px solid var(--line);border-radius:10px;background:var(--panel)}
 }
 @media(prefers-reduced-motion:reduce){:root[data-skin="wire"] .card{transition:none}}
+
+/* Only the approval is emphasized; sibling actions stay secondary. */
+:root[data-skin="wire"] .investigation-card .native-action.investigation-secondary-action{background:var(--panel);border-color:var(--line-hot);color:var(--text)}
