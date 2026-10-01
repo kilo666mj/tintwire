@@ -7,12 +7,14 @@ const source = readFileSync(require.resolve("../web/app.js"), "utf8");
 const code = source.slice(source.indexOf("const nativeActionDrafts"), source.indexOf("function activityItem("));
 function element(tag, classes="", text="") {
   return {tag,classes,textContent:text,children:[],value:"",disabled:false,
-    append(...children){this.children.push(...children)},setAttribute(){},focus(){this.focused=true},
+    append(...children){this.children.push(...children);for(const c of children)c.parentNode=this},
+    insertBefore(child,before){const i=this.children.indexOf(before);if(i<0)this.append(child);else{this.children.splice(i,0,child);child.parentNode=this}},
+    replaceChildren(...children){this.children=[];this.append(...children)},setAttribute(){},focus(){this.focused=true},
     addEventListener(name, fn){this[name]=fn}};
 }
 function setup() {
  const calls=[];
- const c={element,TextEncoder,crypto:{randomUUID:()=>`operation-${calls.length}`},loads:0,
+ const c={element,richContent:(classes,text)=>element("div",classes,text),currentUserID:"user-1",TextEncoder,crypto:{randomUUID:()=>`operation-${calls.length}`},loads:0,
    loadNotifications(){c.loads++},async fetch(url, request){calls.push({url,...request});return {ok:true,json:async()=>({status:"succeeded",response:"Queued"})}}};
  vm.createContext(c);vm.runInContext(code,c);
  const value={title:"Question",actions:[{id:"viewed-version-1",type:"http",label:"Send answer",input:{label:"Which resolver?",required:true}}]};
@@ -42,4 +44,42 @@ test("stale action errors remain visible and do not clear the answer",async()=>{
  const {c,render}=setup();const ui=render();ui.answer.value="answer";
  c.fetch=async()=>({ok:false,text:async()=>"This action has changed. Refresh the card."});
  await ui.button.click();assert.match(ui.feedback.textContent,/changed/);assert.equal(ui.answer.value,"answer");assert.equal(c.loads,0);
+});
+
+function approvalUI(context, value) {
+ const card=context.nativeCard(value,{id:"notification-1",can_operate:true});
+ const actions=card.children.find(n=>n.classes==="native-actions");
+ return {card,title:card.children[0].children[0],approve:actions.children[0].children[0],reject:actions.children[1].children[0],pause:actions.children[2].children[0]};
+}
+function approvalCard() {
+ return {source:"agent-scheduler",title:"Investigation · awaiting approval",summary:"Review the proposed fix",badges:[{label:"awaiting approval",tone:"info"}],actions:[
+  {id:"approve-v1",type:"http",label:"Approve fix"},
+  {id:"reject-v1",type:"http",label:"Reject"},
+  {id:"pause-v1",type:"http",label:"Stand down · this episode"}]};
+}
+test("accepted approval stays visible through stale refreshes and yields to published state",async()=>{
+ const {c,calls}=setup();const value=approvalCard();let ui=approvalUI(c,value);
+ await ui.approve.click();assert.match(ui.title.textContent,/approved · queued/);
+ assert.equal(ui.approve.textContent,"Approved ✓");assert.equal(ui.reject.disabled,true);assert.equal(ui.pause.disabled,false);
+ await ui.approve.click();assert.equal(calls.length,1);
+ ui=approvalUI(c,value);assert.match(ui.title.textContent,/approved · queued/);assert.equal(ui.approve.disabled,true);
+ const running={...value,title:"Investigation · running",actions:[value.actions[2]]};
+ const card=c.nativeCard(running,{id:"notification-1",can_operate:true});assert.equal(card.children[0].children[0].textContent,"Investigation · running");
+ const revised={...value,actions:value.actions.map(a=>({...a,id:a.id+"-new"}))};
+ ui=approvalUI(c,revised);assert.equal(ui.approve.disabled,false);assert.match(ui.title.textContent,/awaiting approval/);
+});
+test("failed approval never shows approved and remains retryable",async()=>{
+ const {c}=setup();c.fetch=async()=>({ok:true,json:async()=>({status:"failed",response:"Approval expired"})});
+ const value=approvalCard();let ui=approvalUI(c,value);await ui.approve.click();
+ assert.match(ui.title.textContent,/awaiting approval/);assert.equal(ui.approve.disabled,false);
+ ui=approvalUI(c,value);assert.equal(ui.approve.disabled,false);
+});
+test("successful approval survives refresh failure but does not leak into another session",async()=>{
+ const {c}=setup();const value=approvalCard();const ui=approvalUI(c,value);
+ c.loadNotifications=()=>{throw Error("refresh unavailable")};await ui.approve.click();
+ assert.match(ui.title.textContent,/approved · queued/);assert.equal(ui.approve.disabled,true);
+ vm.runInContext('nativeApprovalReceipts.clear()',c);
+ c.fetch=async()=>{c.currentUserID="user-2";return {ok:true,json:async()=>({status:"succeeded"})}};
+ const other=approvalUI(c,value);await other.approve.click();
+ assert.equal(approvalUI(c,value).approve.disabled,false);
 });

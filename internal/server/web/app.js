@@ -670,6 +670,7 @@ function attachmentCard(value, notification, attachmentIndex) {
 }
 
 const nativeActionDrafts = new Map();
+const nativeApprovalReceipts = new Map();
 
 // Scheduler rows carry semantic tags; keep the exact proposal text separate
 // from observations and the audit trail, including on already-published cards.
@@ -708,12 +709,29 @@ function nativeCard(value, notification) {
   const investigation = value.source === "agent-scheduler" && (value.rows || []).some(row => (row.tags || []).includes("investigation"));
   const card = element("section", `native-card severity-${value.severity || "info"}${investigation ? " investigation-card" : ""}`);
   const heading = element("div", "native-heading");
-  heading.append(element("h2", "native-title", value.title));
+  const title = element("h2", "native-title", value.title);
+  heading.append(title);
   if (value.severity) heading.append(element("span", "severity-badge", value.severity));
   card.append(heading);
-  if (value.summary) card.append(richContent("native-summary", value.summary));
+  const summary = richContent("native-summary", value.summary || "");
+  if (value.summary) card.append(summary);
+  let badges = null;
+  const approvalControls = [];
+  const approvalSession = currentUserID;
+  const showAcceptedApproval = () => {
+    title.textContent = "Investigation · approved · queued";
+    summary.textContent = "Approval accepted. The fix is queued; execution has not yet been confirmed.";
+    if (!summary.parentNode) card.insertBefore(summary, heading.nextSibling);
+    if (badges) badges.replaceChildren(element("span", "card-badge badge-info", "approved · queued"));
+    for (const {button, approval} of approvalControls) {
+      button.disabled = true;
+      if (approval) button.textContent = "Approved ✓";
+    }
+  };
+  const receipt = nativeApprovalReceipts.get(notification.id);
+  if (receipt && !(value.actions || []).some(action => action.id === receipt)) nativeApprovalReceipts.delete(notification.id);
   if (Array.isArray(value.badges) && value.badges.length) {
-    const badges = element("div", "card-badges");
+    badges = element("div", "card-badges");
     for (const badge of value.badges) badges.append(element("span", `card-badge badge-${badge.tone || "neutral"}`, badge.label));
     card.append(badges);
   }
@@ -843,9 +861,12 @@ function nativeCard(value, notification) {
           label.append(answer); group.append(label);
         }
         const button = element("button", "native-action", action.label); button.type="button";
+        const approval = value.source === "agent-scheduler" && action.label === "Approve fix" && !!action.id;
+        if (!action.label.startsWith("Stand down")) approvalControls.push({button, approval});
         const feedback = element("div", "action-feedback"); feedback.setAttribute("role", "status");
         let operationKey = "", submittedBody = "";
         button.addEventListener("click", async () => {
+          if (button.disabled) return;
           if (answer && ((answer.required && !answer.value.trim()) || new TextEncoder().encode(answer.value).length > 2000)) {
             feedback.textContent = "Enter an answer of up to 2000 bytes."; answer.focus(); return;
           }
@@ -867,9 +888,18 @@ function nativeCard(value, notification) {
               throw new Error(result.response || "Action failed. Please retry.");
             }
             feedback.textContent = result.response || "Sent.";
+            if (approval && approvalSession === currentUserID) {
+              nativeApprovalReceipts.set(notification.id, action.id);
+              showAcceptedApproval();
+            }
             if (answer) { answer.value = ""; nativeActionDrafts.delete(draftKey); }
             loadNotifications(false);
           } catch (error) {
+            if (approval && nativeApprovalReceipts.get(notification.id) === action.id) {
+              showAcceptedApproval();
+              feedback.textContent = "Approval accepted. Waiting for the updated card.";
+              return;
+            }
             feedback.textContent = error.message || "Unable to reach Tintwire. Please retry.";
             button.disabled=false;
           }
@@ -888,6 +918,7 @@ function nativeCard(value, notification) {
       if (pauseActions.children.length) card.append(pause);
     } else card.append(actions);
   }
+  if (nativeApprovalReceipts.has(notification.id)) showAcceptedApproval();
   return card;
 }
 
@@ -2786,7 +2817,10 @@ async function initializeSession(desktopAuthExchanged = false) {
     }
     inboxStateEnabled = Boolean(session.authenticated);
     isAdmin = Boolean(session.is_admin);
-    if (currentUserID !== (session.user_id || "") || !session.authenticated) nativeActionDrafts.clear();
+    if (currentUserID !== (session.user_id || "") || !session.authenticated) {
+      nativeActionDrafts.clear();
+      nativeApprovalReceipts.clear();
+    }
     currentUserID = session.user_id || "";
     sessionIdentity.textContent = session.username || "";
     sessionIdentity.hidden = !session.authenticated || !session.username;
