@@ -541,3 +541,47 @@ func TestMCPRejectsRevokedAgent(t *testing.T) {
 		t.Fatalf("revoked agent status = %d, want 401", recorder.Code)
 	}
 }
+
+func TestMCPExposesIncidentIdentityForNativeAndCompatibilityNotifications(t *testing.T) {
+	_, db, client, channel := mcpFixture(t, false)
+	ctx := context.Background()
+	if err := db.SetChannelMember(ctx, channel.ID, "agent-triage", "viewer"); err != nil {
+		t.Fatal(err)
+	}
+	_, token, err := db.CreateWebhook(ctx, channel.ID, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, input := range []store.IncomingNotification{
+		{State: "firing", Card: json.RawMessage(`{"incident_key":"backup-verifier"}`), RawPayload: json.RawMessage(`{}`)},
+		{State: "firing", RawPayload: json.RawMessage(`{"props":{"incident_key":"backup-verifier"}}`)},
+	} {
+		n, err := db.CreateFromWebhook(ctx, token, input)
+		if err != nil {
+			t.Fatal(err)
+		}
+		result := client.tool("notifications.get.v1", `{"id":"`+n.ID+`"}`)
+		var detail struct {
+			Notification struct {
+				IncidentKey string `json:"incident_key"`
+			} `json:"notification"`
+		}
+		if err := json.Unmarshal(result.StructuredContent, &detail); err != nil || result.IsError || detail.Notification.IncidentKey != "backup-verifier" {
+			t.Fatalf("get identity: %s (%v)", result.text(), err)
+		}
+	}
+	result := client.tool("notifications.search.v1", `{"state":"firing"}`)
+	var page struct {
+		Notifications []struct {
+			IncidentKey string `json:"incident_key"`
+		} `json:"notifications"`
+	}
+	if err := json.Unmarshal(result.StructuredContent, &page); err != nil || result.IsError || len(page.Notifications) != 2 {
+		t.Fatalf("search identity: %s (%v)", result.text(), err)
+	}
+	for _, n := range page.Notifications {
+		if n.IncidentKey != "backup-verifier" {
+			t.Fatalf("search omitted incident identity: %+v", n)
+		}
+	}
+}

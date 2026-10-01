@@ -74,6 +74,7 @@ type IncomingNotification struct {
 }
 
 type Notification struct {
+	IncidentKey string          `json:"incident_key,omitempty"`
 	ID          string          `json:"id"`
 	ChannelID   string          `json:"channel_id"`
 	ChannelName string          `json:"channel_name"`
@@ -2446,7 +2447,8 @@ SELECT n.id, c.id, c.name, n.text, n.username, n.icon_url,
        n.attachments_json, n.state, n.created_at, n.updated_at, CAST(n.card_json AS BLOB),
        (SELECT COUNT(*) FROM notification_events e WHERE e.notification_id = n.id), ` + readExpression + `, ` + operateExpression + `,
        EXISTS(SELECT 1 FROM mattermost_posts mp WHERE mp.notification_id=n.id AND mp.root_id=''),
-       COALESCE((SELECT a.name FROM agents a WHERE a.id = n.agent_id), '')
+       COALESCE((SELECT a.name FROM agents a WHERE a.id = n.agent_id), ''),
+       COALESCE((SELECT i.incident_key FROM notification_incidents i WHERE i.notification_id = n.id), '')
 FROM notifications n
 JOIN channels c ON c.id = n.channel_id` + joinReadState + `
 WHERE 1 = 1`
@@ -2523,6 +2525,7 @@ WHERE 1 = 1`
 			&notification.CanOperate,
 			&notification.CompatRoot,
 			&notification.Agent,
+			&notification.IncidentKey,
 		); err != nil {
 			return nil, err
 		}
