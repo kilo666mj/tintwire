@@ -939,8 +939,21 @@ func (s *Server) listNotifications(w http.ResponseWriter, r *http.Request) {
 		}
 		limit = parsed
 	}
+	updatedSince, ok := parseUpdatedSince(r.URL.Query().Get("updated_since"))
+	if !ok {
+		http.Error(w, "updated_since must be an RFC 3339 time", http.StatusBadRequest)
+		return
+	}
+	if updatedSince > 0 {
+		// Changed-since reads page by update time, newest change first.
+		query.UpdatedSince, query.OrderByUpdated = updatedSince, true
+	}
 	if cursor := r.URL.Query().Get("before"); cursor != "" {
-		beforeAt, beforeID, ok := decodeNotificationCursor(cursor)
+		decode := decodeNotificationCursor
+		if query.OrderByUpdated {
+			decode = decodeUpdatedNotificationCursor
+		}
+		beforeAt, beforeID, ok := decode(cursor)
 		if !ok {
 			http.Error(w, "invalid history cursor", http.StatusBadRequest)
 			return
@@ -986,6 +999,9 @@ func (s *Server) listNotifications(w http.ResponseWriter, r *http.Request) {
 		notifications = notifications[:limit]
 		last := notifications[len(notifications)-1]
 		nextCursor = encodeNotificationCursor(last.CreatedAt.UnixMilli(), last.ID)
+		if query.OrderByUpdated {
+			nextCursor = encodeUpdatedNotificationCursor(last.UpdatedAt.UnixMilli(), last.ID)
+		}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"notifications": notifications, "next_cursor": nextCursor, "unread_count": unreadCount})
 }
@@ -1506,6 +1522,36 @@ func truthy(value string) bool {
 	default:
 		return false
 	}
+}
+
+// Cursors for results ordered by update time carry a "u" prefix, so a
+// cursor from one ordering is rejected by the other instead of paging wrongly.
+const updatedCursorPrefix = "u"
+
+func encodeUpdatedNotificationCursor(updatedAt int64, id string) string {
+	return base64.RawURLEncoding.EncodeToString([]byte(updatedCursorPrefix + strconv.FormatInt(updatedAt, 10) + ":" + id))
+}
+
+func decodeUpdatedNotificationCursor(value string) (int64, string, bool) {
+	decoded, err := base64.RawURLEncoding.DecodeString(value)
+	if err != nil || !strings.HasPrefix(string(decoded), updatedCursorPrefix) {
+		return 0, "", false
+	}
+	return decodeNotificationCursor(base64.RawURLEncoding.EncodeToString(decoded[len(updatedCursorPrefix):]))
+}
+
+// parseUpdatedSince reads an RFC 3339 updated_since filter as Unix
+// milliseconds; empty means no filter.
+func parseUpdatedSince(value string) (int64, bool) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return 0, true
+	}
+	at, err := time.Parse(time.RFC3339Nano, value)
+	if err != nil || at.UnixMilli() <= 0 {
+		return 0, false
+	}
+	return at.UnixMilli(), true
 }
 
 func decodeNotificationCursor(value string) (int64, string, bool) {

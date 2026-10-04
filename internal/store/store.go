@@ -255,10 +255,13 @@ type NotificationQuery struct {
 	UnreadOnly     bool
 	ExcludeMuted   bool
 	OrderByUpdated bool
-	BeforeAt       int64
-	BeforeID       string
-	UserID         string
-	UserAdmin      bool
+	// UpdatedSince, in Unix milliseconds, keeps notifications updated at or
+	// after it.
+	UpdatedSince int64
+	BeforeAt     int64
+	BeforeID     string
+	UserID       string
+	UserAdmin    bool
 }
 
 type SavedView struct {
@@ -2495,6 +2498,10 @@ WHERE 1 = 1`
 	}
 	if query.UnreadOnly && query.UserID != "" {
 		statement += ` AND (` + readExpression + `) = 1`
+	}
+	if query.UpdatedSince > 0 {
+		statement += ` AND n.updated_at >= ?`
+		args = append(args, query.UpdatedSince)
 	}
 	orderColumn := "n.created_at"
 	if query.OrderByUpdated {

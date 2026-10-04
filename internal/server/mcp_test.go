@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/kilo666mj/tintwire/internal/server"
 	"github.com/kilo666mj/tintwire/internal/store"
@@ -217,6 +218,77 @@ func TestMCPNotificationSearchPagination(t *testing.T) {
 	result := client.tool("notifications.search.v1", `{"state":"resolved","limit":1}`)
 	if result.IsError || !strings.Contains(result.text(), `"notifications":[]`) {
 		t.Fatalf("state filter ignored: %s", result.text())
+	}
+}
+
+func TestMCPNotificationSearchUpdatedSince(t *testing.T) {
+	_, db, client, _ := mcpFixture(t, true)
+	ctx := context.Background()
+	publish := func(key string) string {
+		t.Helper()
+		result := client.tool("notifications.publish.v1", `{"channel":"operations","state":"firing","text":"alert","idempotency_key":"`+key+`"}`)
+		var value struct{ ID string }
+		if result.IsError || json.Unmarshal(result.StructuredContent, &value) != nil {
+			t.Fatal(result.text())
+		}
+		return value.ID
+	}
+	oldest := publish("since-test-one")
+	second := publish("since-test-two")
+	_ = publish("since-test-three")
+	time.Sleep(5 * time.Millisecond)
+	cutoff := time.Now().UTC().Format(time.RFC3339Nano)
+	time.Sleep(5 * time.Millisecond)
+	actor, err := db.CreateUser(ctx, "operator", "secure operator password", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Resolve the oldest, then the second: both changed after the cutoff.
+	for _, id := range []string{oldest, second} {
+		if err := db.SetNotificationState(ctx, id, actor, "resolved"); err != nil {
+			t.Fatal(err)
+		}
+		time.Sleep(3 * time.Millisecond)
+	}
+	search := func(args map[string]any) (ids []string, next string) {
+		t.Helper()
+		raw, _ := json.Marshal(args)
+		result := client.tool("notifications.search.v1", string(raw))
+		var value struct {
+			Notifications []struct{ ID string } `json:"notifications"`
+			NextCursor    string                `json:"next_cursor"`
+		}
+		if result.IsError || json.Unmarshal(result.StructuredContent, &value) != nil {
+			t.Fatalf("search %v: %s", args, result.text())
+		}
+		for _, n := range value.Notifications {
+			ids = append(ids, n.ID)
+		}
+		return ids, value.NextCursor
+	}
+	// Newest change first, across pages, and only changes after the cutoff.
+	page1, next := search(map[string]any{"updated_since": cutoff, "limit": 1})
+	if len(page1) != 1 || page1[0] != second || next == "" {
+		t.Fatalf("first page = %v next %q", page1, next)
+	}
+	page2, next2 := search(map[string]any{"updated_since": cutoff, "limit": 1, "before": next})
+	if len(page2) != 1 || page2[0] != oldest || next2 != "" {
+		t.Fatalf("second page = %v next %q", page2, next2)
+	}
+	// Combined with a state filter.
+	if ids, _ := search(map[string]any{"updated_since": cutoff, "state": "firing"}); len(ids) != 0 {
+		t.Fatalf("firing changed since cutoff = %v", ids)
+	}
+	// Cursors do not cross orderings, and the time must parse.
+	if result := client.tool("notifications.search.v1", `{"before":"`+next+`"}`); !result.IsError {
+		t.Fatal("update-ordered cursor accepted without updated_since")
+	}
+	_, createdCursor := search(map[string]any{"limit": 1})
+	if result := client.tool("notifications.search.v1", `{"updated_since":"`+cutoff+`","before":"`+createdCursor+`"}`); !result.IsError {
+		t.Fatal("creation-ordered cursor accepted with updated_since")
+	}
+	if result := client.tool("notifications.search.v1", `{"updated_since":"yesterday"}`); !result.IsError {
+		t.Fatal("invalid updated_since accepted")
 	}
 }
 
