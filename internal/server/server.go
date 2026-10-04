@@ -312,6 +312,7 @@ func NewWithOptions(data *store.Store, options Options) (http.Handler, error) {
 	mux.HandleFunc("POST /api/v1/auth/desktop/cancel", s.requireControlAuthority(s.cancelDesktopConfirmation))
 	mux.HandleFunc("GET /api/v1/notifications/{id}/images/{index}", s.requireReader(s.notificationImage))
 	mux.HandleFunc("GET /api/v1/notifications", s.requireReader(s.listNotifications))
+	mux.HandleFunc("GET /api/v1/notifications/{id}", s.requireReader(s.getNotification))
 	mux.HandleFunc("GET /api/v1/channels", s.requireReader(s.listChannels))
 	mux.HandleFunc("GET /api/v1/saved-views", s.requireReader(s.listSavedViews))
 	mux.HandleFunc("POST /api/v1/saved-views", s.requireReader(s.requireControlAuthority(s.saveSavedView)))
@@ -987,6 +988,37 @@ func (s *Server) listNotifications(w http.ResponseWriter, r *http.Request) {
 		nextCursor = encodeNotificationCursor(last.CreatedAt.UnixMilli(), last.ID)
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"notifications": notifications, "next_cursor": nextCursor, "unread_count": unreadCount})
+}
+
+// getNotification returns one notification card with the same visibility rules
+// as the list, except that dismissed cards and muted channels are included so a
+// direct link can always reach a card the reader may see.
+func (s *Server) getNotification(w http.ResponseWriter, r *http.Request) {
+	query := store.NotificationQuery{ID: r.PathValue("id"), Limit: 1, ShowDismissed: true}
+	if user, ok := s.inboxUser(r); ok {
+		query.UserID = user.ID
+		query.UserAdmin = user.IsAdmin
+	}
+	notifications, err := s.store.QueryNotifications(r.Context(), query)
+	if err != nil {
+		slog.Error("get notification", "error", err)
+		http.Error(w, "unable to get notification", http.StatusInternalServerError)
+		return
+	}
+	if len(notifications) == 0 {
+		http.Error(w, "notification not found", http.StatusNotFound)
+		return
+	}
+	actionResults, err := s.store.LatestMattermostActionResults(r.Context(), []string{notifications[0].ID})
+	if err != nil {
+		slog.Error("get notification action results", "error", err)
+		http.Error(w, "unable to get notification actions", http.StatusInternalServerError)
+		return
+	}
+	sanitizeNotificationCards(notifications)
+	s.proxyNotificationImages(notifications)
+	sanitizeMattermostActions(notifications, actionResults)
+	writeJSON(w, http.StatusOK, notifications[0])
 }
 
 func sanitizeNotificationCards(notifications []store.Notification) {
