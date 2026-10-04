@@ -2537,12 +2537,45 @@ desktopShell?.listen?.("tintwire://mark-all-read", () => {
 });
 
 // A tintwire://notification/{id} deep link lands here as ?notification={id}.
+// When the card is outside the loaded page (older, dismissed, or in a muted
+// channel), resolve it on the server and open its channel timeline with the
+// card appended, as message deep links do.
 async function focusDeepLinkedNotification() {
   const requested = new URLSearchParams(location.search).get("notification");
   if (!requested) return;
-  history.replaceState(null, "", location.pathname + location.hash);
-  const card = document.querySelector(`#notification-${CSS.escape(requested)}`);
-  if (!card) return;
+  let card = document.querySelector(`#notification-${CSS.escape(requested)}`);
+  if (!card) {
+    const response = await fetch(`/api/v1/notifications/${encodeURIComponent(requested)}`);
+    if (!response.ok) {
+      history.replaceState(null, "", location.pathname + location.hash);
+      showInboxToast(response.status === 404 ? "That notification was not found or is not visible to you." : "Unable to open the linked notification.");
+      return;
+    }
+    const notification = await response.json();
+    const channel = channelCache.find(candidate => candidate.id === notification.channel_id);
+    if (!channel) {
+      history.replaceState(null, "", location.pathname + location.hash);
+      showInboxToast("Unable to open the linked notification's channel.");
+      return;
+    }
+    collapsedNotificationIDs.delete(notification.id);
+    selectedChannel = channel.name;
+    channelFilter.value = channel.name;
+    timelineNextCursor = "";
+    loadedTimelineItems = [];
+    renderChannelNavigation(channelCache);
+    setViewForChannel(channel.name);
+    await loadChannelTimeline(false);
+    if (!loadedTimelineItems.some(item => item.kind === "notification" && item.notification?.id === notification.id)) {
+      loadedTimelineItems.push({kind: "notification", notification, id: notification.id, created_at: new Date(notification.updated_at).getTime()});
+      renderChannelTimeline(loadedTimelineItems);
+    }
+    history.replaceState(null, "", `?channel=${encodeURIComponent(channel.name)}`);
+    card = document.querySelector(`#notification-${CSS.escape(requested)}`);
+    if (!card) return;
+  } else {
+    history.replaceState(null, "", location.pathname + location.hash);
+  }
   card.scrollIntoView({block: "center", behavior: "smooth"});
   card.classList.add("card-deep-linked");
   setTimeout(() => card.classList.remove("card-deep-linked"), 2400);

@@ -417,3 +417,85 @@ func TestChannelMessagePrivateAuthorization(t *testing.T) {
 		t.Fatalf("session after cross-node revocation status=%d authenticated=%v", sessionRecorder.Code, sessionState.Authenticated)
 	}
 }
+
+func TestNotificationDeepLinkLookup(t *testing.T) {
+	handler, cookie, _, token := timelineServer(t)
+	publish := func(token, text string) store.Notification {
+		t.Helper()
+		request := httptest.NewRequest(http.MethodPost, "/api/v1/messages", bytes.NewBufferString(text))
+		request.Header.Set("Content-Type", "text/plain")
+		request.Header.Set("Authorization", "Bearer "+token)
+		recorder := httptest.NewRecorder()
+		handler.ServeHTTP(recorder, request)
+		var notification store.Notification
+		if err := json.NewDecoder(recorder.Body).Decode(&notification); err != nil {
+			t.Fatal(err)
+		}
+		return notification
+	}
+	get := func(cookie *http.Cookie, id string) *httptest.ResponseRecorder {
+		t.Helper()
+		request := httptest.NewRequest(http.MethodGet, "/api/v1/notifications/"+id, nil)
+		request.AddCookie(cookie)
+		recorder := httptest.NewRecorder()
+		handler.ServeHTTP(recorder, request)
+		return recorder
+	}
+	sameOrigin := func(request *http.Request) *http.Request {
+		request.Header.Set("Origin", "http://example.com")
+		request.Host = "example.com"
+		return request
+	}
+
+	// A dismissed card is absent from the default inbox but still reachable by ID.
+	notification := publish(token, "linked from an agent")
+	dismiss := sameOrigin(httptest.NewRequest(http.MethodPost, "/api/v1/notifications/"+notification.ID+"/inbox", bytes.NewBufferString(`{"action":"dismiss"}`)))
+	dismiss.Header.Set("Content-Type", "application/json")
+	dismiss.AddCookie(cookie)
+	dismissRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(dismissRecorder, dismiss)
+	if dismissRecorder.Code != http.StatusNoContent {
+		t.Fatalf("dismiss status=%d body=%q", dismissRecorder.Code, dismissRecorder.Body.String())
+	}
+	recorder := get(cookie, notification.ID)
+	var got store.Notification
+	if err := json.NewDecoder(recorder.Body).Decode(&got); err != nil {
+		t.Fatal(err)
+	}
+	if recorder.Code != http.StatusOK || got.ID != notification.ID || got.ChannelName != "chat" || got.Text != "linked from an agent" {
+		t.Fatalf("dismissed lookup status=%d notification=%#v", recorder.Code, got)
+	}
+	if recorder := get(cookie, "ntf_missing"); recorder.Code != http.StatusNotFound {
+		t.Fatalf("missing lookup status=%d, want 404", recorder.Code)
+	}
+
+	// A card in a private channel is not revealed to a non-member.
+	create := sameOrigin(httptest.NewRequest(http.MethodPost, "/api/v1/channels", bytes.NewBufferString(`{"name":"classified","visibility":"private"}`)))
+	create.AddCookie(cookie)
+	createRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(createRecorder, create)
+	var created struct {
+		PublishingToken string `json:"publishing_token"`
+	}
+	if err := json.NewDecoder(createRecorder.Body).Decode(&created); err != nil {
+		t.Fatal(err)
+	}
+	private := publish(created.PublishingToken, "private card")
+	createUser := sameOrigin(httptest.NewRequest(http.MethodPost, "/api/v1/users", bytes.NewBufferString(`{"username":"bob","password":"secure bob password"}`)))
+	createUser.AddCookie(cookie)
+	userRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(userRecorder, createUser)
+	if userRecorder.Code != http.StatusCreated {
+		t.Fatalf("create user status=%d body=%q", userRecorder.Code, userRecorder.Body.String())
+	}
+	login := sameOrigin(httptest.NewRequest(http.MethodPost, "/api/v1/session", bytes.NewBufferString(`{"username":"bob","password":"secure bob password"}`)))
+	loginRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(loginRecorder, login)
+	bobCookie := loginRecorder.Result().Cookies()[0]
+	if recorder := get(bobCookie, private.ID); recorder.Code != http.StatusNotFound {
+		t.Fatalf("non-member private lookup status=%d, want 404", recorder.Code)
+	}
+	if recorder := get(bobCookie, notification.ID); recorder.Code != http.StatusOK {
+		t.Fatalf("non-member public lookup status=%d, want 200", recorder.Code)
+	}
+}
