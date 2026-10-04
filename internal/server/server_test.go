@@ -757,6 +757,32 @@ func TestNotificationHistoryCursor(t *testing.T) {
 	if bad.Code != http.StatusBadRequest {
 		t.Fatalf("invalid cursor status = %d", bad.Code)
 	}
+
+	// updated_since pages by update time with its own cursors.
+	since := url.QueryEscape("2000-01-01T00:00:00Z")
+	changed := readPage("/api/v1/notifications?limit=2&updated_since=" + since)
+	if len(changed.Notifications) != 2 || changed.NextCursor == "" {
+		t.Fatalf("changed first page = %#v", changed)
+	}
+	rest := readPage("/api/v1/notifications?limit=2&updated_since=" + since + "&before=" + url.QueryEscape(changed.NextCursor))
+	if len(rest.Notifications) != 1 || rest.NextCursor != "" {
+		t.Fatalf("changed second page = %#v", rest)
+	}
+	future := readPage("/api/v1/notifications?updated_since=" + url.QueryEscape(time.Now().Add(time.Hour).UTC().Format(time.RFC3339)))
+	if len(future.Notifications) != 0 {
+		t.Fatalf("future updated_since = %#v", future)
+	}
+	for _, path := range []string{
+		"/api/v1/notifications?updated_since=yesterday",
+		"/api/v1/notifications?updated_since=" + since + "&before=" + url.QueryEscape(first.NextCursor),
+		"/api/v1/notifications?before=" + url.QueryEscape(changed.NextCursor),
+	} {
+		recorder := httptest.NewRecorder()
+		handler.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, path, nil))
+		if recorder.Code != http.StatusBadRequest {
+			t.Fatalf("%s status = %d", path, recorder.Code)
+		}
+	}
 }
 
 func TestReaderAuthentication(t *testing.T) {

@@ -253,6 +253,7 @@ func mcpTools(agent store.Agent) []mcpTool {
 "channel":{"type":"string","maxLength":64},
 "state":{"type":"string","enum":["received","firing","acknowledged","resolved"]},
 "severity":{"type":"string","enum":["info","warning","critical","success"]},
+"updated_since":{"type":"string","maxLength":64,"description":"RFC 3339 time: only notifications created or changed at or after it, ordered by update time (newest change first)"},
 "before":{"type":"string","maxLength":256},
 "limit":{"type":"integer","minimum":1,"maximum":50}},"additionalProperties":false}`),
 			Annotations: map[string]any{"readOnlyHint": true},
@@ -434,6 +435,7 @@ func (s *Server) mcpToolCall(r *http.Request, agent store.Agent, rawParams json.
 			Channel  string `json:"channel"`
 			State    string `json:"state"`
 			Severity string `json:"severity"`
+			Updated  string `json:"updated_since"`
 			Before   string `json:"before"`
 			Limit    int    `json:"limit"`
 		}
@@ -447,11 +449,21 @@ func (s *Server) mcpToolCall(r *http.Request, agent store.Agent, rawParams json.
 			Search: input.Query, Channel: input.Channel, State: input.State, Severity: input.Severity,
 			Limit: input.Limit + 1, UserID: user.ID, UserAdmin: user.IsAdmin,
 		}
+		updatedSince, ok := parseUpdatedSince(input.Updated)
+		if !ok {
+			return toolFailure("updated_since must be an RFC 3339 time."), nil
+		}
+		if updatedSince > 0 {
+			query.UpdatedSince, query.OrderByUpdated = updatedSince, true
+		}
 		if input.Before != "" {
-			var ok bool
-			query.BeforeAt, query.BeforeID, ok = decodeNotificationCursor(input.Before)
+			decode := decodeNotificationCursor
+			if query.OrderByUpdated {
+				decode = decodeUpdatedNotificationCursor
+			}
+			query.BeforeAt, query.BeforeID, ok = decode(input.Before)
 			if !ok {
-				return toolFailure("The notification cursor is invalid."), nil
+				return toolFailure("The notification cursor is invalid for this search."), nil
 			}
 		}
 		notifications, err := s.store.QueryNotifications(r.Context(), query)
@@ -467,6 +479,9 @@ func (s *Server) mcpToolCall(r *http.Request, agent store.Agent, rawParams json.
 		if hasMore {
 			last := notifications[len(notifications)-1]
 			next = encodeNotificationCursor(last.CreatedAt.UnixMilli(), last.ID)
+			if query.OrderByUpdated {
+				next = encodeUpdatedNotificationCursor(last.UpdatedAt.UnixMilli(), last.ID)
+			}
 		}
 		return toolSuccess(map[string]any{"notifications": summarizeNotifications(notifications), "has_more": hasMore, "next_cursor": next}), nil
 
