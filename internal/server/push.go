@@ -2,6 +2,8 @@ package server
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -30,6 +32,7 @@ type pushService struct {
 	privateKey   string
 	contact      string
 	client       *http.Client
+	origin       *url.URL
 }
 
 type pushPayload struct {
@@ -231,7 +234,7 @@ func (p *pushService) deliver(notification store.Notification) {
 		if err != nil {
 			return
 		}
-		payload, err := json.Marshal(notificationPushPayload(notification))
+		payload, err := p.marshalPayload(notificationPushPayload(notification))
 		if err != nil {
 			return
 		}
@@ -255,7 +258,7 @@ func (p *pushService) deliverMessage(message store.ChannelMessage) {
 	if len(subscriptions) == 0 {
 		return
 	}
-	payload, err := json.Marshal(pushPayload{
+	payload, err := p.marshalPayload(pushPayload{
 		Title: "Message · " + message.ChannelName,
 		Body:  truncatePushText(message.Author+": "+strings.TrimSpace(message.Text), 180),
 		URL:   "/?message=" + url.QueryEscape(message.ID), Tag: "tintwire-" + message.ID,
@@ -278,7 +281,7 @@ func (p *pushService) deliverCommandResponse(response store.SlashCommandResponse
 		slog.Error("load command push subscriptions", "error", err)
 		return
 	}
-	payload, err := json.Marshal(pushPayload{
+	payload, err := p.marshalPayload(pushPayload{
 		Title: "Command · " + channelName, Body: truncatePushText(strings.TrimSpace(response.Text), 180),
 		URL: "/?channel=" + url.QueryEscape(channelName), Tag: "tintwire-" + response.ID,
 		State: "command", Timestamp: response.CreatedAt.UnixMilli(),
@@ -325,7 +328,7 @@ func (p *pushService) deliverToUser(ctx context.Context, n store.Notification, u
 	if err != nil {
 		return
 	}
-	payload, err := json.Marshal(notificationPushPayload(n))
+	payload, err := p.marshalPayload(notificationPushPayload(n))
 	if err != nil {
 		return
 	}
@@ -574,4 +577,107 @@ func truncatePushText(value string, maxRunes int) string {
 	}
 	runes := []rune(value)
 	return strings.TrimSpace(string(runes[:maxRunes-1])) + "…"
+}
+
+// marshalPayload retains the old fields for service workers installed before this
+// upgrade. A configured canonical origin is required for declarative navigation;
+// development instances without one continue to use the legacy worker payload.
+func (p *pushService) marshalPayload(payload pushPayload) ([]byte, error) {
+	if p.origin == nil {
+		return json.Marshal(payload)
+	}
+	target, err := url.Parse(payload.URL)
+	if err != nil {
+		return nil, err
+	}
+	target = p.origin.ResolveReference(target)
+	if target.Scheme != p.origin.Scheme || target.Host != p.origin.Host || target.User != nil {
+		return nil, errors.New("push navigation must stay on the application origin")
+	}
+	envelope, err := pwakit.NewDeclarativePush(pwakit.Notification{
+		Title: payload.Title, Body: payload.Body, Navigate: target.String(), Tag: payload.Tag,
+		Icon:      p.origin.ResolveReference(&url.URL{Path: "/assets/icon-192.png"}).String(),
+		Badge:     p.origin.ResolveReference(&url.URL{Path: "/assets/icon-192.png"}).String(),
+		Timestamp: payload.Timestamp, Renotify: true, RequireInteraction: payload.State == "firing", AppBadge: "1",
+	})
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(struct {
+		pushPayload
+		pwakit.DeclarativePush
+	}{payload, envelope})
+}
+
+// testPush sends a user-requested, visible test to exactly one owned subscription.
+// It intentionally bypasses channel/quiet-hour policy, never creates an inbox
+// card and never reports provider acceptance as device receipt.
+func (s *Server) testPush(w http.ResponseWriter, r *http.Request) {
+	if s.push == nil {
+		http.Error(w, "web push is not configured", http.StatusServiceUnavailable)
+		return
+	}
+	if !s.sameOrigin(r) {
+		http.Error(w, "cross-origin request rejected", http.StatusForbidden)
+		return
+	}
+	var request struct {
+		Endpoint string `json:"endpoint"`
+	}
+	if err := decodePushRequest(w, r, &request); err != nil || request.Endpoint == "" {
+		http.Error(w, "endpoint is required", http.StatusBadRequest)
+		return
+	}
+	user, _ := r.Context().Value(userContextKey{}).(store.User)
+	sub, err := s.store.UserPushSubscription(r.Context(), user.ID, request.Endpoint)
+	if errors.Is(err, store.ErrInvalidCredentials) {
+		http.Error(w, "subscription not found; repair alerts on this device", http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		http.Error(w, "unable to read subscription", http.StatusInternalServerError)
+		return
+	}
+	if !s.limiter.allow("push-test:"+user.ID, 5) {
+		w.Header().Set("Retry-After", "60")
+		http.Error(w, "wait a minute before testing again", http.StatusTooManyRequests)
+		return
+	}
+	var id [16]byte
+	if _, err := rand.Read(id[:]); err != nil {
+		http.Error(w, "unable to create test", 500)
+		return
+	}
+	payload, err := s.push.marshalPayload(pushPayload{
+		Title: "Tintwire test notification", Body: "If you see this, return to Mobile alerts and select ‘I saw the test’.",
+		URL: "/?push_test=1", Tag: "tintwire-test-" + hex.EncodeToString(id[:]), State: "test", Timestamp: time.Now().UnixMilli(),
+	})
+	if err != nil {
+		http.Error(w, "unable to create test", 500)
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 25*time.Second)
+	defer cancel()
+	result, err := pwakit.Send(ctx, pwakit.Config{PublicKey: s.push.publicKey, PrivateKey: s.push.privateKey, Contact: s.push.contact},
+		pwakit.Subscription{Endpoint: sub.Endpoint, Keys: pwakit.Keys{P256dh: sub.P256DH, Auth: sub.Auth}}, payload,
+		pwakit.Options{HTTPClient: s.push.client, TTL: 60, Urgency: "high"})
+	if result.Expired() {
+		_, removeErr := s.mutateControl(ctx, func(data *store.Store) (any, error) {
+			return nil, data.RemoveUserPushSubscription(ctx, user.ID, sub.Endpoint)
+		})
+		if removeErr != nil && !errors.Is(removeErr, store.ErrInvalidCredentials) {
+			slog.Warn("remove expired test subscription", "error", removeErr)
+		}
+		writeJSON(w, http.StatusGone, map[string]string{"outcome": "subscription_expired", "message": "This subscription expired. Repair alerts and test again."})
+		return
+	}
+	if err != nil {
+		outcome := "provider_rejected"
+		if result.StatusCode == 0 {
+			outcome = "transport_error"
+		}
+		writeJSON(w, http.StatusBadGateway, map[string]string{"outcome": outcome, "message": "The push service did not accept the test. Try again."})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"outcome": "provider_accepted"})
 }

@@ -36,7 +36,7 @@ var webFiles embed.FS
 var webAssetVersion = func() string {
 	digest := sha256.New()
 	_, _ = digest.Write([]byte(pwakit.AssetVersion))
-	for _, name := range []string{"web/emoji.js", "web/markdown.js", "web/app.js", "web/workflows.js", "web/desktop-alerts.js", "web/theme.js", "web/sentinel.css", "web/wire.css", "web/sw.js"} {
+	for _, name := range []string{"web/emoji.js", "web/markdown.js", "web/app.js", "web/push-health.js", "web/workflows.js", "web/desktop-alerts.js", "web/theme.js", "web/sentinel.css", "web/wire.css", "web/sw.js"} {
 		data, err := webFiles.ReadFile(name)
 		if err == nil {
 			_, _ = digest.Write(data)
@@ -271,6 +271,9 @@ func NewWithOptions(data *store.Store, options Options) (http.Handler, error) {
 		parsed.Path = ""
 		publicURL = parsed
 	}
+	if push != nil {
+		push.origin = publicURL
+	}
 	if options.OAuthResource == "" && publicURL != nil {
 		options.OAuthResource = strings.TrimSuffix(publicURL.String(), "/") + "/mcp"
 	}
@@ -365,6 +368,7 @@ func NewWithOptions(data *store.Store, options Options) (http.Handler, error) {
 	mux.HandleFunc("POST /api/v1/notifications/{id}/state", s.requireReader(s.setNotificationState))
 	mux.HandleFunc("POST /api/v1/notifications/{id}/approval", s.requireReader(s.setMattermostApproval))
 	mux.HandleFunc("GET /api/v1/events", s.requireReader(s.streamEvents))
+	mux.HandleFunc("POST /api/v1/push/test", s.requireReader(s.requireControlAuthority(s.testPush)))
 	mux.HandleFunc("GET /api/v1/push/config", s.requireReader(s.pushConfig))
 	mux.HandleFunc("POST /api/v1/push/subscriptions", s.requireReader(s.requireControlAuthority(s.savePushSubscription)))
 	mux.HandleFunc("DELETE /api/v1/push/subscriptions", s.requireReader(s.requireControlAuthority(s.removePushSubscription)))
@@ -1927,7 +1931,7 @@ func serveWeb(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	document := string(data)
-	for _, asset := range []string{"/pwa-kit/browser.js", "/manifest.webmanifest", "/assets/theme.js", "/assets/sentinel.css", "/assets/wire.css", "/assets/emoji.js", "/assets/markdown.js", "/assets/app.js", "/assets/workflows.js", "/assets/desktop-alerts.js"} {
+	for _, asset := range []string{"/pwa-kit/browser.js", "/manifest.webmanifest", "/assets/theme.js", "/assets/sentinel.css", "/assets/wire.css", "/assets/emoji.js", "/assets/markdown.js", "/assets/app.js", "/assets/push-health.js", "/assets/workflows.js", "/assets/desktop-alerts.js"} {
 		document = strings.ReplaceAll(document, `"`+asset+`"`, `"`+asset+`?v=`+webAssetVersion+`"`)
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -1938,7 +1942,7 @@ func serveWeb(w http.ResponseWriter, r *http.Request) {
 func serveAsset(w http.ResponseWriter, r *http.Request) {
 	name := r.PathValue("name")
 	contentTypes := map[string]string{
-		"workflows.js": "text/javascript; charset=utf-8", "desktop-alerts.js": "text/javascript; charset=utf-8", "app.js": "text/javascript; charset=utf-8", "emoji.js": "text/javascript; charset=utf-8", "markdown.js": "text/javascript; charset=utf-8",
+		"workflows.js": "text/javascript; charset=utf-8", "desktop-alerts.js": "text/javascript; charset=utf-8", "app.js": "text/javascript; charset=utf-8", "push-health.js": "text/javascript; charset=utf-8", "emoji.js": "text/javascript; charset=utf-8", "markdown.js": "text/javascript; charset=utf-8",
 		"sentinel.css": "text/css; charset=utf-8", "wire.css": "text/css; charset=utf-8", "theme.js": "text/javascript; charset=utf-8",
 		"bricolage-grotesque-latin-wght.woff2": "font/woff2", "figtree-latin-wght.woff2": "font/woff2",
 		"ibm-plex-mono-latin-400.woff2": "font/woff2", "ibm-plex-mono-latin-500.woff2": "font/woff2",

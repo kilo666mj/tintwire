@@ -281,7 +281,7 @@ func (s *Server) runSchedule(ctx context.Context, job store.WorkflowSchedule, no
 			if err != nil {
 				return time.Time{}, err
 			}
-			payload, err := json.Marshal(pushPayload{Title: "Digest · " + d.Title, Body: fmt.Sprintf("%d matching notifications updated in the past 24 hours", d.Count), URL: "/?view=" + url.QueryEscape(d.ViewID), Tag: d.ID, State: "digest", Timestamp: now.UnixMilli()})
+			payload, err := s.push.marshalPayload(pushPayload{Title: "Digest · " + d.Title, Body: fmt.Sprintf("%d matching notifications updated in the past 24 hours", d.Count), URL: "/?view=" + url.QueryEscape(d.ViewID), Tag: d.ID, State: "digest", Timestamp: now.UnixMilli()})
 			if err != nil {
 				return time.Time{}, err
 			}

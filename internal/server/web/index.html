@@ -247,6 +247,13 @@
       <button id="alert-install-button" class="alert-install-button" type="button" hidden>Install Tintwire</button>
       <button id="alert-setup-button" class="alert-setup-button" type="button" disabled>Enable alerts</button>
     </div>
+    <div class="alert-dialog-actions">
+      <button id="alert-test-button" class="alert-setup-button" type="button" disabled>Test this device</button>
+      <button id="alert-repair-button" class="alert-setup-button" type="button" disabled>Repair alerts</button>
+      <button id="alert-confirm-button" class="alert-setup-button" type="button" hidden>I saw the test</button>
+    </div>
+    <p id="alert-test-status" class="alert-setup-status" role="status"></p>
+    <p id="alert-test-confirmation" class="alert-setup-status"></p>
     <p id="alert-setup-status" class="alert-setup-status" role="status">Checking notification support…</p>
     <div class="channel-form">
       <label class="channel-visibility"><span>Channel delivery</span><select id="alert-channel" aria-label="Notification preference channel"></select></label>
@@ -293,6 +300,7 @@
   <p id="workflow-status" role="status" aria-live="polite"></p><div id="workflow-content"></div>
  </div>
 </dialog>
+<script src="/assets/push-health.js"></script>
 <script src="/assets/app.js"></script>
 <script src="/assets/desktop-alerts.js"></script>
 <script src="/assets/workflows.js"></script>

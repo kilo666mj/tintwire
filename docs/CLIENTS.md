@@ -116,3 +116,30 @@ producer monitors, and the integration playground. Desktop notifications now
 use a separate database-backed cursor feed, so inbox navigation and multi-node
 event-stream placement do not suppress alerts. Use **Notification tools →
 Schedules → Test desktop notification** to check the operating system path.
+
+## Push delivery checks
+
+**Subscribed** means this browser has permission and its subscription was saved
+on the server. It does not mean the phone received a notification. Mobile alerts
+separates that state from **Last test confirmed by you**.
+
+**Test this device** sends a visible server push only to the current subscription.
+It does not publish a channel card or alert other devices. As an explicit device
+test, it bypasses channel preferences and quiet hours, uses high transport urgency,
+and expires after 60 seconds. Provider acceptance is shown separately; only
+**I saw the test** records user confirmation. Pending tests can be confirmed for
+10 minutes. Confirmation is stored in this browser, scoped to account and a hash
+of the subscription endpoint and keys, and is not an automatic delivery receipt.
+
+**Repair alerts** replaces an existing subscription without reinstalling the app.
+It clears the previous confirmation and prompts you to test again. Repair is
+explicit, not performed blindly each time you open the app. Missing subscriptions
+still renew automatically when permission remains granted and alerts were not
+explicitly disabled. Clearing browser storage also clears test history.
+
+Production pushes use a declarative notification envelope when `TINTWIRE_PUBLIC_URL`
+is configured. Supported browsers display it without running background JavaScript;
+older browsers use the shared worker. Legacy payload fields remain during upgrades
+so existing installed workers continue to display notifications. Navigation uses
+only the configured application origin. Development instances without a public
+origin retain the legacy payload. See [device validation](CLIENT_VALIDATION.md).
