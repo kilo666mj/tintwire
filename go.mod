@@ -10,7 +10,7 @@ require (
 	github.com/hashicorp/raft-boltdb/v2 v2.4.2
 	github.com/jackc/pgx/v5 v5.11.0
 	go.michaelspost.com/oidcrp v0.3.0
-	go.michaelspost.com/pwa-kit v0.3.0
+	go.michaelspost.com/pwa-kit v0.4.0
 	golang.org/x/crypto v0.57.0
 	modernc.org/sqlite v1.59.0
 )

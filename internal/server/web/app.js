@@ -2673,6 +2673,14 @@ setInterval(refreshInboxState, 15000);
 let pushClient;
 let pushConfig;
 let deferredInstallPrompt;
+const pushHealth = TintwirePushHealth.create({
+  client: () => pushClient, userID: () => currentUserID,
+  testButton: document.querySelector("#alert-test-button"),
+  repairButton: document.querySelector("#alert-repair-button"),
+  confirmButton: document.querySelector("#alert-confirm-button"),
+  status: document.querySelector("#alert-test-status"),
+  confirmation: document.querySelector("#alert-test-confirmation")
+});
 
 const isAppleMobile = PWAKit.isAppleMobile;
 const isStandaloneApp = PWAKit.isStandalone;
@@ -2692,12 +2700,13 @@ async function removeSubscription(subscription) {
     headers: {"Content-Type": "application/json"},
     body: JSON.stringify({endpoint: subscription.endpoint})
   });
-  if (!response.ok) throw new Error(`unsubscribe rejected (HTTP ${response.status})`);
+  // An expired endpoint may already have been removed by a test or delivery.
+  if (!response.ok && response.status !== 404) throw new Error(`unsubscribe rejected (HTTP ${response.status})`);
 }
 
 function showPushState(enabled, status) {
   alertButton.disabled = false;
-  alertButton.textContent = enabled ? "Alerts on" : "Mobile alerts";
+  alertButton.textContent = enabled ? "Subscribed" : "Mobile alerts";
   alertButton.dataset.enabled = enabled ? "true" : "false";
   alertSetupButton.textContent = enabled ? "Disable alerts" : "Enable alerts";
   alertSetupButton.disabled = false;
@@ -2740,13 +2749,20 @@ async function initializePush() {
       getPublicKey:()=>pushConfig.public_key,
       save:saveSubscription,remove:removeSubscription,renewMissing:true,
       onState:state=>{
-        if(["checking","enabling","disabling"].includes(state.status)){alertSetupButton.disabled=true;alertSetupStatus.textContent=state.message;return}
+        pushHealth.setState(state, currentUserID);
+        if(["checking","enabling","disabling","repairing"].includes(state.status)){alertSetupButton.disabled=true;alertSetupStatus.textContent=state.message;return}
         if(["install","unsupported","blocked","signedOut"].includes(state.status)){showPushUnavailable(state.message,state.message)}
-        else {showPushState(state.status==="on",state.message);alertSetupCopy.textContent=state.status==="on"?"This device will receive background alerts and open the matching Tintwire channel when tapped.":"Receive firing and resolved alerts even while Tintwire is closed."}
+        else {showPushState(state.status==="on",state.message);alertSetupCopy.textContent=state.status==="on"?"This device is subscribed. Use Test this device to check that notifications actually arrive.":"Receive firing and resolved alerts even while Tintwire is closed."}
         updateInstallUI();
       }
     });
     await pushClient.refresh();
+    const location = new URL(window.location.href);
+    if (location.searchParams.get("push_test") === "1") {
+      location.searchParams.delete("push_test");
+      history.replaceState(null, "", location.pathname + location.search + location.hash);
+      if (!alertDialog.open) alertDialog.showModal();
+    }
   }catch(error){showPushUnavailable(`Alerts unavailable: ${error.message}`,"Tintwire could not initialize notifications on this device.")}
 }
 
@@ -2813,6 +2829,7 @@ window.addEventListener("appinstalled", () => {
 alertButton.addEventListener("click", () => {
   updateInstallUI();
   alertDialog.showModal();
+  pushHealth.refresh();
   loadChannelNotificationPreference().catch(error => { alertPreferenceStatus.textContent = error.message; });
 });
 alertDialogClose.addEventListener("click", () => alertDialog.close());
@@ -2860,6 +2877,8 @@ async function initializeSession(desktopAuthExchanged = false) {
     oidcLoginButton.hidden = !session.oidc_enabled;
     loginDivider.hidden = !session.oidc_enabled;
     if (session.auth_required && !session.authenticated) {
+      pushClient?.destroy();
+      pushHealth.setState({status: "signedOut"}, currentUserID);
       loginOverlay.hidden = false;
       logoutButton.hidden = true;
       sessionIdentity.hidden = true;

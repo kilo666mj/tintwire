@@ -3,7 +3,9 @@ package store
 import (
 	"context"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/hex"
+	"errors"
 	"time"
 )
 
@@ -90,4 +92,17 @@ func (s *Store) UserSubscriptions(ctx context.Context, userID string) ([]PushSub
 		values = append(values, v)
 	}
 	return values, rows.Err()
+}
+
+// UserPushSubscription selects one owned subscription without disclosing another
+// user's endpoint or credentials. Disabled users cannot test their subscriptions.
+func (s *Store) UserPushSubscription(ctx context.Context, userID, endpoint string) (PushSubscription, error) {
+	sub := PushSubscription{UserID: userID}
+	err := s.db.QueryRowContext(ctx, `SELECT endpoint,p256dh,auth FROM push_subscriptions
+ WHERE endpoint=? AND COALESCE(user_id,'')=?
+ AND (user_id IS NULL OR EXISTS(SELECT 1 FROM users WHERE users.id=push_subscriptions.user_id AND disabled_at IS NULL))`, endpoint, userID).Scan(&sub.Endpoint, &sub.P256DH, &sub.Auth)
+	if errors.Is(err, sql.ErrNoRows) {
+		return PushSubscription{}, ErrInvalidCredentials
+	}
+	return sub, err
 }

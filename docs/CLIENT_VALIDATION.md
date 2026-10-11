@@ -47,3 +47,29 @@ operating system:
 For Linux, test the packaged GUI on at least one current Fedora-family system
 and one current Debian/Ubuntu-family system. Artifact extraction and checksum
 tests are useful, but do not replace desktop-integration testing.
+
+## Device test and repair
+
+On a physical iPhone, use the installed Home Screen app:
+
+1. Open Mobile alerts. Confirm the status says **Subscribed**, with no claim that
+   delivery is verified merely because enrollment succeeded.
+2. Select **Test this device**. Only this installation should receive the test;
+   another signed-in device and the channel timeline should stay unchanged.
+3. Confirm that the test notification actually appears. Select **I saw the test**
+   only after seeing it. Reopen the app and check that the user-confirmed test
+   timestamp survives. Provider acceptance alone must leave it unconfirmed.
+4. Select **Repair alerts**. The old subscription is retired and replaced, and
+   the confirmation is cleared even if the browser reuses the same endpoint.
+   Test and confirm again. Exercise denied permission and failed enrollment;
+   neither may appear as a successful repair.
+5. Close the app, lock the phone, and publish an ordinary notification. Check
+   title, body, badge and tap navigation. Repeat on an older browser using the
+   service-worker fallback. Automated browser mocks do not establish iPhone
+   delivery or native declarative presentation.
+6. Check that switching accounts, replacing a subscription or disabling alerts
+   cannot carry a previous subscription's confirmation forward.
+
+On supported iPhones, declarative messages display without worker execution.
+This reduces failures caused by unavailable background JavaScript; it does not
+bypass Focus, notification permissions, connectivity or push-provider limits.
