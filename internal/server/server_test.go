@@ -2334,7 +2334,7 @@ func TestEmbeddedWebAssets(t *testing.T) {
 						t.Fatalf("inbox JavaScript does not contain %s", marker)
 					}
 				}
-				for _, marker := range []string{`sidebarResizer.addEventListener("pointerdown"`, `localStorage.setItem(sidebarWidthStorageKey`, `sidebarResizer.addEventListener("keydown"`} {
+				for _, marker := range []string{`sidebarResizer.addEventListener("pointerdown"`, `localStorage.setItem(sidebarWidthStorageKey`, `sidebarResizer.addEventListener("keydown"`, `viewsResizer.addEventListener("pointermove"`, `localStorage.setItem(viewsHeightStorageKey`} {
 					if !strings.Contains(string(body), marker) {
 						t.Fatalf("inbox JavaScript does not contain sidebar resizing behavior %s", marker)
 					}
