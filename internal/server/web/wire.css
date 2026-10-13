@@ -70,7 +70,7 @@
 :root[data-skin="wire"] .command-control{background:none;border-color:transparent;color:var(--muted);font-family:var(--wire-body);font-size:13px;border-radius:8px}
 :root[data-skin="wire"] .command-control:hover{background:var(--wire-hover);border-color:transparent;color:var(--text)}
 :root[data-skin="wire"] .session-identity{font-family:var(--wire-body);font-size:13px}
-:root[data-skin="wire"] .sidebar-resizer:hover::after,:root[data-skin="wire"] .sidebar-resizer:focus-visible::after,:root[data-skin="wire"] body.sidebar-resizing .sidebar-resizer::after{background:var(--line-hot);box-shadow:none}
+:root[data-skin="wire"] .sidebar-resizer:hover::after,:root[data-skin="wire"] .sidebar-resizer:focus-visible::after,:root[data-skin="wire"] body.sidebar-resizing .sidebar-resizer::after,:root[data-skin="wire"] .views-resizer:hover::after,:root[data-skin="wire"] .views-resizer:focus-visible::after,:root[data-skin="wire"] .views-resizer:active::after{background:var(--line-hot);box-shadow:none}
 
 /* Header. The filter panel's heading ("All notifications" or the channel
    name) becomes the page title; Sentinel's decorative title is hidden. */

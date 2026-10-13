@@ -86,6 +86,44 @@ function initializeSidebarResize() {
 
 initializeSidebarResize();
 
+const viewsSection = document.querySelector("#saved-view-section");
+const viewsResizer = document.querySelector("#views-resizer");
+const viewsHeightStorageKey = "tintwire-views-height";
+
+// No stored height means Views fits its content and Channels takes the rest.
+function applyViewsHeight(height) {
+  const next = height ? Math.round(Math.min(viewsSection.parentElement.clientHeight * 0.6, Math.max(60, height))) : 0;
+  if (next) {
+    viewsSection.style.setProperty("--views-height", `${next}px`);
+    localStorage.setItem(viewsHeightStorageKey, String(next));
+  } else {
+    viewsSection.style.removeProperty("--views-height");
+    localStorage.removeItem(viewsHeightStorageKey);
+  }
+  viewsResizer.setAttribute("aria-valuenow", String(Math.round(viewsSection.getBoundingClientRect().height)));
+}
+
+function initializeViewsResize() {
+  applyViewsHeight(Number(localStorage.getItem(viewsHeightStorageKey)));
+  viewsResizer.addEventListener("pointerdown", event => {
+    if (event.button !== 0) return;
+    viewsResizer.setPointerCapture(event.pointerId);
+    event.preventDefault();
+  });
+  viewsResizer.addEventListener("pointermove", event => {
+    if (viewsResizer.hasPointerCapture(event.pointerId)) applyViewsHeight(viewsSection.getBoundingClientRect().bottom - event.clientY);
+  });
+  viewsResizer.addEventListener("keydown", event => {
+    const step = {ArrowUp: 16, ArrowDown: -16}[event.key];
+    if (!step) return;
+    event.preventDefault();
+    applyViewsHeight(viewsSection.getBoundingClientRect().height + step);
+  });
+  viewsResizer.addEventListener("dblclick", () => applyViewsHeight(0));
+}
+
+initializeViewsResize();
+
 // Webviews do not consistently create a new native window for external links.
 // Hand explicit new-window links and cross-origin links to the desktop shell;
 // the browser/PWA path and ordinary same-origin navigation remain unchanged.
