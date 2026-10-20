@@ -20,6 +20,10 @@ updates:
       # Remove once a fixed deep-link or rust-ini release is out.
       - dependency-name: tauri-plugin-deep-link
         versions: ["2.6.2"]
+      # single-instance 2.5.4 requires deep-link ^2.6.2 through the
+      # "deep-link" feature this app enables, so it is held back too.
+      - dependency-name: tauri-plugin-single-instance
+        versions: ["2.5.4"]
   - package-ecosystem: github-actions
     directory: /
     schedule:
