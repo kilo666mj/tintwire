@@ -14,6 +14,12 @@ updates:
     groups:
       rust-dependencies:
         patterns: ["*"]
+    ignore:
+      # 2.6.2 uses rust-ini ParseOption fields that no published rust-ini
+      # (0.21.3 is the latest) provides, so the desktop build fails.
+      # Remove once a fixed deep-link or rust-ini release is out.
+      - dependency-name: tauri-plugin-deep-link
+        versions: ["2.6.2"]
   - package-ecosystem: github-actions
     directory: /
     schedule:
