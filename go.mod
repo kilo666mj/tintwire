@@ -2,6 +2,8 @@ module github.com/kilo666mj/tintwire
 
 go 1.27.1
 
+toolchain go1.27.3
+
 require (
 	github.com/SherClockHolmes/webpush-go v1.4.0
 	github.com/coreos/go-oidc/v3 v3.21.0
