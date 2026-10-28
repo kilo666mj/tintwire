@@ -100,9 +100,14 @@ func (o *tintwireOIDCSessions) Valid(r *http.Request) bool {
 	return err == nil
 }
 
+// oidcIdentityUsername picks the username for a first OIDC login. Accounts are
+// keyed by subject, so the email only names the account; it is used only when
+// the provider has verified it.
 func oidcIdentityUsername(identity oidcrp.Identity) string {
-	if local, _, found := strings.Cut(strings.TrimSpace(identity.Email), "@"); found && local != "" {
-		return local
+	if identity.EmailVerified {
+		if local, _, found := strings.Cut(strings.TrimSpace(identity.Email), "@"); found && local != "" {
+			return local
+		}
 	}
 	return identity.Subject
 }
