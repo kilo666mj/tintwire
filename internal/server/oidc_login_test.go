@@ -43,7 +43,7 @@ func TestDesktopOIDCHandoffRequiresBrowserConfirmation(t *testing.T) {
 	callback := httptest.NewRequest(http.MethodGet, "https://tintwire.example/api/v1/auth/oidc/callback", nil)
 	callback.Host = "tintwire.example"
 	callbackResult := httptest.NewRecorder()
-	if err := sessions.IssueDesktop(callbackResult, callback, oidcrp.Identity{Subject: "subject-1", Email: "alice@example.com"}, testDesktopHandoff); err != nil {
+	if err := sessions.IssueDesktop(callbackResult, callback, oidcrp.Identity{Subject: "subject-1", Email: "alice@example.com", EmailVerified: true}, testDesktopHandoff); err != nil {
 		t.Fatal(err)
 	}
 	confirmationCookie := responseCookie(t, callbackResult.Result(), oidcDesktopConfirmationCookieName)
@@ -106,7 +106,7 @@ func TestDesktopOIDCHandoffCancelAndExpiry(t *testing.T) {
 	handoff := strings.Repeat("a", 64)
 	callback := httptest.NewRequest(http.MethodGet, "https://tintwire.example/api/v1/auth/oidc/callback", nil)
 	callbackResult := httptest.NewRecorder()
-	if err := sessions.IssueDesktop(callbackResult, callback, oidcrp.Identity{Subject: "subject-2", Email: "bob@example.com"}, handoff); err != nil {
+	if err := sessions.IssueDesktop(callbackResult, callback, oidcrp.Identity{Subject: "subject-2", Email: "bob@example.com", EmailVerified: true}, handoff); err != nil {
 		t.Fatal(err)
 	}
 	confirmationCookie := responseCookie(t, callbackResult.Result(), oidcDesktopConfirmationCookieName)
@@ -146,7 +146,7 @@ func TestDesktopConfirmationCookieSurvivesProviderRedirect(t *testing.T) {
 	callback := httptest.NewRequest(http.MethodGet, "https://tintwire.example/api/v1/auth/oidc/callback", nil)
 	callback.Host = "tintwire.example"
 	callbackResult := httptest.NewRecorder()
-	if err := sessions.IssueDesktop(callbackResult, callback, oidcrp.Identity{Subject: "subject-redirect", Email: "carol@example.com"}, testDesktopHandoff); err != nil {
+	if err := sessions.IssueDesktop(callbackResult, callback, oidcrp.Identity{Subject: "subject-redirect", Email: "carol@example.com", EmailVerified: true}, testDesktopHandoff); err != nil {
 		t.Fatal(err)
 	}
 	confirmationCookie := responseCookie(t, callbackResult.Result(), oidcDesktopConfirmationCookieName)
@@ -290,4 +290,22 @@ func responseCookie(t *testing.T, response *http.Response, name string) *http.Co
 	}
 	t.Fatalf("response has no %s cookie", name)
 	return nil
+}
+
+func TestOIDCIdentityUsernameRequiresVerifiedEmail(t *testing.T) {
+	cases := []struct {
+		name     string
+		identity oidcrp.Identity
+		want     string
+	}{
+		{"verified email", oidcrp.Identity{Subject: "subject-1", Email: "alice@example.com", EmailVerified: true}, "alice"},
+		{"unverified email", oidcrp.Identity{Subject: "subject-2", Email: "admin@example.com"}, "subject-2"},
+		{"verified without local part", oidcrp.Identity{Subject: "subject-3", Email: "@example.com", EmailVerified: true}, "subject-3"},
+		{"no email", oidcrp.Identity{Subject: "subject-4", EmailVerified: true}, "subject-4"},
+	}
+	for _, tc := range cases {
+		if got := oidcIdentityUsername(tc.identity); got != tc.want {
+			t.Errorf("%s: username = %q, want %q", tc.name, got, tc.want)
+		}
+	}
 }
