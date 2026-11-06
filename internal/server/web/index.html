@@ -162,6 +162,17 @@
       <p id="agent-status" class="automation-status" role="status"></p>
       <div id="agent-list" class="automation-list"><span class="channel-loading">Loading bots…</span></div>
     </section>
+    <section class="automation-section" aria-labelledby="mattermost-bot-management-title">
+      <div class="automation-section-heading"><h3 id="mattermost-bot-management-title">Mattermost bots</h3><span>Bot tokens for the /api/v4 bridge</span></div>
+      <form id="mattermost-bot-form" class="automation-form">
+        <input id="mattermost-bot-username" maxlength="63" pattern="[a-z0-9][a-z0-9_-]{0,62}" placeholder="hermes" aria-label="Bot username" required>
+        <input id="mattermost-bot-team" maxlength="63" pattern="[a-z0-9][a-z0-9_-]{0,62}" placeholder="Team name, e.g. main" aria-label="Mattermost team name" required>
+        <select id="mattermost-bot-channel" aria-label="Bot default channel" required><option value="">Choose channel…</option></select>
+        <button type="submit">Create bot</button>
+      </form>
+      <p id="mattermost-bot-status" class="automation-status" role="status"></p>
+      <div id="mattermost-bot-list" class="automation-list"><span class="channel-loading">Loading bots…</span></div>
+    </section>
     <section class="automation-section" aria-labelledby="webhook-management-title">
       <div class="automation-section-heading"><h3 id="webhook-management-title">Webhooks</h3><span>Incoming compatibility URLs</span></div>
       <form id="webhook-form" class="automation-form automation-form-short">

@@ -266,6 +266,12 @@ const agentOAuthSubject = document.querySelector("#agent-oauth-subject");
 const agentAdmin = document.querySelector("#agent-admin");
 const agentStatus = document.querySelector("#agent-status");
 const agentList = document.querySelector("#agent-list");
+const mattermostBotForm = document.querySelector("#mattermost-bot-form");
+const mattermostBotUsername = document.querySelector("#mattermost-bot-username");
+const mattermostBotTeam = document.querySelector("#mattermost-bot-team");
+const mattermostBotChannel = document.querySelector("#mattermost-bot-channel");
+const mattermostBotStatus = document.querySelector("#mattermost-bot-status");
+const mattermostBotList = document.querySelector("#mattermost-bot-list");
 const webhookForm = document.querySelector("#webhook-form");
 const webhookChannel = document.querySelector("#webhook-channel");
 const webhookChannelLocked = document.querySelector("#webhook-channel-locked");
@@ -379,6 +385,39 @@ async function loadAgents() {
   }));
 }
 
+async function loadMattermostBots() {
+  const response = await fetch("/api/v1/admin/mattermost-bots");
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  const bots = (await response.json()).bots || [];
+  if (!bots.length) {
+    mattermostBotList.replaceChildren(element("div", "channel-loading", "No Mattermost bots."));
+    return;
+  }
+  mattermostBotList.replaceChildren(...bots.map(bot => {
+    const channels = [bot.channel, ...(bot.channels || [])].join(", ");
+    const grant = element("button", "", "Add channel");
+    grant.type = "button";
+    grant.addEventListener("click", async () => {
+      const channel = prompt(`Channel name to grant ${bot.username} (team ${bot.team})`);
+      if (!channel) return;
+      grant.disabled = true;
+      try {
+        const response = await fetch(`/api/v1/admin/mattermost-bots/${encodeURIComponent(bot.id)}/channels`, {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({channel:channel.trim()})});
+        if (!response.ok) throw new Error((await response.text()).trim() || `HTTP ${response.status}`);
+        await loadMattermostBots();
+      } catch (error) {
+        grant.disabled = false;
+        alert(`Unable to add channel: ${error.message}`);
+      }
+    });
+    return automationItem(bot.username, `team ${bot.team} · ${channels} · created ${new Date(bot.created_at).toLocaleString()}`, false, async () => {
+      const response = await fetch(`/api/v1/admin/mattermost-bots/${encodeURIComponent(bot.id)}/revoke`, {method:"POST"});
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      await loadMattermostBots();
+    }, [grant]);
+  }));
+}
+
 async function loadWebhooks() {
   const response = await fetch("/api/v1/webhooks");
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -477,10 +516,18 @@ async function openAutomation() {
     option.value = channel.id;
     webhookChannel.append(option);
   }
+  mattermostBotChannel.replaceChildren(element("option", "", "Choose channel…"));
+  mattermostBotChannel.firstChild.value = "";
+  for (const channel of channelCache) {
+    const option = element("option", "", channel.display_name || channel.name);
+    option.value = channel.name;
+    mattermostBotChannel.append(option);
+  }
   automationDialog.showModal();
-  const results = await Promise.allSettled([loadAgents(), loadWebhooks()]);
+  const results = await Promise.allSettled([loadAgents(), loadWebhooks(), loadMattermostBots()]);
   if (results[0].status === "rejected") agentStatus.textContent = `Unable to load bots: ${results[0].reason.message}`;
   if (results[1].status === "rejected") webhookStatus.textContent = `Unable to load webhooks: ${results[1].reason.message}`;
+  if (results[2].status === "rejected") mattermostBotStatus.textContent = `Unable to load Mattermost bots: ${results[2].reason.message}`;
 }
 
 async function updateManagedUser(userID, change) {
@@ -2460,6 +2507,7 @@ automationOpen.addEventListener("click", event => {
   event.preventDefault();
   agentStatus.textContent = "";
   webhookStatus.textContent = "";
+  mattermostBotStatus.textContent = "";
   openAutomation();
 });
 automationClose.addEventListener("click", () => automationDialog.close());
@@ -2503,6 +2551,29 @@ agentForm.addEventListener("submit", async event => {
     await loadAgents();
   } catch (error) {
     agentStatus.textContent = `Unable to create bot: ${error.message}`;
+  } finally {
+    submit.disabled = false;
+  }
+});
+mattermostBotForm.addEventListener("submit", async event => {
+  event.preventDefault();
+  const submit = mattermostBotForm.querySelector("button[type=submit]");
+  submit.disabled = true;
+  mattermostBotStatus.textContent = "Creating bot…";
+  try {
+    const response = await fetch("/api/v1/admin/mattermost-bots", {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({username: mattermostBotUsername.value.trim(), team: mattermostBotTeam.value.trim(), channel: mattermostBotChannel.value})
+    });
+    if (!response.ok) throw new Error((await response.text()).trim() || `HTTP ${response.status}`);
+    const data = await response.json();
+    showCredential(`${data.bot.username} Mattermost bot token`, data.token);
+    mattermostBotForm.reset();
+    mattermostBotStatus.textContent = `Bot created. Use team "${data.bot.team}" and this token in the Mattermost client.`;
+    await Promise.all([loadMattermostBots(), loadWebhooks()]);
+  } catch (error) {
+    mattermostBotStatus.textContent = `Unable to create bot: ${error.message}`;
   } finally {
     submit.disabled = false;
   }

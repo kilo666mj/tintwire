@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -299,25 +300,131 @@ func (s *Server) grantMattermostBotChannel(w http.ResponseWriter, r *http.Reques
 	_, err := s.mutateControl(r.Context(), func(data *store.Store) (any, error) {
 		return nil, data.GrantMattermostBotChannel(r.Context(), request.Token, request.Team, request.Channel)
 	})
+	if writeBotGrantError(w, err) {
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+}
+
+// writeBotGrantError writes the response for a failed grant and reports
+// whether there was an error.
+func writeBotGrantError(w http.ResponseWriter, err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, store.ErrInvalidCredentials) {
+		http.Error(w, "bot not found", http.StatusNotFound)
+		return true
+	}
+	if errors.Is(err, store.ErrForbidden) {
+		http.Error(w, "cross-team grant rejected", http.StatusForbidden)
+		return true
+	}
+	if errors.Is(err, store.ErrNotificationNotFound) {
+		http.Error(w, "channel not found", http.StatusNotFound)
+		return true
+	}
+	if errors.Is(err, store.ErrImportConflict) {
+		http.Error(w, "channel alias conflict", http.StatusConflict)
+		return true
+	}
+	slog.Error("grant bot channel", "error", err)
+	http.Error(w, "unable to grant bot channel", http.StatusInternalServerError)
+	return true
+}
+
+type createMattermostBotRequest struct {
+	Username string `json:"username"`
+	Team     string `json:"team"`
+	Channel  string `json:"channel"`
+}
+
+func (s *Server) listMattermostBots(w http.ResponseWriter, r *http.Request) {
+	if _, ok := s.requireAdmin(w, r); !ok {
+		return
+	}
+	bots, err := s.store.ListMattermostBots(r.Context())
+	if err != nil {
+		slog.Error("list mattermost bots", "error", err)
+		http.Error(w, "unable to list bots", http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"bots": bots})
+}
+
+func (s *Server) createMattermostBot(w http.ResponseWriter, r *http.Request) {
+	if _, ok := s.requireAdmin(w, r); !ok {
+		return
+	}
+	var request createMattermostBotRequest
+	r.Body = http.MaxBytesReader(w, r.Body, 16<<10)
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&request); err != nil || decoder.Decode(&struct{}{}) != io.EOF || !channelNamePattern.MatchString(request.Username) || !channelNamePattern.MatchString(request.Team) || !channelNamePattern.MatchString(request.Channel) {
+		http.Error(w, "invalid bot: username, team and channel must be lowercase names", http.StatusBadRequest)
+		return
+	}
+	value, err := s.mutateControl(r.Context(), func(data *store.Store) (any, error) {
+		bot, token, err := data.CreateMattermostBot(r.Context(), request.Username, request.Team, request.Channel)
+		return struct {
+			bot   store.MattermostBotSummary
+			token string
+		}{bot, token}, err
+	})
+	if errors.Is(err, store.ErrImportConflict) {
+		http.Error(w, err.Error(), http.StatusConflict)
+		return
+	}
+	if err != nil {
+		slog.Error("create mattermost bot", "error", err)
+		http.Error(w, "unable to create bot", http.StatusInternalServerError)
+		return
+	}
+	created := value.(struct {
+		bot   store.MattermostBotSummary
+		token string
+	})
+	writeJSON(w, http.StatusCreated, map[string]any{"bot": created.bot, "token": created.token})
+}
+
+func (s *Server) grantMattermostBotChannelByID(w http.ResponseWriter, r *http.Request) {
+	if _, ok := s.requireAdmin(w, r); !ok {
+		return
+	}
+	var request struct {
+		Channel string `json:"channel"`
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, 16<<10)
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&request); err != nil || decoder.Decode(&struct{}{}) != io.EOF || !channelNamePattern.MatchString(request.Channel) {
+		http.Error(w, "invalid bot grant", http.StatusBadRequest)
+		return
+	}
+	_, err := s.mutateControl(r.Context(), func(data *store.Store) (any, error) {
+		return nil, data.GrantMattermostBotChannelByID(r.Context(), r.PathValue("id"), request.Channel)
+	})
+	if writeBotGrantError(w, err) {
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) revokeMattermostBot(w http.ResponseWriter, r *http.Request) {
+	if _, ok := s.requireAdmin(w, r); !ok {
+		return
+	}
+	_, err := s.mutateControl(r.Context(), func(data *store.Store) (any, error) {
+		return nil, data.RevokeMattermostBot(r.Context(), r.PathValue("id"))
+	})
 	if errors.Is(err, store.ErrInvalidCredentials) {
 		http.Error(w, "bot not found", http.StatusNotFound)
 		return
 	}
-	if errors.Is(err, store.ErrForbidden) {
-		http.Error(w, "cross-team grant rejected", http.StatusForbidden)
-		return
-	}
-	if errors.Is(err, store.ErrNotificationNotFound) {
-		http.Error(w, "channel not found", http.StatusNotFound)
-		return
-	}
-	if errors.Is(err, store.ErrImportConflict) {
-		http.Error(w, "channel alias conflict", http.StatusConflict)
-		return
-	}
 	if err != nil {
-		http.Error(w, "unable to grant bot channel", http.StatusInternalServerError)
+		slog.Error("revoke mattermost bot", "error", err)
+		http.Error(w, "unable to revoke bot", http.StatusInternalServerError)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+	w.WriteHeader(http.StatusNoContent)
 }
