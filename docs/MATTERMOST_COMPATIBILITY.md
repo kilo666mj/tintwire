@@ -4,10 +4,26 @@ Compatibility behavior for Mattermost bots, slash commands, webhooks, and intera
 
 ## Mattermost bot bridge
 
-Administrators can map an existing bot bearer token, Tintwire user, Mattermost
-team alias, and channel with `POST /api/v1/admin/import/mattermost-bot`. The
-token is stored only as a SHA-256 hash and is restricted to that channel. The
-bounded bridge implements:
+To add a bot for a Mattermost-compatible client, open **Integrations** and use
+**Mattermost bots**. Choose a username, a team name, and a default channel.
+Tintwire creates a bot user with no password, so it cannot sign in to the web
+UI. It also generates a token and shows it once. Configure the client with the
+Tintwire base URL, that token, and the team name. **Add channel** grants
+another channel in the same team. **Revoke** stops the token and its linked
+webhook from working. The bot's history stays, and its username can be given a
+new token later. Bots cannot take over existing human or agent accounts.
+
+The same operations are available to administrators as
+`GET`/`POST /api/v1/admin/mattermost-bots`,
+`POST /api/v1/admin/mattermost-bots/{id}/channels` and
+`POST /api/v1/admin/mattermost-bots/{id}/revoke`. A bot's `id` is its linked
+incoming webhook ID.
+
+To migrate an existing Mattermost bot without changing its token, map the
+bearer token, Tintwire user, Mattermost team alias, and channel with
+`POST /api/v1/admin/import/mattermost-bot`. The token is stored only as a
+SHA-256 hash and is restricted to its granted channels. The bounded bridge
+implements:
 
 ```text
 GET  /api/v4/users/me

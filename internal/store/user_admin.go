@@ -30,7 +30,7 @@ type ManagedUser struct {
 func (s *Store) ListManagedUsers(ctx context.Context) ([]ManagedUser, error) {
 	rows, err := s.db.QueryContext(ctx, `
 SELECT u.id,u.username,u.is_admin,u.created_at,u.disabled_at,
-CASE WHEN u.id=? THEN 'system' WHEN EXISTS(SELECT 1 FROM agents a WHERE a.user_id=u.id) THEN 'agent' WHEN u.oidc_subject IS NOT NULL THEN 'oidc' ELSE 'password' END,
+CASE WHEN u.id=? THEN 'system' WHEN EXISTS(SELECT 1 FROM agents a WHERE a.user_id=u.id) THEN 'agent' WHEN length(u.password_hash)=0 AND u.oidc_subject IS NULL THEN 'bot' WHEN u.oidc_subject IS NOT NULL THEN 'oidc' ELSE 'password' END,
 (SELECT COUNT(*) FROM sessions s WHERE s.user_id=u.id AND s.expires_at>?)
 FROM users u ORDER BY u.username COLLATE NOCASE`, localInboxUserID, time.Now().UTC().UnixMilli())
 	if err != nil {
@@ -50,7 +50,7 @@ FROM users u ORDER BY u.username COLLATE NOCASE`, localInboxUserID, time.Now().U
 			value := time.UnixMilli(disabled.Int64).UTC()
 			user.DisabledAt = &value
 		}
-		user.Protected = user.AuthType == "system" || user.AuthType == "agent"
+		user.Protected = user.AuthType == "system" || user.AuthType == "agent" || user.AuthType == "bot"
 		user.Memberships = []ManagedMembership{}
 		users = append(users, user)
 	}
@@ -186,7 +186,7 @@ func (s *Store) ResetManagedUserPassword(ctx context.Context, actorID, userID, p
 		return errors.New("password must contain at least 12 characters")
 	}
 	var authType string
-	err := s.db.QueryRowContext(ctx, `SELECT CASE WHEN id=? THEN 'system' WHEN EXISTS(SELECT 1 FROM agents a WHERE a.user_id=users.id) THEN 'agent' WHEN oidc_subject IS NOT NULL THEN 'oidc' ELSE 'password' END FROM users WHERE id=?`, localInboxUserID, userID).Scan(&authType)
+	err := s.db.QueryRowContext(ctx, `SELECT CASE WHEN id=? THEN 'system' WHEN EXISTS(SELECT 1 FROM agents a WHERE a.user_id=users.id) THEN 'agent' WHEN length(password_hash)=0 AND oidc_subject IS NULL THEN 'bot' WHEN oidc_subject IS NOT NULL THEN 'oidc' ELSE 'password' END FROM users WHERE id=?`, localInboxUserID, userID).Scan(&authType)
 	if errors.Is(err, sql.ErrNoRows) {
 		return ErrInvalidCredentials
 	}
@@ -280,7 +280,7 @@ func managedUserState(ctx context.Context, db rowQuerier, userID string) (bool, 
 	var admin int
 	var disabled sql.NullInt64
 	var protected int
-	err := db.QueryRowContext(ctx, `SELECT is_admin,disabled_at,CASE WHEN id=? OR EXISTS(SELECT 1 FROM agents a WHERE a.user_id=users.id) THEN 1 ELSE 0 END FROM users WHERE id=?`, localInboxUserID, userID).Scan(&admin, &disabled, &protected)
+	err := db.QueryRowContext(ctx, `SELECT is_admin,disabled_at,CASE WHEN id=? OR EXISTS(SELECT 1 FROM agents a WHERE a.user_id=users.id) OR (length(password_hash)=0 AND oidc_subject IS NULL) THEN 1 ELSE 0 END FROM users WHERE id=?`, localInboxUserID, userID).Scan(&admin, &disabled, &protected)
 	if errors.Is(err, sql.ErrNoRows) {
 		return false, false, false, ErrInvalidCredentials
 	}
