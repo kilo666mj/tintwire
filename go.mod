@@ -10,11 +10,11 @@ require (
 	github.com/go-jose/go-jose/v4 v4.1.9
 	github.com/hashicorp/raft v1.8.0
 	github.com/hashicorp/raft-boltdb/v2 v2.4.2
-	github.com/jackc/pgx/v5 v5.12.0
-	go.michaelspost.com/oidcrp v0.4.3
+	github.com/jackc/pgx/v5 v5.13.0
+	go.michaelspost.com/oidcrp v0.4.5
 	go.michaelspost.com/pwa-kit v0.4.1
-	golang.org/x/crypto v0.58.0
-	modernc.org/sqlite v1.61.1
+	golang.org/x/crypto v0.59.0
+	modernc.org/sqlite v1.62.0
 )
 
 require (
@@ -36,11 +36,11 @@ require (
 	github.com/ncruces/go-strftime v1.1.0 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	go.etcd.io/bbolt v1.4.1 // indirect
-	golang.org/x/oauth2 v0.37.0 // indirect
-	golang.org/x/sync v0.24.0 // indirect
-	golang.org/x/sys v0.49.0 // indirect
-	golang.org/x/text v0.43.0 // indirect
-	modernc.org/libc v1.79.0 // indirect
+	golang.org/x/oauth2 v0.38.0 // indirect
+	golang.org/x/sync v0.25.0 // indirect
+	golang.org/x/sys v0.50.0 // indirect
+	golang.org/x/text v0.44.0 // indirect
+	modernc.org/libc v1.80.1 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.12.1 // indirect
 )
